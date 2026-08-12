@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="MapTileCatalog" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/map/map_tile_rule.gd" id="1_rfjmj"]
+[ext_resource type="Script" path="res://scripts/core/map/map_tile_catalog.gd" id="2_nyecn"]
+
+[sub_resource type="Resource" id="Resource_jgq0w"]
+script = ExtResource("1_rfjmj")
+item_id = 0
+tile_id = &"floor"
+
+[sub_resource type="Resource" id="Resource_bemd6"]
+script = ExtResource("1_rfjmj")
+item_id = 1
+tile_id = &"floor_alt"
+
+[sub_resource type="Resource" id="Resource_ckepw"]
+script = ExtResource("1_rfjmj")
+layer = 1
+item_id = 2
+tile_id = &"wall"
+walkable = false
+blocks_los = true
+occluder_height = 1.6
+
+[sub_resource type="Resource" id="Resource_n48je"]
+script = ExtResource("1_rfjmj")
+layer = 1
+item_id = 3
+tile_id = &"low_cover"
+walkable = false
+occluder_height = 0.7
+cover_mask = 1
+
+[resource]
+script = ExtResource("2_nyecn")
+rules = Array[ExtResource("1_rfjmj")]([SubResource("Resource_jgq0w"), SubResource("Resource_bemd6"), SubResource("Resource_ckepw"), SubResource("Resource_n48je")])

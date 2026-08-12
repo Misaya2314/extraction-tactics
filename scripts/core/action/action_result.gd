@@ -1,0 +1,33 @@
+class_name ActionResult
+extends RefCounted
+
+## Immutable-by-convention result value shared by action validation and execution.
+## Callers may inspect or copy these fields; factory methods provide the stable
+## accepted/rejected construction path used by the core systems.
+
+var success: bool = false
+var reason: StringName = &""
+var actor_id: StringName = &""
+var target_id: StringName = &""
+var ap_cost: int = 0
+var damage: int = 0
+var killed: bool = false
+
+
+static func accepted(actor_id: StringName, target_id: StringName = &"", ap_cost: int = 0) -> ActionResult:
+	var result := ActionResult.new()
+	result.success = true
+	result.reason = &"accepted"
+	result.actor_id = actor_id
+	result.target_id = target_id
+	result.ap_cost = ap_cost
+	return result
+
+
+static func rejected(reason: StringName, actor_id: StringName = &"", target_id: StringName = &"") -> ActionResult:
+	var result := ActionResult.new()
+	result.success = false
+	result.reason = reason
+	result.actor_id = actor_id
+	result.target_id = target_id
+	return result
