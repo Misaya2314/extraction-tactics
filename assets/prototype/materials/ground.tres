@@ -1,0 +1,7 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Prototype Ground"
+albedo_color = Color(0.18, 0.24, 0.23, 1)
+roughness = 0.92
+

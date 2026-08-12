@@ -1,0 +1,33 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Material" path="res://assets/prototype/materials/low_cover.tres" id="1_cover"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_cover"]
+size = Vector3(1.6, 0.7, 0.55)
+
+[sub_resource type="BoxMesh" id="BoxMesh_cover_cap"]
+size = Vector3(1.75, 0.08, 0.65)
+
+[sub_resource type="BoxShape3D" id="BoxShape_cover"]
+size = Vector3(1.6, 0.7, 0.55)
+
+[node name="PrototypeLowCover" type="Node3D"]
+
+[node name="Cover" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_cover")
+mesh = SubResource("BoxMesh_cover")
+position = Vector3(0, 0.35, 0)
+
+[node name="Cap" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_cover")
+mesh = SubResource("BoxMesh_cover_cap")
+position = Vector3(0, 0.74, 0)
+
+[node name="CoverBody" type="StaticBody3D" parent="."]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CoverBody"]
+shape = SubResource("BoxShape_cover")
+position = Vector3(0, 0.35, 0)
+

@@ -1,0 +1,64 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Material" path="res://assets/prototype/materials/extraction.tres" id="1_extraction"]
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pad"]
+top_radius = 0.88
+bottom_radius = 0.88
+height = 0.08
+
+[sub_resource type="BoxMesh" id="BoxMesh_post"]
+size = Vector3(0.12, 0.6, 0.12)
+
+[sub_resource type="BoxMesh" id="BoxMesh_beam"]
+size = Vector3(1.55, 0.08, 0.08)
+
+[sub_resource type="CylinderShape3D" id="CylinderShape_extraction"]
+radius = 0.85
+height = 0.25
+
+[node name="PrototypeExtractionMarker" type="Node3D"]
+
+[node name="Pad" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_extraction")
+mesh = SubResource("CylinderMesh_pad")
+position = Vector3(0, 0.04, 0)
+
+[node name="PostNorthWest" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_extraction")
+mesh = SubResource("BoxMesh_post")
+position = Vector3(-0.68, 0.3, -0.68)
+
+[node name="PostNorthEast" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_extraction")
+mesh = SubResource("BoxMesh_post")
+position = Vector3(0.68, 0.3, -0.68)
+
+[node name="PostSouthWest" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_extraction")
+mesh = SubResource("BoxMesh_post")
+position = Vector3(-0.68, 0.3, 0.68)
+
+[node name="PostSouthEast" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_extraction")
+mesh = SubResource("BoxMesh_post")
+position = Vector3(0.68, 0.3, 0.68)
+
+[node name="BeamNorth" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_extraction")
+mesh = SubResource("BoxMesh_beam")
+position = Vector3(0, 0.61, -0.68)
+
+[node name="BeamSouth" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_extraction")
+mesh = SubResource("BoxMesh_beam")
+position = Vector3(0, 0.61, 0.68)
+
+[node name="ExtractionArea" type="Area3D" parent="."]
+collision_layer = 4
+collision_mask = 1
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="ExtractionArea"]
+shape = SubResource("CylinderShape_extraction")
+position = Vector3(0, 0.125, 0)
+

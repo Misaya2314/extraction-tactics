@@ -1,0 +1,21 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/presentation/tactical_camera_rig.gd" id="1_camera_script"]
+
+[node name="TacticalCameraRig" type="Node3D"]
+script = ExtResource("1_camera_script")
+position = Vector3(11, 0, 9)
+movement_speed = 10.0
+map_world_min = Vector2(0, 0)
+map_world_max = Vector2(22, 18)
+navigation_margin = 3.0
+zoom_distance = 16.0
+zoom_min = 9.0
+zoom_max = 24.0
+zoom_step = 2.0
+
+[node name="Camera3D" type="Camera3D" parent="."]
+current = true
+fov = 52.0
+near = 0.1
+far = 200.0

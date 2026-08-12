@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Prototype Explosive Barrel"
+albedo_color = Color(0.84, 0.19, 0.055, 1)
+roughness = 0.7
+metallic = 0.2
+

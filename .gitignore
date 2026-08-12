@@ -1,0 +1,45 @@
+# Godot generated caches (safe to regenerate)
+/.godot/
+/.import/
+
+# Generated translations imported from CSV files
+*.translation
+
+# Local export credentials may contain signing secrets.
+# Keep export_presets.cfg tracked so export settings remain reproducible.
+/export_credentials.cfg
+
+# Godot .NET / Mono generated files
+/.mono/
+/data_*/
+mono_crash.*.json
+
+# Generated export and build output
+/android/
+/build/
+/builds/
+/dist/
+/exports/
+
+# Logs, crash dumps, and temporary files
+*.log
+crash*.txt
+*.tmp
+*.temp
+*.bak
+*~
+
+# Local editor and IDE state
+/.idea/
+/.vs/
+/.vscode/
+*.suo
+*.user
+*.userosscache
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Godot *.import and *.uid sidecar files are intentionally tracked.

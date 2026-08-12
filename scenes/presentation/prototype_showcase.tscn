@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_environment.tscn" id="1_environment"]
+[ext_resource type="PackedScene" path="res://scenes/presentation/tactical_camera_rig.tscn" id="2_camera"]
+
+[node name="PrototypeShowcase" type="Node3D"]
+
+[node name="Environment" parent="." instance=ExtResource("1_environment")]
+
+[node name="TacticalCameraRig" parent="." instance=ExtResource("2_camera")]
+

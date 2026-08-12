@@ -1,0 +1,44 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Material" path="res://assets/prototype/materials/loot.tres" id="1_loot"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_crate"]
+size = Vector3(1.1, 0.9, 1.1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_lid"]
+size = Vector3(1.2, 0.1, 1.2)
+
+[sub_resource type="BoxShape3D" id="BoxShape_crate"]
+size = Vector3(1.1, 0.9, 1.1)
+
+[sub_resource type="BoxShape3D" id="BoxShape_interaction"]
+size = Vector3(1.6, 0.6, 1.6)
+
+[node name="PrototypeLootCrate" type="Node3D"]
+
+[node name="Crate" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_loot")
+mesh = SubResource("BoxMesh_crate")
+position = Vector3(0, 0.45, 0)
+
+[node name="Lid" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_loot")
+mesh = SubResource("BoxMesh_lid")
+position = Vector3(0, 0.93, 0)
+
+[node name="LootBody" type="StaticBody3D" parent="."]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="LootBody"]
+shape = SubResource("BoxShape_crate")
+position = Vector3(0, 0.45, 0)
+
+[node name="InteractionArea" type="Area3D" parent="."]
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractionArea"]
+shape = SubResource("BoxShape_interaction")
+position = Vector3(0, 0.3, 0)
+

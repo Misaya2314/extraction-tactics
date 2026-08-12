@@ -1,0 +1,8 @@
+[gd_resource type="StandardMaterial3D" format=3]
+
+[resource]
+resource_name = "Prototype Enemy Red"
+albedo_color = Color(0.92, 0.08, 0.1, 1)
+roughness = 0.62
+metallic = 0.08
+

@@ -1,0 +1,25 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Material" path="res://assets/prototype/materials/wall.tres" id="1_wall"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall"]
+size = Vector3(2, 1.6, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape_wall"]
+size = Vector3(2, 1.6, 2)
+
+[node name="PrototypeWall" type="Node3D"]
+
+[node name="Wall" type="MeshInstance3D" parent="."]
+material_override = ExtResource("1_wall")
+mesh = SubResource("BoxMesh_wall")
+position = Vector3(0, 0.8, 0)
+
+[node name="WallBody" type="StaticBody3D" parent="."]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallBody"]
+shape = SubResource("BoxShape_wall")
+position = Vector3(0, 0.8, 0)
+
