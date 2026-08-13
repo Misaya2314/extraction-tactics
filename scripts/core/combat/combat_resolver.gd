@@ -32,6 +32,7 @@ static func _copy_result(source: ActionResult) -> ActionResult:
 	var result := ActionResultScript.new()
 	result.success = source.success
 	result.reason = source.reason
+	result.action_type = source.action_type
 	result.actor_id = source.actor_id
 	result.target_id = source.target_id
 	result.ap_cost = source.ap_cost

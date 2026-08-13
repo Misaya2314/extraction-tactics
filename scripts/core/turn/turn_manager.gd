@@ -31,10 +31,11 @@ func get_phase() -> Phase:
 
 ## Starts combat only when both factions contain at least one living ID and the
 ## manager is not already in a terminal state.
-func start_combat(player_first: bool = true) -> void:
+func start_combat(player_first: bool = true) -> bool:
 	if is_terminal() or _player_ids.is_empty() or _enemy_ids.is_empty():
-		return
+		return false
 	_set_phase(Phase.PLAYER_TURN if player_first else Phase.ENEMY_TURN)
+	return true
 
 
 func end_player_turn() -> bool:
@@ -57,8 +58,10 @@ func end_enemy_turn() -> bool:
 	return true
 
 
-## Removes a unit from whichever faction owns it. Terminal phase is entered as
-## soon as the last member of either faction is removed.
+## Removes a unit from whichever faction owns it. VICTORY/DEFEAT are encounter
+## phases and are only emitted while a combat turn is active; the session
+## controller decides whether a resolved encounter returns to exploration or
+## the whole session enters RESULT.
 func remove_unit(unit_id: StringName) -> void:
 	if unit_id == &"" or is_terminal():
 		return
@@ -67,10 +70,11 @@ func remove_unit(unit_id: StringName) -> void:
 	removed = _remove_from_array(_enemy_ids, unit_id) or removed
 	if not removed:
 		return
-	if _enemy_ids.is_empty():
-		_set_phase(Phase.VICTORY)
-	elif _player_ids.is_empty():
-		_set_phase(Phase.DEFEAT)
+	if _phase == Phase.PLAYER_TURN or _phase == Phase.ENEMY_TURN:
+		if _enemy_ids.is_empty():
+			_set_phase(Phase.VICTORY)
+		elif _player_ids.is_empty():
+			_set_phase(Phase.DEFEAT)
 
 
 func has_unit(unit_id: StringName) -> bool:
@@ -97,10 +101,13 @@ func is_terminal() -> bool:
 	return _phase == Phase.VICTORY or _phase == Phase.DEFEAT
 
 
-## Returns to exploration only when both factions still have units and the
-## manager is not terminal. This supports combat disengagement/re-entry during
-## the larger exploration flow without reviving a defeated faction.
+## Returns a resolved encounter to exploration even when the enemy roster is
+## empty. DEFEAT remains terminal because it represents a squad failure, not a
+## resolved encounter.
 func reset_to_exploration() -> bool:
+	if _phase == Phase.VICTORY:
+		_set_phase(Phase.EXPLORATION)
+		return true
 	if is_terminal() or _player_ids.is_empty() or _enemy_ids.is_empty():
 		return false
 	_set_phase(Phase.EXPLORATION)

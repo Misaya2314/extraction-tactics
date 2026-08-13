@@ -7,6 +7,7 @@ extends RefCounted
 
 var success: bool = false
 var reason: StringName = &""
+var action_type: StringName = &""
 var actor_id: StringName = &""
 var target_id: StringName = &""
 var ap_cost: int = 0
@@ -14,20 +15,22 @@ var damage: int = 0
 var killed: bool = false
 
 
-static func accepted(actor_id: StringName, target_id: StringName = &"", ap_cost: int = 0) -> ActionResult:
+static func accepted(actor_id: StringName, target_id: StringName = &"", ap_cost: int = 0, action_type: StringName = &"") -> ActionResult:
 	var result := ActionResult.new()
 	result.success = true
 	result.reason = &"accepted"
+	result.action_type = action_type
 	result.actor_id = actor_id
 	result.target_id = target_id
 	result.ap_cost = ap_cost
 	return result
 
 
-static func rejected(reason: StringName, actor_id: StringName = &"", target_id: StringName = &"") -> ActionResult:
+static func rejected(reason: StringName, actor_id: StringName = &"", target_id: StringName = &"", action_type: StringName = &"") -> ActionResult:
 	var result := ActionResult.new()
 	result.success = false
 	result.reason = reason
+	result.action_type = action_type
 	result.actor_id = actor_id
 	result.target_id = target_id
 	return result

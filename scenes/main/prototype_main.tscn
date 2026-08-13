@@ -1,9 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene format=3 uid="uid://d20y7xkfkgxx1"]
 
-[ext_resource type="Script" path="res://scripts/gameplay/prototype_controller.gd" id="1_controller"]
+[ext_resource type="Script" uid="uid://be820bxiirwuo" path="res://scripts/gameplay/prototype_controller.gd" id="1_controller"]
 [ext_resource type="PackedScene" path="res://scenes/map_authoring/prototype_map_authoring.tscn" id="2_environment"]
 [ext_resource type="PackedScene" path="res://scenes/presentation/tactical_camera_rig.tscn" id="3_camera"]
 [ext_resource type="Resource" path="res://resources/maps/prototype_map.tres" id="4_map_definition"]
+[ext_resource type="Script" path="res://scripts/gameplay/ui/inventory_grid_control.gd" id="5_inventory_grid"]
+[ext_resource type="Script" path="res://scripts/gameplay/ui/loot_grid_control.gd" id="6_loot_grid"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud"]
 bg_color = Color(0.035, 0.047, 0.064, 0.9)
@@ -17,56 +19,216 @@ corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
-[node name="PrototypeMain" type="Node3D"]
+[node name="PrototypeMain" type="Node3D" unique_id=1547153070]
 script = ExtResource("1_controller")
 map_definition = ExtResource("4_map_definition")
 
-[node name="Environment" parent="." instance=ExtResource("2_environment")]
+[node name="Environment" parent="." unique_id=1549508913 instance=ExtResource("2_environment")]
 
-[node name="TacticalCameraRig" parent="." instance=ExtResource("3_camera")]
+[node name="TacticalCameraRig" parent="." unique_id=1467212329 instance=ExtResource("3_camera")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 0, 9)
 
-[node name="Units" type="Node3D" parent="."]
+[node name="Units" type="Node3D" parent="." unique_id=478476774]
 
-[node name="MoveHighlights" type="Node3D" parent="."]
+[node name="MoveHighlights" type="Node3D" parent="." unique_id=899980106]
 
-[node name="AttackHighlights" type="Node3D" parent="."]
+[node name="AttackHighlights" type="Node3D" parent="." unique_id=546320701]
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="ObjectHighlights" type="Node3D" parent="." unique_id=1976509904]
 
-[node name="TopLeftPanel" type="PanelContainer" parent="HUD"]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1699104427]
+
+[node name="TopLeftPanel" type="PanelContainer" parent="HUD" unique_id=1309785730]
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 516.0
 offset_bottom = 226.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
 
-[node name="Margin" type="MarginContainer" parent="HUD/TopLeftPanel"]
+[node name="Margin" type="MarginContainer" parent="HUD/TopLeftPanel" unique_id=713704160]
+layout_mode = 2
 theme_override_constants/margin_left = 14
 theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 14
 theme_override_constants/margin_bottom = 12
 
-[node name="VBox" type="VBoxContainer" parent="HUD/TopLeftPanel/Margin"]
+[node name="VBox" type="VBoxContainer" parent="HUD/TopLeftPanel/Margin" unique_id=1025158094]
+layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="TitleLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox"]
+[node name="TitleLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=1327900563]
+layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "战棋 × 搜打撤 · 灰盒原型"
 
-[node name="PhaseLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox"]
+[node name="PhaseLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=454631574]
+layout_mode = 2
 text = "探索阶段 · 世界 Tick 0"
 
-[node name="SelectionLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox"]
+[node name="SelectionLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=967814602]
+layout_mode = 2
 text = "未选择单位"
 
-[node name="AlertLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox"]
+[node name="AlertLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=507500150]
+layout_mode = 2
 text = "敌方警戒：未警戒"
 
-[node name="HintLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox"]
+[node name="HintLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=1178240817]
 custom_minimum_size = Vector2(470, 34)
+layout_mode = 2
 text = "左键选择/移动；WASD 或方向键平移镜头；滚轮缩放。"
 autowrap_mode = 2
 
-[node name="EndTurnButton" type="Button" parent="HUD/TopLeftPanel/Margin/VBox"]
+[node name="EndTurnButton" type="Button" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=1158636587]
 custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
 text = "结束回合 / 推进世界 Tick"
+
+[node name="InventoryPanel" type="PanelContainer" parent="HUD" unique_id=1914501418]
+offset_left = 16.0
+offset_top = 244.0
+offset_right = 516.0
+offset_bottom = 570.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
+
+[node name="Margin" type="MarginContainer" parent="HUD/InventoryPanel" unique_id=1139458512]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="HUD/InventoryPanel/Margin" unique_id=1773499160]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="InventorySummary" type="Label" parent="HUD/InventoryPanel/Margin/VBox" unique_id=722956251]
+layout_mode = 2
+text = "背包 0/48 | 总价值 0 · 6×8"
+
+[node name="InventoryHint" type="Label" parent="HUD/InventoryPanel/Margin/VBox" unique_id=332781944]
+layout_mode = 2
+text = "拖动重排；R 或右键旋转；Loot 物品拖入指定格"
+autowrap_mode = 2
+
+[node name="InventoryItems" type="Control" parent="HUD/InventoryPanel/Margin/VBox" unique_id=2115809690]
+custom_minimum_size = Vector2(180, 240)
+layout_mode = 2
+mouse_filter = 1
+script = ExtResource("5_inventory_grid")
+
+[node name="LootOverview" type="Label" parent="HUD/InventoryPanel/Margin/VBox" unique_id=136355138]
+layout_mode = 2
+text = "Loot 容器：0 个可搜刮"
+
+[node name="LootPanel" type="PanelContainer" parent="HUD" unique_id=1606580678]
+visible = false
+offset_left = 540.0
+offset_top = 16.0
+offset_right = 850.0
+offset_bottom = 650.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
+
+[node name="Margin" type="MarginContainer" parent="HUD/LootPanel" unique_id=1319288538]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="HUD/LootPanel/Margin" unique_id=1232697937]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="LootTitle" type="Label" parent="HUD/LootPanel/Margin/VBox" unique_id=1297275228]
+layout_mode = 2
+text = "Loot"
+
+[node name="LootItems" type="Control" parent="HUD/LootPanel/Margin/VBox" unique_id=1710631278]
+custom_minimum_size = Vector2(280, 420)
+layout_mode = 2
+mouse_filter = 1
+script = ExtResource("6_loot_grid")
+
+[node name="LootButtons" type="HBoxContainer" parent="HUD/LootPanel/Margin/VBox" unique_id=740531500]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="LootAllButton" type="Button" parent="HUD/LootPanel/Margin/VBox/LootButtons" unique_id=1577816228]
+layout_mode = 2
+text = "Loot All (1 AP)"
+
+[node name="LootCloseButton" type="Button" parent="HUD/LootPanel/Margin/VBox/LootButtons" unique_id=271929357]
+layout_mode = 2
+text = "Close"
+
+[node name="ExtractionPanel" type="PanelContainer" parent="HUD" unique_id=568483251]
+visible = false
+offset_left = 540.0
+offset_top = 290.0
+offset_right = 850.0
+offset_bottom = 400.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
+
+[node name="Margin" type="MarginContainer" parent="HUD/ExtractionPanel" unique_id=1589778063]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="HUD/ExtractionPanel/Margin" unique_id=2093104227]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="HUD/ExtractionPanel/Margin/VBox" unique_id=363517657]
+layout_mode = 2
+text = "Confirm extraction?"
+
+[node name="Buttons" type="HBoxContainer" parent="HUD/ExtractionPanel/Margin/VBox" unique_id=1498211508]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ConfirmButton" type="Button" parent="HUD/ExtractionPanel/Margin/VBox/Buttons" unique_id=181262701]
+layout_mode = 2
+text = "Confirm (1 AP)"
+
+[node name="CancelButton" type="Button" parent="HUD/ExtractionPanel/Margin/VBox/Buttons" unique_id=2052299687]
+layout_mode = 2
+text = "Cancel"
+
+[node name="ResultPanel" type="PanelContainer" parent="HUD" unique_id=644524049]
+visible = false
+offset_left = 540.0
+offset_top = 420.0
+offset_right = 850.0
+offset_bottom = 590.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
+
+[node name="Margin" type="MarginContainer" parent="HUD/ResultPanel" unique_id=854143068]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="HUD/ResultPanel/Margin" unique_id=1273683876]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="ResultTitle" type="Label" parent="HUD/ResultPanel/Margin/VBox" unique_id=614648018]
+layout_mode = 2
+text = "Result"
+
+[node name="ResultItems" type="Label" parent="HUD/ResultPanel/Margin/VBox" unique_id=967167789]
+layout_mode = 2
+text = "Carried: empty"
+autowrap_mode = 2
+
+[node name="ResultValue" type="Label" parent="HUD/ResultPanel/Margin/VBox" unique_id=2098656511]
+layout_mode = 2
+text = "Value: 0"
+
+[node name="RestartButton" type="Button" parent="HUD/ResultPanel/Margin/VBox" unique_id=629301909]
+layout_mode = 2
+text = "Restart"

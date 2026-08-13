@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="LootTableDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/loot/loot_table_definition.gd" id="1_table"]
+[ext_resource type="Resource" path="res://resources/items/medkit.tres" id="2_medkit"]
+[ext_resource type="Resource" path="res://resources/items/scrap_metal.tres" id="3_scrap"]
+
+[resource]
+script = ExtResource("1_table")
+table_id = &"outpost_cache"
+fixed_items = Array[ExtResource("2_medkit")]([ExtResource("2_medkit")])
+random_pool = Array[ExtResource("2_medkit")]([ExtResource("2_medkit"), ExtResource("3_scrap")])
+random_draw_count = 1
+allow_duplicates = false

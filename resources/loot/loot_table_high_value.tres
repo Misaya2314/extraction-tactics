@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="LootTableDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/loot/loot_table_definition.gd" id="1_table"]
+[ext_resource type="Resource" path="res://resources/items/rare_watch.tres" id="2_watch"]
+[ext_resource type="Resource" path="res://resources/items/secure_chip.tres" id="3_chip"]
+
+[resource]
+script = ExtResource("1_table")
+table_id = &"high_value_cache"
+fixed_items = Array[ExtResource("2_watch")]([ExtResource("2_watch")])
+random_pool = Array[ExtResource("2_watch")]([ExtResource("2_watch"), ExtResource("3_chip")])
+random_draw_count = 1
+allow_duplicates = false

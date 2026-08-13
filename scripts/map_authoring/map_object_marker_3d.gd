@@ -11,6 +11,8 @@ extends MapMarker3D
 		_refresh_preview.call_deferred()
 @export var blocks_movement: bool = false
 @export var blocks_los: bool = false
+@export var loot_table: LootTableDefinition
+@export var loot_seed: int = -1
 
 
 func _ready() -> void:
@@ -27,6 +29,8 @@ func to_data() -> MapObjectPlacement:
 	data.scene = scene
 	data.blocks_movement = blocks_movement
 	data.blocks_los = blocks_los
+	data.loot_table = loot_table
+	data.loot_seed = loot_seed
 	return data
 
 
@@ -44,4 +48,3 @@ func _refresh_preview() -> void:
 	add_child(preview)
 	if Engine.is_editor_hint() and owner != null:
 		preview.owner = owner
-

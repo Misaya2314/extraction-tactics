@@ -4,19 +4,26 @@ const OUTPUT_LIBRARY := "res://assets/prototype/grid/prototype_mesh_library.tres
 const OUTPUT_CATALOG := "res://assets/prototype/grid/prototype_tile_catalog.tres"
 const OUTPUT_DEFINITION := "res://resources/maps/prototype_map.tres"
 const OUTPUT_AUTHOR_SCENE := "res://scenes/map_authoring/prototype_map_authoring.tscn"
+const SKIP_GRID_ASSET_SAVE_FLAG := "--skip-grid-asset-save"
+const LOOT_TABLE_SUPPLY: LootTableDefinition = preload("res://resources/loot/loot_table_supply.tres")
+const LOOT_TABLE_WAREHOUSE: LootTableDefinition = preload("res://resources/loot/loot_table_warehouse.tres")
+const LOOT_TABLE_OUTPOST: LootTableDefinition = preload("res://resources/loot/loot_table_outpost.tres")
+const LOOT_TABLE_HIGH_VALUE: LootTableDefinition = preload("res://resources/loot/loot_table_high_value.tres")
 
 
 func _init() -> void:
 	var library := _create_library()
-	if ResourceSaver.save(library, OUTPUT_LIBRARY) != OK:
-		push_error("Failed to save prototype MeshLibrary")
-		quit(1)
-		return
+	if not OS.get_cmdline_user_args().has(SKIP_GRID_ASSET_SAVE_FLAG):
+		if ResourceSaver.save(library, OUTPUT_LIBRARY) != OK:
+			push_error("Failed to save prototype MeshLibrary")
+			quit(1)
+			return
 	var catalog := _create_catalog()
-	if ResourceSaver.save(catalog, OUTPUT_CATALOG) != OK:
-		push_error("Failed to save prototype tile catalog")
-		quit(1)
-		return
+	if not OS.get_cmdline_user_args().has(SKIP_GRID_ASSET_SAVE_FLAG):
+		if ResourceSaver.save(catalog, OUTPUT_CATALOG) != OK:
+			push_error("Failed to save prototype tile catalog")
+			quit(1)
+			return
 	var author := _create_author_scene(library, catalog)
 	var bake_result := TacticalMapBaker.build(author)
 	if not (bake_result[&"errors"] as Array[String]).is_empty():
@@ -144,10 +151,10 @@ func _create_author_scene(library: MeshLibrary, catalog: MapTileCatalog) -> Tact
 	objects.name = "Objects"
 	_add_owned(author, objects)
 	_add_object_marker(author, objects, &"extraction", MapObjectPlacement.Kind.EXTRACTION, Vector3i(11, 0, 8), "res://scenes/prototype/environment/prototype_extraction_marker.tscn", false, false)
-	_add_object_marker(author, objects, &"loot_1", MapObjectPlacement.Kind.LOOT, Vector3i(1, 0, 3), "res://scenes/prototype/environment/prototype_loot_crate.tscn", true, false)
-	_add_object_marker(author, objects, &"loot_2", MapObjectPlacement.Kind.LOOT, Vector3i(7, 0, 4), "res://scenes/prototype/environment/prototype_loot_crate.tscn", true, false)
-	_add_object_marker(author, objects, &"loot_3", MapObjectPlacement.Kind.LOOT, Vector3i(10, 0, 6), "res://scenes/prototype/environment/prototype_loot_crate.tscn", true, false)
-	_add_object_marker(author, objects, &"loot_high", MapObjectPlacement.Kind.LOOT, Vector3i(10, 1, 1), "res://scenes/prototype/environment/prototype_loot_crate.tscn", true, false)
+	_add_object_marker(author, objects, &"loot_1", MapObjectPlacement.Kind.LOOT, Vector3i(1, 0, 3), "res://scenes/prototype/environment/prototype_loot_crate.tscn", true, false, LOOT_TABLE_SUPPLY, 101)
+	_add_object_marker(author, objects, &"loot_2", MapObjectPlacement.Kind.LOOT, Vector3i(7, 0, 4), "res://scenes/prototype/environment/prototype_loot_crate.tscn", true, false, LOOT_TABLE_WAREHOUSE, 202)
+	_add_object_marker(author, objects, &"loot_3", MapObjectPlacement.Kind.LOOT, Vector3i(10, 0, 6), "res://scenes/prototype/environment/prototype_loot_crate.tscn", true, false, LOOT_TABLE_OUTPOST, 303)
+	_add_object_marker(author, objects, &"loot_high", MapObjectPlacement.Kind.LOOT, Vector3i(10, 1, 1), "res://scenes/prototype/environment/prototype_loot_crate.tscn", true, false, LOOT_TABLE_HIGH_VALUE, 404)
 	_add_object_marker(author, objects, &"barrel_1", MapObjectPlacement.Kind.EXPLOSIVE, Vector3i(3, 0, 7), "res://scenes/prototype/environment/prototype_explosive_barrel.tscn", true, false)
 	_add_object_marker(author, objects, &"barrel_2", MapObjectPlacement.Kind.EXPLOSIVE, Vector3i(10, 0, 2), "res://scenes/prototype/environment/prototype_explosive_barrel.tscn", true, false)
 
@@ -202,7 +209,7 @@ func _add_route_marker(author: TacticalMapAuthor, parent: Node3D, route_id: Stri
 	_add_owned(parent, route, author)
 
 
-func _add_object_marker(author: TacticalMapAuthor, parent: Node3D, id: StringName, kind: MapObjectPlacement.Kind, cell: Vector3i, scene_path: String, blocks_movement: bool, blocks_los: bool) -> void:
+func _add_object_marker(author: TacticalMapAuthor, parent: Node3D, id: StringName, kind: MapObjectPlacement.Kind, cell: Vector3i, scene_path: String, blocks_movement: bool, blocks_los: bool, loot_table: LootTableDefinition = null, loot_seed: int = -1) -> void:
 	var marker := MapObjectMarker3D.new()
 	marker.name = String(id)
 	marker.object_id = id
@@ -212,9 +219,9 @@ func _add_object_marker(author: TacticalMapAuthor, parent: Node3D, id: StringNam
 	marker.scene = load(scene_path)
 	marker.blocks_movement = blocks_movement
 	marker.blocks_los = blocks_los
+	marker.loot_table = loot_table
+	marker.loot_seed = loot_seed
 	_add_owned(parent, marker, author)
-
-
 func _add_ramp_visual(author: TacticalMapAuthor) -> void:
 	var visuals := Node3D.new()
 	visuals.name = "TraversalVisuals"

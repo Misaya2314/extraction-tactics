@@ -171,6 +171,12 @@ static func _validate_definition(definition: TacticalMapDefinition, errors: Arra
 			errors.append("Object %s is not on a floor cell (%s)." % [placement.object_id, placement.cell])
 		elif placement.kind == MapObjectPlacement.Kind.EXTRACTION:
 			extraction_cells.append(placement.cell)
+		var loot_configuration_error := placement.get_loot_configuration_error()
+		if not loot_configuration_error.is_empty():
+			if placement.kind == MapObjectPlacement.Kind.LOOT:
+				errors.append(loot_configuration_error)
+			else:
+				warnings.append(loot_configuration_error)
 	if extraction_cells.is_empty():
 		errors.append("Map needs at least one extraction marker.")
 	for transition in definition.transitions:

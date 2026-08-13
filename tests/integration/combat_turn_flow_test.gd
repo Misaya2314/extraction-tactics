@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MAIN_SCENE: PackedScene = preload("res://scenes/main/prototype_main.tscn")
+const GameStateManagerScript = preload("res://scripts/core/session/game_state_manager.gd")
 
 var _failures: Array[String] = []
 
@@ -35,8 +36,11 @@ func _run() -> void:
 		var enemy := prototype._unit_by_id(enemy_id)
 		if is_instance_valid(enemy):
 			enemy.take_damage(enemy.current_hp)
-	_expect(prototype.turn_manager.get_phase() == TurnManager.Phase.VICTORY, "victory: removing all enemies should end combat")
-	_expect(prototype.end_turn_button.disabled, "victory: end-turn input should lock")
+	_expect(prototype.turn_manager.get_phase() == TurnManager.Phase.EXPLORATION, "victory: resolved encounter should return to exploration")
+	_expect(prototype.session_manager.get_state() == GameStateManagerScript.State.EXPLORATION, "victory: session should remain active after encounter")
+	_expect(not prototype.session_manager.is_terminal(), "victory: encounter resolution is not a session result")
+	_expect(not prototype.end_turn_button.disabled, "victory: exploration input should remain available")
+	_expect(prototype.turn_manager.reset_to_exploration() == false, "victory: duplicate exploration reset should be stable")
 
 	prototype.queue_free()
 	await process_frame

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/items/item_definition.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_id = &"medkit"
+display_name = "Field Medkit"
+kind = 1
+value = 45
+shape_cells = Array[Vector2i]([Vector2i(0, 0), Vector2i(0, 1)])
