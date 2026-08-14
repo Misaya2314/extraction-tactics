@@ -331,6 +331,7 @@ func interact_with_loot(container_id: StringName) -> ActionResult:
 	_refresh_loot_panel()
 	loot_panel.visible = true
 	_update_hud("已打开 %s，可单项或全部拾取。" % container_id)
+	_log("打开 Loot 箱 %s（%d 件）。" % [container_id, container.get_item_count()])
 	_refresh_highlights()
 	return validation
 
@@ -452,6 +453,7 @@ func place_loot_instance(container_id: StringName, index: int, anchor: Vector2i,
 	player.spend_action_points(validation.ap_cost)
 	_refresh_inventory_ui()
 	_update_hud("已将 %s 放入背包。" % item.display_name)
+	_log("拾取 %s 放入背包（消耗 1 AP）。" % item.display_name)
 	_refresh_highlights()
 	return validation
 
@@ -500,6 +502,7 @@ func return_inventory_instance_to_loot(instance_id: StringName, container_id: St
 		loot_grid.clear_pending_rotation(instance_id)
 	_refresh_inventory_ui()
 	_update_hud("已将物品放回 Loot；背包管理不消耗 AP。")
+	_log("将 %s 放回 Loot 箱 %s。" % [instance_id, container_id])
 	_refresh_highlights()
 	return ActionResultScript.accepted(selected_unit.unit_id, container_id, 0, ACTION_LOOT)
 
@@ -563,6 +566,7 @@ func begin_extraction_prompt(extraction_id: StringName = &"") -> ActionResult:
 	if session_manager.start_extraction():
 		extraction_panel.visible = true
 		_update_hud("已进入撤离确认，请确认或取消。")
+		_log("%s 请求在 %s 撤离。" % [selected_unit.name if is_instance_valid(selected_unit) else "玩家", target_id])
 		_refresh_highlights()
 	return validation
 
@@ -591,6 +595,7 @@ func confirm_extraction() -> ActionResult:
 		return _action_rejected(&"no_ap", ACTION_INTERACT, player.unit_id, target_id)
 	if not session_manager.confirm_extraction():
 		return _action_rejected(&"wrong_phase", ACTION_INTERACT, player.unit_id, target_id)
+	_log("确认撤离：%s 从 %s 撤离。" % [player.name, target_id])
 	return validation
 
 
@@ -599,6 +604,7 @@ func cancel_extraction() -> bool:
 		return false
 	extraction_panel.visible = false
 	_update_hud("已取消撤离，可继续探索。")
+	_log("取消撤离，继续探索。")
 	_refresh_highlights()
 	return true
 
@@ -649,6 +655,7 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 	_update_enemy_visibility()
 	_refresh_highlights()
 	_update_hud("%s 移动到 %s，消耗 %d AP。" % [unit.name, destination, ap_cost])
+	_log("%s 移动 %s → %s（消耗 %d AP）。" % [unit.name, start_cell, destination, ap_cost])
 	return true
 
 
@@ -683,6 +690,9 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 	var applied := target.take_damage(result.damage)
 	_update_hud("%s 命中 %s，造成 %d 伤害%s。" % [
 		attacker.name, target.name, applied, "并击杀目标" if result.killed else ""
+	])
+	_log("%s 攻击 %s：造成 %d 伤害%s。" % [
+		attacker.name, target.name, applied, "，目标阵亡" if result.killed else ""
 	])
 	_refresh_highlights()
 	return result
@@ -735,6 +745,10 @@ func _start_combat(player_first: bool, alert_enemy: PrototypeUnit, known_cell: V
 		return false
 	if not is_instance_valid(alert_enemy):
 		return false
+	_log("进入交战：%s%s（%s 在 %s）。" % [
+		alert_enemy.name, "被玩家主动攻击" if player_first else "发现玩家",
+		alert_enemy.name, known_cell
+	])
 	var effective_target := target_id
 	if effective_target.is_empty() and is_instance_valid(selected_unit):
 		effective_target = selected_unit.unit_id
@@ -908,12 +922,14 @@ func _on_end_turn_pressed() -> void:
 		await _run_exploration_tick()
 		_evaluate_detection()
 		_update_hud("探索世界 Tick %d。" % world_tick)
+		_log("世界 Tick %d：敌人巡逻，玩家 AP 重置。" % world_tick)
 		return
 	if turn_manager.end_player_turn():
 		await _run_enemy_turn()
 
 
 func _on_unit_died(unit: PrototypeUnit) -> void:
+	_log("%s 阵亡（HP 归零）。" % unit.name)
 	grid.vacate(unit.grid_cell, unit.unit_id)
 	turn_manager.remove_unit(unit.unit_id)
 	units_by_id.erase(unit.unit_id)
@@ -937,6 +953,15 @@ func _on_unit_died(unit: PrototypeUnit) -> void:
 
 
 func _on_phase_changed(_previous: TurnManager.Phase, _current: TurnManager.Phase) -> void:
+	match _current:
+		TurnManager.Phase.PLAYER_TURN:
+			_log("—— 玩家回合开始 ——")
+		TurnManager.Phase.ENEMY_TURN:
+			_log("—— 敌方回合开始 ——")
+		TurnManager.Phase.VICTORY:
+			_log("—— 交战结束：敌方全灭 ——")
+		TurnManager.Phase.DEFEAT:
+			_log("—— 交战结束：小队全灭 ——")
 	if _current == TurnManager.Phase.VICTORY and session_manager != null and session_manager.get_state() == GameStateManagerScript.State.COMBAT:
 		turn_manager.reset_to_exploration()
 		session_manager.resolve_combat()
@@ -1076,6 +1101,7 @@ func _loot_all(container_id: StringName) -> ActionResult:
 	player.spend_action_points(validation.ap_cost)
 	_refresh_inventory_ui()
 	_update_hud("已全部拾取。")
+	_log("全部拾取 %s（%d 件，消耗 1 AP）。" % [container_id, contents.size()])
 	_refresh_highlights()
 	return validation
 
@@ -1152,8 +1178,10 @@ func _on_session_state_changed(_previous: int, current: int) -> void:
 func _on_session_result_changed(result: RefCounted) -> void:
 	if result.success:
 		loot_settlement = LootSettlementScript.from_inventory(true, squad_inventory)
+		_log("结算：撤离成功，带出 %d 件物品，总价值 %d。" % [loot_settlement.get_items().size(), loot_settlement.get_total_value()])
 	else:
 		loot_settlement = LootSettlementScript.failure_snapshot()
+		_log("结算：任务失败，小队全灭，Loot 全部丢失。")
 	_refresh_result_panel()
 	_update_hud("撤离成功，结算已完成。" if result.success else "小队全灭，Loot 全部丢失。")
 
@@ -1267,6 +1295,25 @@ func _alert_summary() -> String:
 	if suspicious > 0:
 		return "怀疑 %d" % suspicious
 	return "未警戒"
+
+
+## Prints a structured combat/exploration line to the Godot Output log,
+## prefixed with the current side and world tick.
+func _log(message: String) -> void:
+	print("[%s · T%d] %s" % [_log_side_name(), world_tick, message])
+
+
+func _log_side_name() -> String:
+	if session_manager != null and session_manager.get_state() == GameStateManagerScript.State.COMBAT and turn_manager != null:
+		match turn_manager.get_phase():
+			TurnManager.Phase.PLAYER_TURN: return "玩家回合"
+			TurnManager.Phase.ENEMY_TURN: return "敌方回合"
+		return "交战"
+	if session_manager != null and session_manager.get_state() == GameStateManagerScript.State.EXTRACTION:
+		return "撤离"
+	if session_manager != null and session_manager.get_state() == GameStateManagerScript.State.RESULT:
+		return "结算"
+	return "探索"
 
 
 func _phase_name() -> String:
