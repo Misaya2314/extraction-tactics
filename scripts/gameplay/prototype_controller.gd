@@ -276,9 +276,13 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 		return
 	var clicked_enemy := _find_enemy_at(clicked_cell)
 	if is_instance_valid(clicked_enemy):
-		# With a player unit selected, clicking an enemy attacks it; otherwise
-		# the click inspects the enemy (move/attack/vision display).
-		if is_instance_valid(selected_unit) and selected_unit.faction == &"player":
+		# With a player unit selected that can afford an attack, clicking an
+		# enemy attacks it; otherwise the click inspects the enemy.
+		var can_attack := is_instance_valid(selected_unit) \
+			and selected_unit.faction == &"player" \
+			and selected_unit.is_alive() \
+			and selected_unit.can_spend_action_points(selected_unit.attack_ap_cost)
+		if can_attack:
 			await _attack_with_unit(selected_unit, clicked_enemy)
 		else:
 			_select_unit(clicked_enemy, true)
@@ -300,14 +304,16 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 			return
 	# Only a highlighted (reachable) tile moves the unit; clicking any other
 	# tile cancels the current selection instead of issuing a stray move.
-	if is_instance_valid(selected_unit) and (selected_unit.faction != &"player" or not selected_unit.is_alive()):
-		_select_unit(null)
-		_update_hud("已取消选择。")
-		return
+	# The reachability gate mirrors the move-highlight gate (AP affordability),
+	# so a selection with no AP left always deselects on any tile click.
+	var can_move := is_instance_valid(selected_unit) \
+		and selected_unit.faction == &"player" \
+		and selected_unit.is_alive() \
+		and selected_unit.can_spend_action_points(MOVE_ACTION_COST)
 	var reachable_cells: Array[Vector3i] = []
-	if is_instance_valid(selected_unit):
+	if can_move:
 		reachable_cells = grid.get_reachable_cells(selected_unit.grid_cell, selected_unit.move_range)
-	if reachable_cells.has(clicked_cell):
+	if can_move and reachable_cells.has(clicked_cell):
 		await _try_move_selected(clicked_cell)
 	else:
 		_select_unit(null)
