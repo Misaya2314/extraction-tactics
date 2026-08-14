@@ -19,4 +19,3 @@ func to_data() -> MapTransitionData:
 	data.enabled = enabled
 	data.kind = kind
 	return data
-

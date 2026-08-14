@@ -18,4 +18,3 @@ func to_data() -> MapSpawnData:
 	data.visual_color = visual_color
 	data.patrol_route_id = patrol_route_id
 	return data
-

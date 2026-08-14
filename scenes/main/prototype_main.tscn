@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://d20y7xkfkgxx1"]
 
 [ext_resource type="Script" uid="uid://be820bxiirwuo" path="res://scripts/gameplay/prototype_controller.gd" id="1_controller"]
-[ext_resource type="PackedScene" path="res://scenes/map_authoring/prototype_map_authoring.tscn" id="2_environment"]
+[ext_resource type="PackedScene" uid="uid://cjfvpoxq14llo" path="res://scenes/map_authoring/prototype_map_authoring.tscn" id="2_environment"]
 [ext_resource type="PackedScene" path="res://scenes/presentation/tactical_camera_rig.tscn" id="3_camera"]
-[ext_resource type="Resource" path="res://resources/maps/prototype_map.tres" id="4_map_definition"]
-[ext_resource type="Script" path="res://scripts/gameplay/ui/inventory_grid_control.gd" id="5_inventory_grid"]
-[ext_resource type="Script" path="res://scripts/gameplay/ui/loot_grid_control.gd" id="6_loot_grid"]
+[ext_resource type="Resource" uid="uid://cgythshb2fowg" path="res://resources/maps/prototype_map.tres" id="4_map_definition"]
+[ext_resource type="Script" uid="uid://7nvcy1lvfl4y" path="res://scripts/gameplay/ui/inventory_grid_control.gd" id="5_inventory_grid"]
+[ext_resource type="Script" uid="uid://bfpsdve3ioxij" path="res://scripts/gameplay/ui/loot_grid_control.gd" id="6_loot_grid"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud"]
 bg_color = Color(0.035, 0.047, 0.064, 0.9)
