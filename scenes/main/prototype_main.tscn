@@ -188,7 +188,7 @@ theme_override_constants/separation = 6
 
 [node name="LootAllButton" type="Button" parent="HUD/LootPanel/Margin/VBox/LootButtons" unique_id=1577816228]
 layout_mode = 2
-text = "Loot All (1 AP)"
+text = "Loot All"
 
 [node name="LootCloseButton" type="Button" parent="HUD/LootPanel/Margin/VBox/LootButtons" unique_id=271929357]
 layout_mode = 2

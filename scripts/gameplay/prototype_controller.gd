@@ -11,7 +11,8 @@ const InventoryGridScript = preload("res://scripts/gameplay/ui/inventory_grid_co
 const LootGridScript = preload("res://scripts/gameplay/ui/loot_grid_control.gd")
 const MOVE_ACTION_COST := 1
 const INTERACT_ACTION_COST := 1
-const LOOT_ACTION_COST := 1
+## Opening a container costs AP; picking items up is free.
+const LOOT_ACTION_COST := 0
 const INTERACTION_RANGE := 1
 const ACTION_INTERACT: StringName = &"interact"
 const ACTION_LOOT: StringName = &"loot"
@@ -323,7 +324,7 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 ## Stable integration entry for UI/tests. Loot opening is an Interact Action;
 ## AP is charged only when the validation succeeds and the container opens.
 func interact_with_loot(container_id: StringName) -> ActionResult:
-	if not _can_use_exploration_action():
+	if not _can_use_loot_action():
 		return _action_rejected(&"wrong_phase", &"interact")
 	var container = loot_containers.get(container_id)
 	var placement = object_placements.get(container_id)
@@ -402,7 +403,7 @@ func preview_inventory_command(
 	) -> Dictionary:
 	var cells: Array[Vector2i] = []
 	var valid := false
-	if not _can_use_exploration_action():
+	if not _can_use_loot_action():
 		return {"valid": false, "cells": cells, "reason": &"wrong_phase"}
 	if source_kind == &"loot":
 		if container_id != open_loot_container_id:
@@ -446,7 +447,7 @@ func handle_inventory_command(command: Dictionary) -> Variant:
 
 
 func place_loot_instance(container_id: StringName, index: int, anchor: Vector2i, rotation: int = 0) -> ActionResult:
-	if not _can_use_exploration_action():
+	if not _can_use_loot_action():
 		return _action_rejected(&"wrong_phase", ACTION_LOOT)
 	var container = loot_containers.get(container_id)
 	var placement = object_placements.get(container_id)
@@ -478,13 +479,13 @@ func place_loot_instance(container_id: StringName, index: int, anchor: Vector2i,
 	player.spend_action_points(validation.ap_cost)
 	_refresh_inventory_ui()
 	_update_hud("已将 %s 放入背包。" % item.display_name)
-	_log("拾取 %s 放入背包（消耗 1 AP）。" % item.display_name)
+	_log("拾取 %s 放入背包（拾取不消耗 AP）。" % item.display_name)
 	_refresh_highlights()
 	return validation
 
 
 func move_inventory_instance(instance_id: StringName, anchor: Vector2i, rotation: int = -1) -> ActionResult:
-	if not _can_use_exploration_action():
+	if not _can_use_loot_action():
 		return _action_rejected(&"wrong_phase", ACTION_LOOT)
 	if squad_inventory == null or squad_inventory.get_placement(instance_id) == null:
 		return _action_rejected(&"invalid_target", ACTION_LOOT, selected_unit.unit_id, instance_id)
@@ -499,7 +500,7 @@ func move_inventory_instance(instance_id: StringName, anchor: Vector2i, rotation
 
 
 func rotate_inventory_instance(instance_id: StringName) -> ActionResult:
-	if not _can_use_exploration_action():
+	if not _can_use_loot_action():
 		return _action_rejected(&"wrong_phase", ACTION_LOOT)
 	var placement = squad_inventory.get_placement(instance_id) if squad_inventory != null else null
 	if placement == null:
@@ -515,7 +516,7 @@ func rotate_inventory_instance(instance_id: StringName) -> ActionResult:
 
 
 func return_inventory_instance_to_loot(instance_id: StringName, container_id: StringName) -> ActionResult:
-	if not _can_use_exploration_action():
+	if not _can_use_loot_action():
 		return _action_rejected(&"wrong_phase", ACTION_LOOT)
 	var container = loot_containers.get(container_id)
 	if container == null or container_id != open_loot_container_id:
@@ -533,7 +534,7 @@ func return_inventory_instance_to_loot(instance_id: StringName, container_id: St
 
 
 func _can_return_inventory_instance_to_loot(instance_id: StringName, container_id: StringName) -> bool:
-	return _can_use_exploration_action() and container_id == open_loot_container_id \
+	return _can_use_loot_action() and container_id == open_loot_container_id \
 		and loot_containers.get(container_id) != null \
 		and squad_inventory != null and squad_inventory.get_placement(instance_id) != null
 
@@ -940,19 +941,23 @@ func _add_highlight(parent: Node3D, cell: Vector3i, color: Color, height_offset:
 func _refresh_object_highlights() -> void:
 	if not is_instance_valid(object_highlights_root):
 		return
-	if session_manager == null or session_manager.get_state() != GameStateManagerScript.State.EXPLORATION:
+	if session_manager == null or not _player_can_act():
 		return
-	if not _can_show_move_highlights():
+	if not is_instance_valid(selected_unit) or selected_unit.faction != &"player" or not selected_unit.is_alive():
 		return
+	var state: int = session_manager.get_state()
+	var can_loot: bool = state == GameStateManagerScript.State.EXPLORATION \
+		or (state == GameStateManagerScript.State.COMBAT and turn_manager.is_player_turn())
+	var can_extract: bool = state == GameStateManagerScript.State.EXPLORATION
 	for object_id in loot_containers.keys():
 		var container = loot_containers[object_id]
 		var placement = object_placements.get(object_id)
 		if placement == null or container == null or container.is_depleted():
 			continue
-		if _manhattan(selected_unit.grid_cell, placement.cell) <= INTERACTION_RANGE:
+		if can_loot and _manhattan(selected_unit.grid_cell, placement.cell) <= INTERACTION_RANGE:
 			_add_highlight(object_highlights_root, placement.cell, LOOT_HIGHLIGHT_COLOR)
 	for cell in extraction_cells:
-		if _manhattan(selected_unit.grid_cell, cell) <= INTERACTION_RANGE:
+		if can_extract and _manhattan(selected_unit.grid_cell, cell) <= INTERACTION_RANGE:
 			_add_highlight(object_highlights_root, cell, EXTRACTION_HIGHLIGHT_COLOR)
 
 
@@ -1142,6 +1147,19 @@ func _extraction_at_cell(cell: Vector3i) -> StringName:
 	return &""
 
 
+## Loot / inventory management is allowed during exploration AND during the
+## player's turn in combat (enemy turns block it via _player_can_act).
+func _can_use_loot_action() -> bool:
+	if not is_instance_valid(selected_unit) or not selected_unit.is_alive() or session_manager == null:
+		return false
+	if not _player_can_act():
+		return false
+	var state: int = session_manager.get_state()
+	return state == GameStateManagerScript.State.EXPLORATION \
+		or (state == GameStateManagerScript.State.COMBAT and turn_manager.is_player_turn())
+
+
+## Extraction confirmation remains an exploration-only action.
 func _can_use_exploration_action() -> bool:
 	return is_instance_valid(selected_unit) and selected_unit.is_alive() and session_manager != null \
 		and session_manager.get_state() == GameStateManagerScript.State.EXPLORATION \
@@ -1163,7 +1181,7 @@ func _loot_item(container_id: StringName, index: int) -> ActionResult:
 
 
 func _loot_all(container_id: StringName) -> ActionResult:
-	if not _can_use_exploration_action():
+	if not _can_use_loot_action():
 		return _action_rejected(&"wrong_phase", ACTION_LOOT)
 	var container = loot_containers.get(container_id)
 	var placement = object_placements.get(container_id)
@@ -1191,7 +1209,7 @@ func _loot_all(container_id: StringName) -> ActionResult:
 	player.spend_action_points(validation.ap_cost)
 	_refresh_inventory_ui()
 	_update_hud("已全部拾取。")
-	_log("全部拾取 %s（%d 件，消耗 1 AP）。" % [container_id, contents.size()])
+	_log("全部拾取 %s（%d 件，拾取不消耗 AP）。" % [container_id, contents.size()])
 	_refresh_highlights()
 	return validation
 
@@ -1266,7 +1284,7 @@ func _on_session_state_changed(_previous: int, current: int) -> void:
 		extraction_panel.visible = false
 	if current != GameStateManagerScript.State.RESULT and is_instance_valid(result_panel):
 		result_panel.visible = false
-	if current != GameStateManagerScript.State.EXPLORATION and is_instance_valid(loot_panel):
+	if current != GameStateManagerScript.State.EXPLORATION and current != GameStateManagerScript.State.COMBAT and is_instance_valid(loot_panel):
 		loot_panel.visible = false
 		open_loot_container_id = &""
 		_restore_inventory_after_loot_state()
