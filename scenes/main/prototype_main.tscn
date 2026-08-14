@@ -101,7 +101,7 @@ text = "结束回合 / 推进世界 Tick"
 [node name="InventoryPanel" type="PanelContainer" parent="HUD" unique_id=1914501418]
 offset_left = 16.0
 offset_top = 244.0
-offset_right = 516.0
+offset_right = 365.0
 offset_bottom = 300.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
 

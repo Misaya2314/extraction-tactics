@@ -43,6 +43,9 @@ var open_loot_container_id: StringName = &""
 var world_tick := 0
 var input_locked := false
 const VISION_BLOCK_COLOR := Color(0.0, 0.0, 0.0, 0.6)
+const ENEMY_VISION_COLOR := Color(0.62, 0.4, 1.0, 0.22)
+const ENEMY_DANGER_COLOR := Color(1.0, 0.55, 0.1, 0.3)
+const ENEMY_MOVE_COLOR := Color(0.3, 0.9, 0.95, 0.32)
 var inventory_body_collapsed := true
 var _restore_inventory_after_loot := false
 const INVENTORY_PANEL_EXPANDED_BOTTOM := 570.0
@@ -273,7 +276,13 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 		return
 	var clicked_enemy := _find_enemy_at(clicked_cell)
 	if is_instance_valid(clicked_enemy):
-		await _attack_with_unit(selected_unit, clicked_enemy)
+		# With a player unit selected, clicking an enemy attacks it; otherwise
+		# the click inspects the enemy (move/attack/vision display).
+		if is_instance_valid(selected_unit) and selected_unit.faction == &"player":
+			await _attack_with_unit(selected_unit, clicked_enemy)
+		else:
+			_select_unit(clicked_enemy, true)
+			_update_hud("已选择 %s（敌方单位，仅侦察）。" % clicked_enemy.name)
 		return
 	var object_id := _object_at_cell(clicked_cell)
 	if object_id != &"":
@@ -291,6 +300,10 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 			return
 	# Only a highlighted (reachable) tile moves the unit; clicking any other
 	# tile cancels the current selection instead of issuing a stray move.
+	if is_instance_valid(selected_unit) and (selected_unit.faction != &"player" or not selected_unit.is_alive()):
+		_select_unit(null)
+		_update_hud("已取消选择。")
+		return
 	var reachable_cells: Array[Vector3i] = []
 	if is_instance_valid(selected_unit):
 		reachable_cells = grid.get_reachable_cells(selected_unit.grid_cell, selected_unit.move_range)
@@ -616,7 +629,7 @@ func cancel_extraction() -> bool:
 
 
 func _try_move_selected(destination: Vector3i) -> bool:
-	if not is_instance_valid(selected_unit):
+	if not is_instance_valid(selected_unit) or selected_unit.faction != &"player" or not selected_unit.is_alive():
 		_update_hud("请先选择一个蓝色单位。")
 		return false
 	var path := grid.find_path(selected_unit.grid_cell, destination)
@@ -822,9 +835,13 @@ func _best_enemy_move(enemy: PrototypeUnit, target: PrototypeUnit) -> Vector3i:
 	return best_cell
 
 
-func _select_unit(unit: PrototypeUnit) -> void:
-	if is_instance_valid(unit) and (unit.faction != &"player" or not unit.is_alive()):
-		unit = null
+func _select_unit(unit: PrototypeUnit, allow_enemy: bool = false) -> void:
+	if is_instance_valid(unit):
+		if unit.faction == &"player":
+			if not unit.is_alive():
+				unit = null
+		elif not allow_enemy:
+			unit = null
 	if is_instance_valid(selected_unit):
 		selected_unit.set_selected(false)
 	selected_unit = unit
@@ -854,13 +871,45 @@ func _refresh_highlights() -> void:
 				_add_highlight(attack_highlights_root, enemy.grid_cell, ATTACK_HIGHLIGHT_COLOR)
 	_refresh_object_highlights()
 	_refresh_vision_overlay()
+	if is_instance_valid(selected_unit) and selected_unit.faction == &"enemy":
+		_refresh_enemy_range_overlays(selected_unit)
+
+
+## When an enemy unit is selected, tints its vision / danger / move zones on
+## the overlay (nested layers, drawn bottom-up so inner zones read on top).
+## The danger zone is every cell within attack_range of some cell the enemy
+## can move to this turn (reachable cells × attack range union).
+func _refresh_enemy_range_overlays(enemy: PrototypeUnit) -> void:
+	var origin := enemy.grid_cell
+	var danger: Dictionary = {}
+	for target_cell in grid.get_reachable_cells(origin, enemy.move_range):
+		for level in range(grid.get_level_count()):
+			for z in range(grid.get_grid_size().y):
+				for x in range(grid.get_grid_size().x):
+					var cell := Vector3i(x, level, z)
+					if grid.has_cell(cell) and GridVisibility.tactical_distance(target_cell, cell) <= enemy.attack_range:
+						danger[cell] = true
+	var footprint := grid.get_grid_size()
+	for level in range(grid.get_level_count()):
+		for z in range(footprint.y):
+			for x in range(footprint.x):
+				var cell := Vector3i(x, level, z)
+				if not grid.has_cell(cell) or cell == origin:
+					continue
+				var distance := GridVisibility.tactical_distance(origin, cell)
+				if distance <= enemy.vision_range:
+					_add_highlight(vision_highlights_root, cell, ENEMY_VISION_COLOR, 0.045)
+				if danger.has(cell):
+					_add_highlight(vision_highlights_root, cell, ENEMY_DANGER_COLOR, 0.065)
+				if distance <= enemy.move_range:
+					_add_highlight(vision_highlights_root, cell, ENEMY_MOVE_COLOR, 0.085)
 
 
 func _refresh_move_highlights() -> void:
 	_refresh_highlights()
 
 
-func _add_highlight(parent: Node3D, cell: Vector3i, color: Color) -> void:
+func _add_highlight(parent: Node3D, cell: Vector3i, color: Color, height_offset: float = MOVE_HIGHLIGHT_SURFACE_OFFSET) -> void:
 	if not is_instance_valid(parent):
 		return
 	var material := StandardMaterial3D.new()
@@ -878,7 +927,7 @@ func _add_highlight(parent: Node3D, cell: Vector3i, color: Color) -> void:
 	parent.add_child(highlight)
 	# Use a world-space placement after parenting so the highlight remains on the
 	# correct 3D surface even if a presentation layer has a transform of its own.
-	highlight.global_position = grid.cell_to_world(cell) + Vector3.UP * MOVE_HIGHLIGHT_SURFACE_OFFSET
+	highlight.global_position = grid.cell_to_world(cell) + Vector3.UP * height_offset
 	highlight.visible = true
 
 
@@ -1384,11 +1433,24 @@ func _update_hud(message: String = "") -> void:
 	phase_label.text = "%s · 世界 Tick %d" % [_phase_name(), world_tick]
 	alert_label.text = "敌方警戒：%s" % _alert_summary()
 	if is_instance_valid(selected_unit):
-		selection_label.text = "%s | HP %d/%d | AP %d/%d | 格 %s | 射程 %d" % [
-			selected_unit.name, selected_unit.current_hp, selected_unit.max_hp,
-			selected_unit.current_action_points, selected_unit.max_action_points,
-			selected_unit.grid_cell, selected_unit.attack_range,
-		]
+		if selected_unit.faction == &"enemy":
+			var alert_text := "未警戒"
+			if enemy_alerts.has(selected_unit.unit_id):
+				var alert := enemy_alerts[selected_unit.unit_id] as AlertState
+				match alert.get_level():
+					AlertState.Level.SUSPICIOUS: alert_text = "怀疑"
+					AlertState.Level.ENGAGED: alert_text = "交战"
+			selection_label.text = "%s | HP %d/%d | 移动 %d | 伤害 %d (危险 %d) | 视野 %d | %s" % [
+				selected_unit.name, selected_unit.current_hp, selected_unit.max_hp,
+				selected_unit.move_range, selected_unit.attack_damage,
+				selected_unit.attack_range, selected_unit.vision_range, alert_text,
+			]
+		else:
+			selection_label.text = "%s | HP %d/%d | AP %d/%d | 格 %s | 射程 %d" % [
+				selected_unit.name, selected_unit.current_hp, selected_unit.max_hp,
+				selected_unit.current_action_points, selected_unit.max_action_points,
+				selected_unit.grid_cell, selected_unit.attack_range,
+			]
 	else:
 		selection_label.text = "未选择单位"
 	end_turn_button.text = "推进探索 Tick" if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION else "结束玩家回合"
