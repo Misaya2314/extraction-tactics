@@ -48,6 +48,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 0, 9)
 
 [node name="ObjectHighlights" type="Node3D" parent="." unique_id=1976509904]
 
+[node name="VisionHighlights" type="Node3D" parent="." unique_id=1742020001]
+
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1699104427]
 
 [node name="TopLeftPanel" type="PanelContainer" parent="HUD" unique_id=1309785730]
@@ -99,8 +101,8 @@ text = "结束回合 / 推进世界 Tick"
 [node name="InventoryPanel" type="PanelContainer" parent="HUD" unique_id=1914501418]
 offset_left = 16.0
 offset_top = 244.0
-offset_right = 392.0
-offset_bottom = 622.0
+offset_right = 516.0
+offset_bottom = 300.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
 
 [node name="Margin" type="MarginContainer" parent="HUD/InventoryPanel" unique_id=1139458512]
@@ -126,24 +128,28 @@ text = "背包"
 [node name="CollapseButton" type="Button" parent="HUD/InventoryPanel/Margin/VBox/HeaderRow" unique_id=1930824606]
 custom_minimum_size = Vector2(64, 0)
 layout_mode = 2
-text = "收起"
+text = "展开"
 
 [node name="InventorySummary" type="Label" parent="HUD/InventoryPanel/Margin/VBox" unique_id=722956251]
+visible = false
 layout_mode = 2
 text = "背包 0/48 | 总价值 0 · 6×8"
 
 [node name="InventoryHint" type="Label" parent="HUD/InventoryPanel/Margin/VBox" unique_id=332781944]
+visible = false
 layout_mode = 2
 text = "拖动重排；R 或右键旋转；Loot 物品拖入指定格"
 autowrap_mode = 2
 
 [node name="InventoryItems" type="Control" parent="HUD/InventoryPanel/Margin/VBox" unique_id=2115809690]
+visible = false
 custom_minimum_size = Vector2(180, 240)
 layout_mode = 2
 mouse_filter = 1
 script = ExtResource("5_inventory_grid")
 
 [node name="LootOverview" type="Label" parent="HUD/InventoryPanel/Margin/VBox" unique_id=136355138]
+visible = false
 layout_mode = 2
 text = "Loot 容器：0 个可搜刮"
 

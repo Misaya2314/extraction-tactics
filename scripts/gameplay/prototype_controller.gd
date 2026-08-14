@@ -42,7 +42,9 @@ var extraction_cells: Array[Vector3i] = []
 var open_loot_container_id: StringName = &""
 var world_tick := 0
 var input_locked := false
-var inventory_body_collapsed := false
+const VISION_BLOCK_COLOR := Color(0.0, 0.0, 0.0, 0.6)
+var inventory_body_collapsed := true
+var _restore_inventory_after_loot := false
 const INVENTORY_PANEL_EXPANDED_BOTTOM := 570.0
 const INVENTORY_PANEL_COLLAPSED_BOTTOM := 300.0
 
@@ -51,6 +53,7 @@ const INVENTORY_PANEL_COLLAPSED_BOTTOM := 300.0
 @onready var highlights_root: Node3D = $MoveHighlights
 @onready var attack_highlights_root: Node3D = $AttackHighlights
 @onready var object_highlights_root: Node3D = $ObjectHighlights
+@onready var vision_highlights_root: Node3D = $VisionHighlights
 @onready var selection_label: Label = $HUD/TopLeftPanel/Margin/VBox/SelectionLabel
 @onready var phase_label: Label = $HUD/TopLeftPanel/Margin/VBox/PhaseLabel
 @onready var alert_label: Label = $HUD/TopLeftPanel/Margin/VBox/AlertLabel
@@ -330,6 +333,9 @@ func interact_with_loot(container_id: StringName) -> ActionResult:
 	open_loot_container_id = container_id
 	_refresh_loot_panel()
 	loot_panel.visible = true
+	if inventory_body_collapsed:
+		_restore_inventory_after_loot = true
+		_set_inventory_body_collapsed(false)
 	_update_hud("已打开 %s，可单项或全部拾取。" % container_id)
 	_log("打开 Loot 箱 %s（%d 件）。" % [container_id, container.get_item_count()])
 	_refresh_highlights()
@@ -847,6 +853,7 @@ func _refresh_highlights() -> void:
 			):
 				_add_highlight(attack_highlights_root, enemy.grid_cell, ATTACK_HIGHLIGHT_COLOR)
 	_refresh_object_highlights()
+	_refresh_vision_overlay()
 
 
 func _refresh_move_highlights() -> void:
@@ -901,6 +908,36 @@ func _clear_highlights() -> void:
 		_clear_children(attack_highlights_root)
 	if is_instance_valid(object_highlights_root):
 		_clear_children(object_highlights_root)
+
+
+## Darkens every cell NOT visible to any living player unit (range + LOS)
+## with a semi-transparent black overlay, always on. Rebuilds on every
+## highlight refresh.
+func _refresh_vision_overlay() -> void:
+	if not is_instance_valid(vision_highlights_root):
+		return
+	_clear_children(vision_highlights_root)
+	var observers: Array = []
+	for unit_value in units_by_id.values():
+		var unit := unit_value as PrototypeUnit
+		if unit.faction == &"player" and unit.is_alive():
+			observers.append([unit.grid_cell, unit.vision_range])
+	if observers.is_empty():
+		return
+	var footprint := grid.get_grid_size()
+	for level in range(grid.get_level_count()):
+		for z in range(footprint.y):
+			for x in range(footprint.x):
+				var cell := Vector3i(x, level, z)
+				if not grid.has_cell(cell):
+					continue
+				var visible := false
+				for observer in observers:
+					if GridVisibility.has_line_of_sight(observer[0], cell, opaque_cells, observer[1]):
+						visible = true
+						break
+				if not visible:
+					_add_highlight(vision_highlights_root, cell, VISION_BLOCK_COLOR)
 
 
 func _clear_move_highlights() -> void:
@@ -1132,6 +1169,7 @@ func _close_loot_panel() -> void:
 	if is_instance_valid(loot_panel):
 		loot_panel.visible = false
 	open_loot_container_id = &""
+	_restore_inventory_after_loot_state()
 
 
 func _on_extraction_confirm_pressed() -> void:
@@ -1147,14 +1185,25 @@ func _on_restart_pressed() -> void:
 
 
 func _on_inventory_collapse_pressed() -> void:
-	inventory_body_collapsed = not inventory_body_collapsed
-	var body_visible := not inventory_body_collapsed
+	_set_inventory_body_collapsed(not inventory_body_collapsed)
+
+
+func _set_inventory_body_collapsed(collapsed: bool) -> void:
+	inventory_body_collapsed = collapsed
+	var body_visible := not collapsed
 	inventory_summary_label.visible = body_visible
 	inventory_hint_label.visible = body_visible
 	inventory_grid.visible = body_visible
 	loot_overview_label.visible = body_visible
-	inventory_collapse_button.text = "展开" if inventory_body_collapsed else "收起"
-	inventory_panel.offset_bottom = INVENTORY_PANEL_COLLAPSED_BOTTOM if inventory_body_collapsed else INVENTORY_PANEL_EXPANDED_BOTTOM
+	inventory_collapse_button.text = "展开" if collapsed else "收起"
+	inventory_panel.offset_bottom = INVENTORY_PANEL_COLLAPSED_BOTTOM if collapsed else INVENTORY_PANEL_EXPANDED_BOTTOM
+
+
+func _restore_inventory_after_loot_state() -> void:
+	if not _restore_inventory_after_loot:
+		return
+	_restore_inventory_after_loot = false
+	_set_inventory_body_collapsed(true)
 
 
 func _on_session_state_changed(_previous: int, current: int) -> void:
@@ -1165,6 +1214,7 @@ func _on_session_state_changed(_previous: int, current: int) -> void:
 	if current != GameStateManagerScript.State.EXPLORATION and is_instance_valid(loot_panel):
 		loot_panel.visible = false
 		open_loot_container_id = &""
+		_restore_inventory_after_loot_state()
 	if is_instance_valid(inventory_grid):
 		inventory_grid.refresh()
 	if is_instance_valid(loot_grid) and current != GameStateManagerScript.State.EXPLORATION:
