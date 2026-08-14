@@ -1,4 +1,4 @@
-[gd_resource type="MeshLibrary" format=3]
+[gd_resource type="MeshLibrary" format=3 uid="uid://ghwggyobq5va"]
 
 [ext_resource type="Material" path="res://assets/prototype/materials/ground.tres" id="1_fdfc0"]
 [ext_resource type="Material" path="res://assets/prototype/materials/ground_alt.tres" id="2_r410k"]

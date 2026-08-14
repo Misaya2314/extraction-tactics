@@ -16,7 +16,7 @@ extends Node3D
 @export var zoom_min: float = 9.0
 @export var zoom_max: float = 24.0
 @export var zoom_step: float = 2.0
-@export var zoom_smoothing: float = 8.0
+@export var zoom_smoothing: float = 30.0
 
 @export_category("View")
 @export var camera_pitch_degrees: float = -55.0

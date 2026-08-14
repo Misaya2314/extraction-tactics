@@ -42,8 +42,12 @@ var extraction_cells: Array[Vector3i] = []
 var open_loot_container_id: StringName = &""
 var world_tick := 0
 var input_locked := false
+var inventory_body_collapsed := false
+const INVENTORY_PANEL_EXPANDED_BOTTOM := 570.0
+const INVENTORY_PANEL_COLLAPSED_BOTTOM := 300.0
 
 @onready var units_root: Node3D = $Units
+@onready var camera_rig: TacticalCameraRig = $TacticalCameraRig
 @onready var highlights_root: Node3D = $MoveHighlights
 @onready var attack_highlights_root: Node3D = $AttackHighlights
 @onready var object_highlights_root: Node3D = $ObjectHighlights
@@ -53,6 +57,9 @@ var input_locked := false
 @onready var hint_label: Label = $HUD/TopLeftPanel/Margin/VBox/HintLabel
 @onready var end_turn_button: Button = $HUD/TopLeftPanel/Margin/VBox/EndTurnButton
 @onready var inventory_summary_label: Label = $HUD/InventoryPanel/Margin/VBox/InventorySummary
+@onready var inventory_hint_label: Label = $HUD/InventoryPanel/Margin/VBox/InventoryHint
+@onready var inventory_panel: PanelContainer = $HUD/InventoryPanel
+@onready var inventory_collapse_button: Button = $HUD/InventoryPanel/Margin/VBox/HeaderRow/CollapseButton
 @onready var inventory_grid: InventoryGridControl = $HUD/InventoryPanel/Margin/VBox/InventoryItems
 @onready var loot_overview_label: Label = $HUD/InventoryPanel/Margin/VBox/LootOverview
 @onready var loot_panel: PanelContainer = $HUD/LootPanel
@@ -75,6 +82,7 @@ func _ready() -> void:
 	if map_definition == null or not grid.configure_from_definition(map_definition):
 		push_error("PrototypeController requires a valid TacticalMapDefinition.")
 		return
+	_apply_camera_bounds()
 	session_manager = GameStateManagerScript.new()
 	squad_inventory = SquadInventoryScript.new()
 	loot_settlement = null
@@ -156,6 +164,17 @@ func _placement_property(placement: Object, property_name: StringName, default_v
 	if _placement_has_property(placement, property_name):
 		return placement.get(property_name)
 	return placement.get_meta(property_name, default_value)
+
+
+func _apply_camera_bounds() -> void:
+	if not is_instance_valid(camera_rig):
+		return
+	var bounds_min := Vector2(map_definition.origin.x, map_definition.origin.z)
+	var bounds_max := bounds_min + Vector2(
+		float(map_definition.footprint_size.x) * map_definition.cell_size.x,
+		float(map_definition.footprint_size.y) * map_definition.cell_size.z
+	)
+	camera_rig.set_map_bounds(bounds_min, bounds_max)
 
 
 func _apply_map_rules() -> void:
@@ -267,7 +286,16 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 			if moved and is_instance_valid(selected_unit) and selected_unit.grid_cell == clicked_cell and session_manager.get_state() == GameStateManagerScript.State.EXPLORATION:
 				begin_extraction_prompt(object_id)
 			return
-	await _try_move_selected(clicked_cell)
+	# Only a highlighted (reachable) tile moves the unit; clicking any other
+	# tile cancels the current selection instead of issuing a stray move.
+	var reachable_cells: Array[Vector3i] = []
+	if is_instance_valid(selected_unit):
+		reachable_cells = grid.get_reachable_cells(selected_unit.grid_cell, selected_unit.move_range)
+	if reachable_cells.has(clicked_cell):
+		await _try_move_selected(clicked_cell)
+	else:
+		_select_unit(null)
+		_update_hud("已取消选择。")
 
 
 ## Stable integration entry for UI/tests. Loot opening is an Interact Action;
@@ -1092,6 +1120,17 @@ func _on_extraction_cancel_pressed() -> void:
 
 func _on_restart_pressed() -> void:
 	get_tree().reload_current_scene()
+
+
+func _on_inventory_collapse_pressed() -> void:
+	inventory_body_collapsed = not inventory_body_collapsed
+	var body_visible := not inventory_body_collapsed
+	inventory_summary_label.visible = body_visible
+	inventory_hint_label.visible = body_visible
+	inventory_grid.visible = body_visible
+	loot_overview_label.visible = body_visible
+	inventory_collapse_button.text = "展开" if inventory_body_collapsed else "收起"
+	inventory_panel.offset_bottom = INVENTORY_PANEL_COLLAPSED_BOTTOM if inventory_body_collapsed else INVENTORY_PANEL_EXPANDED_BOTTOM
 
 
 func _on_session_state_changed(_previous: int, current: int) -> void:
