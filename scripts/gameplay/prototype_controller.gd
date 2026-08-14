@@ -735,20 +735,18 @@ func _evaluate_detection() -> bool:
 				enemy.grid_cell, player.grid_cell, enemy.facing,
 				enemy.vision_range, opaque_cells
 			):
-				_start_combat(false, enemy, player.grid_cell, player.unit_id)
+				_start_combat(true, enemy, player.grid_cell, player.unit_id, "发现玩家")
 				return true
 	return false
 
 
-func _start_combat(player_first: bool, alert_enemy: PrototypeUnit, known_cell: Vector3i, target_id: StringName = &"") -> bool:
+func _start_combat(player_first: bool, alert_enemy: PrototypeUnit, known_cell: Vector3i, target_id: StringName = &"", reason: String = "") -> bool:
 	if turn_manager.get_phase() != TurnManager.Phase.EXPLORATION or session_manager == null:
 		return false
 	if not is_instance_valid(alert_enemy):
 		return false
-	_log("进入交战：%s%s（%s 在 %s）。" % [
-		alert_enemy.name, "被玩家主动攻击" if player_first else "发现玩家",
-		alert_enemy.name, known_cell
-	])
+	var reason_text := reason if reason != "" else ("被玩家主动攻击" if player_first else "发现玩家")
+	_log("进入交战：%s%s（位置 %s）。" % [alert_enemy.name, reason_text, known_cell])
 	var effective_target := target_id
 	if effective_target.is_empty() and is_instance_valid(selected_unit):
 		effective_target = selected_unit.unit_id
