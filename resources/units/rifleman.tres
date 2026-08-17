@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="UnitArchetype" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/units/unit_archetype.gd" id="1_archetype"]
+[ext_resource type="Resource" path="res://resources/weapons/carbine.tres" id="2_weapon"]
+
+[resource]
+script = ExtResource("1_archetype")
+archetype_id = &"rifleman"
+display_name = "步枪兵"
+max_hp = 8
+max_action_points = 2
+move_range = 3
+vision_range = 7
+default_weapon = ExtResource("2_weapon")

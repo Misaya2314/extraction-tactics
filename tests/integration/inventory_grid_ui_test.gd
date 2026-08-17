@@ -91,14 +91,16 @@ func _test_loot_targeted_place_and_return() -> void:
 	player.reset_action_points()
 	var container = prototype.loot_containers[&"loot_1"]
 	var open_result := prototype.interact_with_loot(&"loot_1")
-	_expect(open_result.success and open_result.action_type == &"interact", "loot: opening remains Interact")
+	_expect(open_result.success and open_result.action_type == &"interact" and open_result.ap_cost == 1, "loot: opening remains a one-AP Interact")
+	_expect(player.current_action_points == 1, "loot: opening consumes one AP")
 	_expect(prototype.loot_grid.get_item_control_count() > 0, "loot: instance controls should be visible")
 	var item: InventoryItemInstance = container.get_item(0)
 	var before_count: int = container.get_item_count()
 	player.reset_action_points()
+	var ap_before_place: int = player.current_action_points
 	var place_result := prototype.place_loot_instance(&"loot_1", 0, Vector2i(0, 0), item.rotation)
-	_expect(place_result.success and place_result.action_type == &"loot", "loot: targeted placement should be Loot action")
-	_expect(player.current_action_points == 1, "loot: successful placement costs one AP")
+	_expect(place_result.success and place_result.action_type == &"loot" and place_result.ap_cost == 0, "loot: targeted placement should be a free Loot action")
+	_expect(player.current_action_points == ap_before_place, "loot: successful placement does not consume AP")
 	_expect(container.get_item_count() == before_count - 1, "loot: successful placement removes one instance")
 	var placed_id: StringName = item.instance_id
 	var before_used: int = prototype.squad_inventory.used
@@ -195,7 +197,7 @@ func _test_native_drag_and_key_input_path() -> void:
 		_expect(can_drop, "input: native drag payload gets a valid grid preview")
 		prototype.inventory_grid._drop_data(Vector2(5, 5), payload)
 		_expect(prototype.squad_inventory.used > 0, "input: native drop transfers the instance")
-		_expect(player.current_action_points == 1, "input: native drop uses the same one-AP command")
+		_expect(player.current_action_points == 2, "input: native drop uses the same free Loot command")
 		_expect(not prototype.loot_grid.has_active_drag(), "input: successful drop clears Loot source drag")
 		_expect(not prototype.inventory_grid.has_active_drag(), "input: successful drop clears inventory target drag")
 		_expect(source_control.get_active_drag_preview() == null, "input: successful drop clears source drag visual")

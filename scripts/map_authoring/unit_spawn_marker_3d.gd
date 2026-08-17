@@ -7,6 +7,9 @@ extends MapMarker3D
 @export var facing: Vector2i = Vector2i.DOWN
 @export var visual_color: Color = Color("4f9dff")
 @export var patrol_route_id: StringName = &""
+@export var archetype: UnitArchetype
+@export var weapon: WeaponDefinition
+@export var encounter_id: StringName = &""
 
 
 func to_data() -> MapSpawnData:
@@ -17,4 +20,7 @@ func to_data() -> MapSpawnData:
 	data.facing = facing
 	data.visual_color = visual_color
 	data.patrol_route_id = patrol_route_id
+	data.archetype = archetype
+	data.weapon = weapon
+	data.encounter_id = encounter_id
 	return data

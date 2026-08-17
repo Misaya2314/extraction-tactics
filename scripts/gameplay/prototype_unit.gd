@@ -16,6 +16,8 @@ signal died(unit: PrototypeUnit)
 @export var vision_range := 7
 @export var visual_color := Color("4f9dff")
 
+var archetype: UnitArchetype
+var weapon: WeaponDefinition
 var current_hp := 10
 var current_action_points := 2
 var unit_id: StringName
@@ -31,6 +33,7 @@ var facing := Vector2i(0, 1)
 func _ready() -> void:
 	current_hp = max_hp
 	current_action_points = max_action_points
+	_apply_weapon_stats()
 	if unit_id.is_empty():
 		unit_id = StringName("%s_%s" % [faction, get_instance_id()])
 	_apply_visual_color()
@@ -42,14 +45,45 @@ func _ready() -> void:
 func configure(
 		new_cell: Vector3i,
 		new_faction: StringName,
-		new_color: Color
+		new_color: Color,
+		new_archetype: UnitArchetype = null,
+		new_weapon: WeaponDefinition = null
 ) -> void:
 	grid_cell = new_cell
 	faction = new_faction
 	visual_color = new_color
+	if new_archetype != null:
+		archetype = new_archetype
+		max_hp = archetype.max_hp
+		max_action_points = archetype.max_action_points
+		move_range = archetype.move_range
+		vision_range = archetype.vision_range
+		weapon = new_weapon if new_weapon != null else archetype.default_weapon
+	elif new_weapon != null:
+		weapon = new_weapon
+	_apply_weapon_stats()
 	unit_id = StringName("%s_%s" % [faction, get_instance_id()])
 	if is_node_ready():
+		current_hp = max_hp
+		current_action_points = max_action_points
 		_apply_visual_color()
+		_update_status_label()
+
+
+func set_weapon(new_weapon: WeaponDefinition) -> void:
+	weapon = new_weapon
+	_apply_weapon_stats()
+	_update_status_label()
+
+
+func get_weapon_display_name() -> String:
+	return weapon.display_name if weapon != null else "未配置武器"
+
+
+func get_weapon_summary() -> String:
+	if weapon == null:
+		return "未配置武器"
+	return weapon.get_summary()
 
 
 func set_selected(is_selected: bool) -> void:
@@ -127,6 +161,14 @@ func _apply_visual_color() -> void:
 	material.albedo_color = visual_color
 	material.roughness = 0.78
 	body_mesh.material_override = material
+
+
+func _apply_weapon_stats() -> void:
+	if weapon == null:
+		return
+	attack_range = weapon.range
+	attack_damage = weapon.damage
+	attack_ap_cost = weapon.ap_cost
 
 
 func _update_status_label() -> void:

@@ -9,6 +9,13 @@ const LOOT_TABLE_SUPPLY: LootTableDefinition = preload("res://resources/loot/loo
 const LOOT_TABLE_WAREHOUSE: LootTableDefinition = preload("res://resources/loot/loot_table_warehouse.tres")
 const LOOT_TABLE_OUTPOST: LootTableDefinition = preload("res://resources/loot/loot_table_outpost.tres")
 const LOOT_TABLE_HIGH_VALUE: LootTableDefinition = preload("res://resources/loot/loot_table_high_value.tres")
+const WEAPON_ASSAULT_RIFLE: WeaponDefinition = preload("res://resources/weapons/assault_rifle.tres")
+const WEAPON_SHOTGUN: WeaponDefinition = preload("res://resources/weapons/shotgun.tres")
+const WEAPON_CARBINE: WeaponDefinition = preload("res://resources/weapons/carbine.tres")
+const ARCHETYPE_PLAYER_ALPHA: UnitArchetype = preload("res://resources/units/player_alpha.tres")
+const ARCHETYPE_PLAYER_BRAVO: UnitArchetype = preload("res://resources/units/player_bravo.tres")
+const ARCHETYPE_RIFLEMAN: UnitArchetype = preload("res://resources/units/rifleman.tres")
+const ARCHETYPE_ASSAULT: UnitArchetype = preload("res://resources/units/assault.tres")
 
 
 func _init() -> void:
@@ -161,16 +168,24 @@ func _create_author_scene(library: MeshLibrary, catalog: MapTileCatalog) -> Tact
 	var spawns := Node3D.new()
 	spawns.name = "Spawns"
 	_add_owned(author, spawns)
-	_add_spawn_marker(author, spawns, &"PlayerAlpha", &"player", Vector3i(1, 0, 1), Color("4f9dff"), Vector2i.DOWN)
-	_add_spawn_marker(author, spawns, &"PlayerBravo", &"player", Vector3i(2, 0, 1), Color("6cadff"), Vector2i.DOWN)
-	_add_spawn_marker(author, spawns, &"EnemyScout", &"enemy", Vector3i(7, 0, 2), Color("ef5b5b"), Vector2i.LEFT, &"scout_patrol")
-	_add_spawn_marker(author, spawns, &"EnemyGuard", &"enemy", Vector3i(10, 0, 7), Color("d44b4b"), Vector2i.LEFT, &"guard_patrol")
+	_add_spawn_marker(author, spawns, &"PlayerAlpha", &"player", Vector3i(1, 0, 1), Color("4f9dff"), Vector2i.DOWN, &"", ARCHETYPE_PLAYER_ALPHA, WEAPON_ASSAULT_RIFLE)
+	_add_spawn_marker(author, spawns, &"PlayerBravo", &"player", Vector3i(2, 0, 1), Color("6cadff"), Vector2i.DOWN, &"", ARCHETYPE_PLAYER_BRAVO, WEAPON_SHOTGUN)
+	_add_spawn_marker(author, spawns, &"EnemyScout", &"enemy", Vector3i(7, 0, 2), Color("ef5b5b"), Vector2i.LEFT, &"scout_patrol", ARCHETYPE_RIFLEMAN, WEAPON_CARBINE, &"warehouse")
+	_add_spawn_marker(author, spawns, &"EnemyRifleman_2", &"enemy", Vector3i(7, 0, 1), Color("e76565"), Vector2i.LEFT, &"rifleman_patrol", ARCHETYPE_RIFLEMAN, WEAPON_CARBINE, &"warehouse")
+	_add_spawn_marker(author, spawns, &"EnemyAssault_1", &"enemy", Vector3i(6, 0, 3), Color("f06a4d"), Vector2i.LEFT, &"warehouse_assault_patrol", ARCHETYPE_ASSAULT, WEAPON_SHOTGUN, &"warehouse")
+	_add_spawn_marker(author, spawns, &"EnemyGuard", &"enemy", Vector3i(10, 0, 7), Color("d44b4b"), Vector2i.LEFT, &"guard_patrol", ARCHETYPE_RIFLEMAN, WEAPON_CARBINE, &"outpost")
+	_add_spawn_marker(author, spawns, &"EnemyAssault_2", &"enemy", Vector3i(9, 0, 4), Color("eb604d"), Vector2i.LEFT, &"outpost_assault_patrol", ARCHETYPE_ASSAULT, WEAPON_SHOTGUN, &"outpost")
+	_add_spawn_marker(author, spawns, &"EnemyAssault_3", &"enemy", Vector3i(10, 0, 4), Color("f0784f"), Vector2i.LEFT, &"outpost_flank_patrol", ARCHETYPE_ASSAULT, WEAPON_SHOTGUN, &"outpost")
 
 	var routes := Node3D.new()
 	routes.name = "PatrolRoutes"
 	_add_owned(author, routes)
 	_add_route_marker(author, routes, &"scout_patrol", [Vector3i(7, 0, 2), Vector3i(7, 0, 1), Vector3i(6, 0, 1)], false)
+	_add_route_marker(author, routes, &"rifleman_patrol", [Vector3i(7, 0, 1), Vector3i(7, 0, 0), Vector3i(6, 0, 0)], true)
+	_add_route_marker(author, routes, &"warehouse_assault_patrol", [Vector3i(6, 0, 3), Vector3i(6, 0, 4), Vector3i(5, 0, 4)], true)
 	_add_route_marker(author, routes, &"guard_patrol", [Vector3i(10, 0, 7), Vector3i(10, 0, 8), Vector3i(9, 0, 8)], true)
+	_add_route_marker(author, routes, &"outpost_assault_patrol", [Vector3i(9, 0, 4), Vector3i(9, 0, 5), Vector3i(10, 0, 5)], true)
+	_add_route_marker(author, routes, &"outpost_flank_patrol", [Vector3i(10, 0, 4), Vector3i(11, 0, 4), Vector3i(10, 0, 5)], true)
 
 	var links := Node3D.new()
 	links.name = "TraversalLinks"
@@ -187,7 +202,7 @@ func _create_author_scene(library: MeshLibrary, catalog: MapTileCatalog) -> Tact
 	return author
 
 
-func _add_spawn_marker(author: TacticalMapAuthor, parent: Node3D, unit_name: StringName, faction: StringName, cell: Vector3i, color: Color, facing: Vector2i, route_id: StringName = &"") -> void:
+func _add_spawn_marker(author: TacticalMapAuthor, parent: Node3D, unit_name: StringName, faction: StringName, cell: Vector3i, color: Color, facing: Vector2i, route_id: StringName = &"", archetype: UnitArchetype = null, weapon: WeaponDefinition = null, encounter_id: StringName = &"") -> void:
 	var marker := UnitSpawnMarker3D.new()
 	marker.name = String(unit_name)
 	marker.unit_name = unit_name
@@ -197,6 +212,9 @@ func _add_spawn_marker(author: TacticalMapAuthor, parent: Node3D, unit_name: Str
 	marker.visual_color = color
 	marker.facing = facing
 	marker.patrol_route_id = route_id
+	marker.archetype = archetype
+	marker.weapon = weapon
+	marker.encounter_id = encounter_id
 	_add_owned(parent, marker, author)
 
 

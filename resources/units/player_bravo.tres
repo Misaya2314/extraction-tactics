@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="UnitArchetype" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/units/unit_archetype.gd" id="1_archetype"]
+[ext_resource type="Resource" path="res://resources/weapons/shotgun.tres" id="2_weapon"]
+
+[resource]
+script = ExtResource("1_archetype")
+archetype_id = &"player_bravo"
+display_name = "破门手"
+max_hp = 10
+max_action_points = 3
+move_range = 5
+vision_range = 6
+default_weapon = ExtResource("2_weapon")

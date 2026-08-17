@@ -40,6 +40,17 @@ func _run() -> void:
 	_expect(prototype.session_manager.get_state() == GameStateManagerScript.State.EXPLORATION, "victory: session should remain active after encounter")
 	_expect(not prototype.session_manager.is_terminal(), "victory: encounter resolution is not a session result")
 	_expect(not prototype.end_turn_button.disabled, "victory: exploration input should remain available")
+	_expect(prototype.active_encounter_id == &"", "victory: resolved encounter should clear the active group")
+	_expect(prototype._unit_by_name(&"EnemyGuard") != null and not prototype.turn_manager.get_enemy_ids().has(prototype._unit_by_name(&"EnemyGuard").unit_id), "encounter: a different group should remain inactive")
+	var guard := prototype._unit_by_name(&"EnemyGuard")
+	_expect(prototype._start_combat(true, guard, player.grid_cell, player.unit_id), "encounter: second authored group should start independently")
+	_expect(prototype.active_encounter_id == &"outpost", "encounter: second group should carry its own encounter ID")
+	_expect(prototype.turn_manager.get_enemy_ids().size() == 3, "encounter: second group should load exactly three enemies")
+	for enemy_id in prototype.turn_manager.get_enemy_ids().duplicate():
+		var target := prototype._unit_by_id(enemy_id)
+		if is_instance_valid(target):
+			target.take_damage(target.current_hp)
+	_expect(prototype.session_manager.get_state() == GameStateManagerScript.State.EXPLORATION, "encounter: second group should also return to exploration")
 	_expect(prototype.turn_manager.reset_to_exploration() == false, "victory: duplicate exploration reset should be stable")
 
 	prototype.queue_free()

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="WeaponDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/combat/weapon_definition.gd" id="1_weapon"]
+
+[resource]
+script = ExtResource("1_weapon")
+weapon_id = &"shotgun"
+display_name = "霰弹枪"
+damage = 5
+range = 3
+ap_cost = 1

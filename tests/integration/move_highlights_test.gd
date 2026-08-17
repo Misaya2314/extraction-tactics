@@ -44,7 +44,8 @@ func _run() -> void:
 	_expect(not _highlight_cells(prototype).is_empty(), "turn: AP reset should restore move highlights")
 	_expect(_highlight_cells(prototype) == _movement_cells(prototype), "turn: refreshed highlights should use current reachable cells")
 
-	prototype.turn_manager.start_combat(true)
+	var encounter_enemy := prototype._unit_by_name(&"EnemyScout")
+	_expect(prototype._start_combat(true, encounter_enemy, unit.grid_cell, unit.unit_id), "phase: an authored encounter should start combat")
 	await process_frame
 	_expect(prototype.turn_manager.is_player_turn(), "phase: combat should enter the player turn")
 	_expect(not _highlight_cells(prototype).is_empty(), "phase: player turn should show move highlights")

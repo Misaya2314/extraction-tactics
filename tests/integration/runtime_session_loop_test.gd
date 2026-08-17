@@ -40,18 +40,26 @@ func _test_loot_and_extraction() -> void:
 		return
 
 	_place_unit(prototype, player, Vector3i(1, 0, 2))
-	player.reset_action_points()
-	var open_result := prototype.interact_with_loot(&"loot_1")
+	player.spend_action_points(player.current_action_points)
 	var container = prototype.loot_containers[&"loot_1"]
-	_expect(open_result.success and open_result.action_type == &"interact", "loot: opening nearby container should be an Interact action")
-	_expect(player.current_action_points == 1 and container.is_opened(), "loot: opening should consume one AP and expose contents")
+	var unopened_count: int = container.get_item_count()
+	var rejected_open := prototype.interact_with_loot(&"loot_1")
+	_expect(not rejected_open.success and rejected_open.action_type == &"interact" and rejected_open.reason == &"no_ap", "loot: zero-AP opening should reject before the handler")
+	_expect(player.current_action_points == 0 and not container.is_opened() and container.get_item_count() == unopened_count and not prototype.loot_panel.visible, "loot: rejected opening should preserve the unopened container, AP and panel")
+
+	player.reset_action_points()
+	var open_ap_before: int = player.current_action_points
+	var open_result := prototype.interact_with_loot(&"loot_1")
+	_expect(open_result.success and open_result.action_type == &"interact" and open_result.ap_cost == 1, "loot: opening nearby container should be a one-AP Interact action")
+	_expect(player.current_action_points == open_ap_before - 1 and container.is_opened(), "loot: successful opening should spend one AP and expose contents")
 	_expect(prototype.loot_panel.visible, "loot: opening should show the loot panel")
 
 	player.reset_action_points()
+	player.spend_action_points(player.current_action_points)
 	var before_count: int = container.get_item_count()
 	var loot_result := prototype.loot_item(0)
-	_expect(loot_result.success and loot_result.action_type == &"loot", "loot: valid item pickup should be a Loot action")
-	_expect(player.current_action_points == 1, "loot: item pickup should consume one AP")
+	_expect(loot_result.success and loot_result.action_type == &"loot" and loot_result.ap_cost == 0, "loot: valid opened-container pickup should be a free Loot action")
+	_expect(player.current_action_points == 0, "loot: item pickup should remain free at zero AP")
 	_expect(container.get_item_count() == before_count - 1 and prototype.squad_inventory.used > 0, "loot: item should move into squad inventory")
 	prototype._refresh_highlights()
 	_expect(prototype.object_highlights_root.get_child_count() > 0, "highlight: nearby loot should have an interaction highlight")
@@ -88,14 +96,20 @@ func _test_capacity_is_atomic() -> void:
 	var player := prototype._unit_by_name(&"PlayerAlpha")
 	_place_unit(prototype, player, Vector3i(7, 0, 3))
 	prototype.squad_inventory.configure(0)
-	player.reset_action_points()
-	var open_result := prototype.interact_with_loot(&"loot_2")
+	player.spend_action_points(player.current_action_points)
 	var container = prototype.loot_containers[&"loot_2"]
-	var before_count: int = container.get_item_count()
+	var unopened_count: int = container.get_item_count()
+	var rejected_open := prototype.interact_with_loot(&"loot_2")
+	_expect(not rejected_open.success and rejected_open.reason == &"no_ap", "capacity: zero-AP opening should reject before inventory validation")
+	_expect(player.current_action_points == 0 and not container.is_opened() and container.get_item_count() == unopened_count and not prototype.loot_panel.visible, "capacity: zero-AP opening rejection must preserve the container and panel")
 	player.reset_action_points()
+	var open_ap_before: int = player.current_action_points
+	var open_result := prototype.interact_with_loot(&"loot_2")
+	_expect(open_result.success and open_result.ap_cost == 1 and player.current_action_points == open_ap_before - 1, "capacity: opening should spend one AP")
+	player.spend_action_points(player.current_action_points)
+	var before_count: int = container.get_item_count()
 	var before_ap: int = player.current_action_points
 	var rejected := prototype.loot_item(0)
-	_expect(open_result.success, "capacity: setup container should open")
 	_expect(not rejected.success and rejected.action_type == &"loot" and rejected.reason == &"inventory_full", "capacity: full inventory should reject through Loot action")
 	_expect(container.get_item_count() == before_count and player.current_action_points == before_ap, "capacity: rejected pickup must be atomic")
 	await _free_prototype(prototype)
@@ -120,6 +134,8 @@ func _test_encounter_returns_to_exploration() -> void:
 	var enemy := prototype._unit_by_name(&"EnemyGuard")
 	_expect(prototype._start_combat(true, enemy, player.grid_cell, player.unit_id), "encounter: explicit combat start should enter combat")
 	_expect(prototype.session_manager.get_state() == GameStateManagerScript.State.COMBAT, "encounter: active fight should update session state")
+	_expect(prototype.active_encounter_id == &"outpost" and prototype.turn_manager.get_enemy_ids().size() == 3, "encounter: only the selected outpost group should be active")
+	_expect(not prototype.turn_manager.get_enemy_ids().has(prototype._unit_by_name(&"EnemyScout").unit_id), "encounter: warehouse enemies should not join the outpost fight")
 	for enemy_id in prototype.turn_manager.get_enemy_ids().duplicate():
 		var target := prototype._unit_by_id(enemy_id)
 		if is_instance_valid(target):

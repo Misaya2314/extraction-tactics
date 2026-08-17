@@ -16,11 +16,13 @@ func _run() -> void:
 
 	_expect(is_instance_valid(prototype.grid), "main: grid model should be created")
 	_expect(prototype.grid.grid_size == Vector2i(12, 10), "main: grid size should be 12x10")
-	_expect(prototype.units_root.get_child_count() == 4, "main: two players and two enemy markers should spawn")
+	_expect(prototype.units_root.get_child_count() == 8, "main: two players and six enemy markers should spawn")
 	_expect(prototype.map_definition.cells.size() == 129, "main: runtime should load the baked two-level map")
 	_expect(prototype.map_definition.transitions.size() == 1, "main: runtime should load the explicit stair connection")
 	_expect(prototype.turn_manager.get_phase() == TurnManager.Phase.EXPLORATION, "main: prototype should start in exploration")
 	_expect(is_instance_valid(prototype.selected_unit), "main: first player should be selected")
+	_expect(prototype.selection_label.text.contains(prototype.selected_unit.get_weapon_display_name()), "main: HUD should show the selected weapon name")
+	_expect(prototype.selection_label.text.contains("伤害") and prototype.selection_label.text.contains("射程"), "main: HUD should show weapon damage and range")
 	_expect(prototype.highlights_root.get_child_count() > 0, "main: selected unit should show reachable cells")
 
 	var moving_unit := prototype.selected_unit
@@ -50,14 +52,12 @@ func _run() -> void:
 		var first_attack := await prototype._attack_with_unit(moving_unit, enemy)
 		_expect(first_attack.success, "combat: visible in-range enemy should be attackable")
 		_expect(prototype.turn_manager.is_player_turn(), "combat: active attack from exploration should give player turn")
-		_expect(enemy.current_hp == 6, "combat: attack should apply configured damage")
-		moving_unit.reset_action_points()
-		await prototype._attack_with_unit(moving_unit, enemy)
+		_expect(enemy.current_hp == enemy.max_hp - moving_unit.attack_damage, "combat: attack should apply configured weapon damage")
 		moving_unit.reset_action_points()
 		var killing_attack := await prototype._attack_with_unit(moving_unit, enemy)
-		_expect(killing_attack.killed, "combat: third attack should kill the scout")
+		_expect(killing_attack.killed, "combat: second attack should kill the scout")
 		_expect(not prototype.units_by_id.has(enemy.unit_id), "combat: killed enemy should leave active unit registry")
-		_expect(prototype.turn_manager.get_enemy_ids().size() == 1, "combat: turn roster should remove killed enemy")
+		_expect(prototype.turn_manager.get_enemy_ids().size() == 2, "combat: active encounter roster should retain its two living enemies")
 
 	prototype.queue_free()
 	await process_frame

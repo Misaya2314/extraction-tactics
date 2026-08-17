@@ -3,6 +3,9 @@ extends Node3D
 
 const UNIT_SCENE: PackedScene = preload("res://scenes/main/prototype_unit.tscn")
 const ActionResultScript = preload("res://scripts/core/action/action_result.gd")
+const ActionRequestScript = preload("res://scripts/core/action/action_request.gd")
+const ActionExecutionContextScript = preload("res://scripts/core/action/action_execution_context.gd")
+const ActionExecutorScript = preload("res://scripts/core/action/action_executor.gd")
 const GameStateManagerScript = preload("res://scripts/core/session/game_state_manager.gd")
 const SquadInventoryScript = preload("res://scripts/core/inventory/squad_inventory.gd")
 const LootContainerScript = preload("res://scripts/core/loot/loot_container_model.gd")
@@ -10,10 +13,13 @@ const LootSettlementScript = preload("res://scripts/core/loot/loot_settlement.gd
 const InventoryGridScript = preload("res://scripts/gameplay/ui/inventory_grid_control.gd")
 const LootGridScript = preload("res://scripts/gameplay/ui/loot_grid_control.gd")
 const MOVE_ACTION_COST := 1
+## Opening a Loot container is a one-AP Interact; confirming an extraction is
+## also one AP, while taking items from an opened container is free.
 const INTERACT_ACTION_COST := 1
-## Opening a container costs AP; picking items up is free.
+const LOOT_OPEN_ACTION_COST := 1
 const LOOT_ACTION_COST := 0
 const INTERACTION_RANGE := 1
+const ACTION_MOVE: StringName = &"move"
 const ACTION_INTERACT: StringName = &"interact"
 const ACTION_LOOT: StringName = &"loot"
 const ACTION_ATTACK: StringName = &"attack"
@@ -29,6 +35,8 @@ const MOVE_HIGHLIGHT_SURFACE_OFFSET := 0.025
 
 var grid: GridModel
 var turn_manager: TurnManager
+var action_executor: ActionExecutor
+var last_action_result: ActionResult
 var session_manager
 var squad_inventory
 var loot_settlement
@@ -36,6 +44,12 @@ var selected_unit: PrototypeUnit
 var units_by_id: Dictionary = {}
 var enemy_alerts: Dictionary = {}
 var enemy_patrols: Dictionary = {}
+var encounter_by_unit: Dictionary = {}
+var encounter_members: Dictionary = {}
+var resolved_encounters: Dictionary = {}
+var all_player_ids: Array[StringName] = []
+var all_enemy_ids: Array[StringName] = []
+var active_encounter_id: StringName = &""
 var opaque_cells: Dictionary = {}
 var object_placements: Dictionary = {}
 var loot_containers: Dictionary = {}
@@ -91,6 +105,7 @@ func _ready() -> void:
 		return
 	_apply_camera_bounds()
 	session_manager = GameStateManagerScript.new()
+	_configure_action_executor()
 	squad_inventory = SquadInventoryScript.new()
 	loot_settlement = null
 	session_manager.state_changed.connect(_on_session_state_changed)
@@ -125,6 +140,102 @@ func _configure_inventory_ui() -> void:
 			Callable(self, "return_inventory_instance_to_loot"),
 			Callable(self, "_can_return_inventory_instance_to_loot")
 		)
+
+
+func _configure_action_executor() -> void:
+	action_executor = ActionExecutorScript.new()
+	action_executor.register_handler(ACTION_MOVE, Callable(self, "_handle_move_action"))
+	action_executor.register_handler(ACTION_ATTACK, Callable(self, "_handle_attack_action"))
+	action_executor.register_handler(ACTION_INTERACT, Callable(self, "_handle_interact_action"))
+	action_executor.register_handler(ACTION_LOOT, Callable(self, "_handle_loot_action"))
+
+
+func _execute_runtime_action(request: Variant, actor: PrototypeUnit = null) -> ActionResult:
+	if action_executor == null or request == null:
+		last_action_result = ActionResultScript.rejected(&"invalid_request")
+		return last_action_result
+	var current_ap := actor.current_action_points if is_instance_valid(actor) else 0
+	var context = ActionExecutionContextScript.new(current_ap)
+	if is_instance_valid(actor):
+		context.set_ap_committer(Callable(actor, "spend_action_points"))
+	last_action_result = action_executor.execute(request, context)
+	return last_action_result
+
+
+func _handle_move_action(request: Variant, _context: Variant) -> Variant:
+	var payload: Dictionary = request.payload
+	var unit := payload.get(&"unit") as PrototypeUnit
+	var start_cell: Vector3i = payload.get(&"start_cell", Vector3i(-1, -1, -1))
+	var destination: Vector3i = payload.get(&"destination", Vector3i(-1, -1, -1))
+	if not is_instance_valid(unit) or start_cell == destination:
+		return false
+	if not grid.vacate(start_cell, unit.unit_id):
+		return false
+	if not grid.occupy(destination, unit.unit_id):
+		grid.occupy(start_cell, unit.unit_id)
+		return false
+	unit.grid_cell = destination
+	return true
+
+
+func _handle_attack_action(request: Variant, _context: Variant) -> Variant:
+	var payload: Dictionary = request.payload
+	var attacker := payload.get(&"attacker") as PrototypeUnit
+	var target := payload.get(&"target") as PrototypeUnit
+	if not is_instance_valid(attacker) or not is_instance_valid(target):
+		return false
+	if payload.get(&"enter_combat", false) and not _start_combat(true, target, attacker.grid_cell, attacker.unit_id):
+		return _action_rejected(&"wrong_phase", ACTION_ATTACK, attacker.unit_id, target.unit_id)
+	attacker.set_facing(target.grid_cell - attacker.grid_cell)
+	var accepted := ActionResultScript.accepted(request.actor_id, request.target_id, request.ap_cost, ACTION_ATTACK)
+	var resolved := CombatResolver.resolve_attack(accepted, target.current_hp, attacker.attack_damage)
+	var applied := target.take_damage(resolved.damage)
+	return {&"success": true, &"damage": applied, &"killed": resolved.killed}
+
+
+func _handle_interact_action(request: Variant, _context: Variant) -> Variant:
+	var operation: StringName = StringName(request.payload.get(&"operation", &""))
+	match operation:
+		&"loot_open":
+			var container = loot_containers.get(request.target_id)
+			if container == null or not container.open():
+				return _action_rejected(&"container_unavailable", ACTION_INTERACT, request.actor_id, request.target_id)
+			open_loot_container_id = request.target_id
+			_refresh_loot_panel()
+			loot_panel.visible = true
+			if inventory_body_collapsed:
+				_restore_inventory_after_loot = true
+				_set_inventory_body_collapsed(false)
+			return true
+		&"extraction_prompt":
+			if not session_manager.start_extraction():
+				return _action_rejected(&"wrong_phase", ACTION_INTERACT, request.actor_id, request.target_id)
+			extraction_panel.visible = true
+			return true
+		&"extraction_confirm":
+			if not session_manager.confirm_extraction():
+				return _action_rejected(&"wrong_phase", ACTION_INTERACT, request.actor_id, request.target_id)
+			return true
+	return _action_rejected(&"invalid_target", ACTION_INTERACT, request.actor_id, request.target_id)
+
+
+func _handle_loot_action(request: Variant, _context: Variant) -> Variant:
+	var operation: StringName = StringName(request.payload.get(&"operation", &""))
+	var container = loot_containers.get(request.target_id)
+	if container == null:
+		return _action_rejected(&"invalid_container", ACTION_LOOT, request.actor_id, request.target_id)
+	if operation == &"place_item":
+		var index := int(request.payload.get(&"index", -1))
+		var anchor: Vector2i = request.payload.get(&"anchor", Vector2i(-1, -1))
+		var rotation := int(request.payload.get(&"rotation", 0))
+		if not container.transfer_to_inventory_at(index, squad_inventory, anchor, rotation):
+			return _action_rejected(&"inventory_full", ACTION_LOOT, request.actor_id, request.target_id)
+		return true
+	if operation == &"loot_all":
+		if not container.transfer_all_to_inventory(squad_inventory):
+			return _action_rejected(&"inventory_full", ACTION_LOOT, request.actor_id, request.target_id)
+		return true
+	return _action_rejected(&"invalid_target", ACTION_LOOT, request.actor_id, request.target_id)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -201,23 +312,19 @@ func _spawn_initial_units() -> void:
 		var color := spawn.visual_color
 		if color == Color.WHITE:
 			color = PLAYER_COLOR if spawn.faction == &"player" else ENEMY_COLOR
-		var unit := _spawn_unit(spawn.unit_name, spawn.cell, spawn.faction, color)
+		var unit := _spawn_unit(spawn.unit_name, spawn.cell, spawn.faction, color, spawn.archetype, spawn.weapon)
 		unit.set_facing(spawn.facing)
 
 
-func _spawn_unit(unit_name: StringName, cell: Vector3i, faction: StringName, color: Color) -> PrototypeUnit:
+func _spawn_unit(unit_name: StringName, cell: Vector3i, faction: StringName, color: Color, archetype: UnitArchetype = null, weapon: WeaponDefinition = null) -> PrototypeUnit:
 	var unit := UNIT_SCENE.instantiate() as PrototypeUnit
 	unit.name = unit_name
-	unit.configure(cell, faction, color)
+	unit.configure(cell, faction, color, archetype, weapon)
 	units_root.add_child(unit)
 	unit.global_position = grid.cell_to_world(cell)
 	unit.action_points_changed.connect(_on_unit_state_changed)
 	unit.health_changed.connect(_on_unit_state_changed)
 	unit.died.connect(_on_unit_died)
-	if faction == &"enemy":
-		unit.attack_range = 4
-		unit.attack_damage = 3
-		unit.vision_range = 6
 	if not grid.occupy(cell, unit.unit_id):
 		push_error("Failed to occupy %s for %s" % [cell, unit.name])
 	units_by_id[unit.unit_id] = unit
@@ -227,26 +334,86 @@ func _spawn_unit(unit_name: StringName, cell: Vector3i, faction: StringName, col
 func _configure_encounter_models() -> void:
 	var player_ids: Array[StringName] = []
 	var enemy_ids: Array[StringName] = []
+	all_player_ids.clear()
+	all_enemy_ids.clear()
+	encounter_by_unit.clear()
+	encounter_members.clear()
+	resolved_encounters.clear()
+	active_encounter_id = &""
 	for unit_value in units_by_id.values():
 		var unit := unit_value as PrototypeUnit
 		if unit.faction == &"player":
 			player_ids.append(unit.unit_id)
+			all_player_ids.append(unit.unit_id)
 		else:
 			enemy_ids.append(unit.unit_id)
+			all_enemy_ids.append(unit.unit_id)
 	turn_manager = TurnManager.new()
-	turn_manager.configure(player_ids, enemy_ids)
+	# Exploration has no active enemy roster. A detection or proactive attack
+	# loads exactly one encounter group into TurnManager.
+	turn_manager.configure(player_ids, [])
 	turn_manager.phase_changed.connect(_on_phase_changed)
 	for enemy_id in enemy_ids:
 		enemy_alerts[enemy_id] = AlertState.new()
 	for spawn in map_definition.spawns:
-		if spawn.faction != &"enemy" or spawn.patrol_route_id == &"":
+		if spawn.faction != &"enemy":
 			continue
 		var enemy := _unit_by_name(spawn.unit_name)
+		var encounter_id := spawn.encounter_id if not spawn.encounter_id.is_empty() else &"default"
+		if is_instance_valid(enemy):
+			encounter_by_unit[enemy.unit_id] = encounter_id
+			if not encounter_members.has(encounter_id):
+				encounter_members[encounter_id] = []
+			(encounter_members[encounter_id] as Array).append(enemy.unit_id)
+		if spawn.patrol_route_id == &"":
+			continue
 		var route_data := map_definition.find_patrol_route(spawn.patrol_route_id)
 		if is_instance_valid(enemy) and route_data != null:
 			var route := PatrolRoute.new()
 			route.configure(route_data.points, route_data.loop)
 			enemy_patrols[enemy.unit_id] = route
+
+
+func _living_player_ids() -> Array[StringName]:
+	var result: Array[StringName] = []
+	for unit_id in all_player_ids:
+		var unit := _unit_by_id(unit_id)
+		if is_instance_valid(unit) and unit.is_alive():
+			result.append(unit_id)
+	return result
+
+
+func _living_enemy_ids() -> Array[StringName]:
+	var result: Array[StringName] = []
+	for unit_id in all_enemy_ids:
+		var unit := _unit_by_id(unit_id)
+		if is_instance_valid(unit) and unit.is_alive():
+			result.append(unit_id)
+	return result
+
+
+func _enemy_ids_for_context() -> Array[StringName]:
+	if session_manager != null and session_manager.get_state() == GameStateManagerScript.State.COMBAT:
+		return turn_manager.get_enemy_ids()
+	return _living_enemy_ids()
+
+
+func _activate_encounter_for(alert_enemy: PrototypeUnit) -> bool:
+	if not is_instance_valid(alert_enemy):
+		return false
+	var encounter_id: StringName = encounter_by_unit.get(alert_enemy.unit_id, &"default")
+	if encounter_id.is_empty() or resolved_encounters.has(encounter_id):
+		return false
+	var group_ids: Array[StringName] = []
+	for enemy_id in encounter_members.get(encounter_id, []):
+		var enemy := _unit_by_id(enemy_id)
+		if is_instance_valid(enemy) and enemy.is_alive():
+			group_ids.append(enemy_id)
+	if group_ids.is_empty():
+		return false
+	turn_manager.configure(_living_player_ids(), group_ids)
+	active_encounter_id = encounter_id
+	return true
 
 
 func _handle_world_click(screen_position: Vector2) -> void:
@@ -321,45 +488,42 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 		_update_hud("已取消选择。")
 
 
-## Stable integration entry for UI/tests. Loot opening is an Interact Action;
-## AP is charged only when the validation succeeds and the container opens.
+## Stable integration entry for UI/tests. Opening a Loot container is a
+## one-AP Interact; ActionExecutor validation runs before the open handler.
 func interact_with_loot(container_id: StringName) -> ActionResult:
 	if not _can_use_loot_action():
 		return _action_rejected(&"wrong_phase", &"interact")
 	var container = loot_containers.get(container_id)
 	var placement = object_placements.get(container_id)
 	var player := selected_unit
-	var validation := ActionValidator.validate_interact(
-		player.unit_id if is_instance_valid(player) else &"",
+	var actor_id: StringName = player.unit_id if is_instance_valid(player) else &""
+	var actor_cell: Vector3i = player.grid_cell if is_instance_valid(player) else Vector3i(-1, -1, -1)
+	var target_cell: Vector3i = placement.cell if placement != null else Vector3i(-1, -1, -1)
+	var request := ActionRequestScript.new(
+		ACTION_INTERACT,
+		actor_id,
 		container_id,
-		player.current_action_points if is_instance_valid(player) else 0,
-		INTERACT_ACTION_COST,
-		player.grid_cell if is_instance_valid(player) else Vector3i(-1, -1, -1),
-		placement.cell if placement != null else Vector3i(-1, -1, -1),
-		INTERACTION_RANGE,
-		container != null and placement != null,
-		container != null and not container.is_depleted()
+		LOOT_OPEN_ACTION_COST,
+		{
+			&"operation": &"loot_open",
+			ActionExecutorScript.KEY_ACTOR_CELL: actor_cell,
+			ActionExecutorScript.KEY_TARGET_CELL: target_cell,
+			ActionExecutorScript.KEY_INTERACTION_RANGE: INTERACTION_RANGE,
+			ActionExecutorScript.KEY_TARGET_VALID: container != null and placement != null,
+			ActionExecutorScript.KEY_TARGET_AVAILABLE: container != null and not container.is_depleted(),
+		}
 	)
-	if not validation.success:
-		if validation.reason == &"target_unavailable":
+	var result := _execute_runtime_action(request, player)
+	if not result.success:
+		if result.reason == &"target_unavailable" or result.reason == &"container_unavailable":
 			_update_hud("Loot 箱已耗尽，不能重复搜刮。")
-			return validation
-		_update_hud(_action_message("无法交互", validation.reason))
-		return validation
-	if not container.open() or not player.spend_action_points(validation.ap_cost):
-		var failed := _action_rejected(&"container_unavailable", ACTION_INTERACT, player.unit_id, container_id)
-		_update_hud("Loot 箱已耗尽或暂时不可用。")
-		return failed
-	open_loot_container_id = container_id
-	_refresh_loot_panel()
-	loot_panel.visible = true
-	if inventory_body_collapsed:
-		_restore_inventory_after_loot = true
-		_set_inventory_body_collapsed(false)
-	_update_hud("已打开 %s，可单项或全部拾取。" % container_id)
-	_log("打开 Loot 箱 %s（%d 件）。" % [container_id, container.get_item_count()])
+		else:
+			_update_hud(_action_message("无法交互", result.reason))
+		return result
+	_update_hud("已打开 %s（消耗 1 AP），可单项或全部拾取。" % container_id)
+	_log("打开 Loot 箱 %s（消耗 1 AP，%d 件）。" % [container_id, container.get_item_count()])
 	_refresh_highlights()
-	return validation
+	return result
 
 
 func interact_with_object(object_id: StringName) -> ActionResult:
@@ -454,34 +618,36 @@ func place_loot_instance(container_id: StringName, index: int, anchor: Vector2i,
 	var player := selected_unit
 	var item = container.get_item(index) if container != null else null
 	var can_receive: bool = item != null and squad_inventory != null and squad_inventory.can_place(item, anchor, rotation)
-	var validation := ActionValidator.validate_loot(
+	var request := ActionRequestScript.new(
+		ACTION_LOOT,
 		player.unit_id,
 		container_id,
-		player.current_action_points,
 		LOOT_ACTION_COST,
-		player.grid_cell,
-		placement.cell if placement != null else Vector3i(-1, -1, -1),
-		INTERACTION_RANGE,
-		container != null and placement != null and container_id == open_loot_container_id,
-		container != null and not container.is_depleted(),
-		can_receive
+		{
+			&"operation": &"place_item",
+			&"index": index,
+			&"anchor": anchor,
+			&"rotation": rotation,
+			ActionExecutorScript.KEY_ACTOR_CELL: player.grid_cell,
+			ActionExecutorScript.KEY_TARGET_CELL: placement.cell if placement != null else Vector3i(-1, -1, -1),
+			ActionExecutorScript.KEY_INTERACTION_RANGE: INTERACTION_RANGE,
+			ActionExecutorScript.KEY_CONTAINER_VALID: container != null and placement != null and container_id == open_loot_container_id and item != null,
+			ActionExecutorScript.KEY_CONTAINER_AVAILABLE: container != null and not container.is_depleted(),
+			ActionExecutorScript.KEY_INVENTORY_CAN_RECEIVE: can_receive,
+		}
 	)
-	if not validation.success:
-		if validation.reason == &"inventory_full":
+	var result := _execute_runtime_action(request, player)
+	if not result.success:
+		if result.reason == &"inventory_full":
 			_update_hud("空间碎片或位置冲突：该物品无法放在目标格，Loot 与 AP 未改变。")
 		else:
-			_update_hud(_action_message("无法放置 Loot", validation.reason))
-		return validation
-	if not container.transfer_to_inventory_at(index, squad_inventory, anchor, rotation):
-		var failed := _action_rejected(&"inventory_full", ACTION_LOOT, player.unit_id, container_id)
-		_update_hud("空间碎片或位置冲突：Loot 与 AP 未改变。")
-		return failed
-	player.spend_action_points(validation.ap_cost)
+			_update_hud(_action_message("无法放置 Loot", result.reason))
+		return result
 	_refresh_inventory_ui()
-	_update_hud("已将 %s 放入背包。" % item.display_name)
-	_log("拾取 %s 放入背包（拾取不消耗 AP）。" % item.display_name)
+	_update_hud("已将 %s 放入背包（不消耗 AP）。" % item.display_name)
+	_log("拾取 %s 放入背包（不消耗 AP）。" % item.display_name)
 	_refresh_highlights()
-	return validation
+	return result
 
 
 func move_inventory_instance(instance_id: StringName, anchor: Vector2i, rotation: int = -1) -> ActionResult:
@@ -570,31 +736,36 @@ func _refresh_inventory_ui() -> void:
 func begin_extraction_prompt(extraction_id: StringName = &"") -> ActionResult:
 	if not _can_use_exploration_action():
 		return _action_rejected(&"wrong_phase", ACTION_INTERACT)
+	# The prompt itself is a zero-cost Interact, but a player with no AP cannot
+	# complete the required one-AP confirmation, so do not open a dead-end panel.
+	if selected_unit.current_action_points < INTERACT_ACTION_COST:
+		_update_hud("无法开始撤离：AP 不足。")
+		return _action_rejected(&"no_ap", ACTION_INTERACT, selected_unit.unit_id, extraction_id)
 	var target_id := extraction_id if extraction_id != &"" else _extraction_at_cell(selected_unit.grid_cell if is_instance_valid(selected_unit) else Vector3i(-1, -1, -1))
 	var placement = object_placements.get(target_id)
 	var player := selected_unit
-	var validation := ActionValidator.validate_interact(
-		player.unit_id if is_instance_valid(player) else &"",
+	var request := ActionRequestScript.new(
+		ACTION_INTERACT,
+		player.unit_id,
 		target_id,
-		player.current_action_points if is_instance_valid(player) else 0,
-		INTERACT_ACTION_COST,
-		player.grid_cell if is_instance_valid(player) else Vector3i(-1, -1, -1),
-		placement.cell if placement != null else Vector3i(-1, -1, -1),
 		0,
-		placement != null and placement.kind == MapObjectPlacement.Kind.EXTRACTION,
-		true
+		{
+			&"operation": &"extraction_prompt",
+			ActionExecutorScript.KEY_ACTOR_CELL: player.grid_cell,
+			ActionExecutorScript.KEY_TARGET_CELL: placement.cell if placement != null else Vector3i(-1, -1, -1),
+			ActionExecutorScript.KEY_INTERACTION_RANGE: 0,
+			ActionExecutorScript.KEY_TARGET_VALID: placement != null and placement.kind == MapObjectPlacement.Kind.EXTRACTION,
+			ActionExecutorScript.KEY_TARGET_AVAILABLE: true,
+		}
 	)
-	if not validation.success:
-		_update_hud(_action_message("无法开始撤离", validation.reason))
-		return validation
-	# This is a confirmation prompt. The actual Interact cost is charged by
-	# confirm_extraction(), so cancelling never consumes AP.
-	if session_manager.start_extraction():
-		extraction_panel.visible = true
-		_update_hud("已进入撤离确认，请确认或取消。")
-		_log("%s 请求在 %s 撤离。" % [selected_unit.name if is_instance_valid(selected_unit) else "玩家", target_id])
-		_refresh_highlights()
-	return validation
+	var result := _execute_runtime_action(request, player)
+	if not result.success:
+		_update_hud(_action_message("无法开始撤离", result.reason))
+		return result
+	_update_hud("已进入撤离确认，请确认或取消。")
+	_log("%s 请求在 %s 撤离。" % [player.name, target_id])
+	_refresh_highlights()
+	return result
 
 
 func confirm_extraction() -> ActionResult:
@@ -603,26 +774,28 @@ func confirm_extraction() -> ActionResult:
 	var player := selected_unit
 	var target_id := _extraction_at_cell(player.grid_cell if is_instance_valid(player) else Vector3i(-1, -1, -1))
 	var placement = object_placements.get(target_id)
-	var validation := ActionValidator.validate_interact(
-		player.unit_id if is_instance_valid(player) else &"",
+	if not is_instance_valid(player):
+		return _action_rejected(&"invalid_target", ACTION_INTERACT)
+	var request := ActionRequestScript.new(
+		ACTION_INTERACT,
+		player.unit_id,
 		target_id,
-		player.current_action_points if is_instance_valid(player) else 0,
 		INTERACT_ACTION_COST,
-		player.grid_cell if is_instance_valid(player) else Vector3i(-1, -1, -1),
-		placement.cell if placement != null else Vector3i(-1, -1, -1),
-		0,
-		placement != null and placement.kind == MapObjectPlacement.Kind.EXTRACTION,
-		true
+		{
+			&"operation": &"extraction_confirm",
+			ActionExecutorScript.KEY_ACTOR_CELL: player.grid_cell,
+			ActionExecutorScript.KEY_TARGET_CELL: placement.cell if placement != null else Vector3i(-1, -1, -1),
+			ActionExecutorScript.KEY_INTERACTION_RANGE: 0,
+			ActionExecutorScript.KEY_TARGET_VALID: placement != null and placement.kind == MapObjectPlacement.Kind.EXTRACTION,
+			ActionExecutorScript.KEY_TARGET_AVAILABLE: true,
+		}
 	)
-	if not validation.success:
-		_update_hud(_action_message("无法确认撤离", validation.reason))
-		return validation
-	if not player.spend_action_points(validation.ap_cost):
-		return _action_rejected(&"no_ap", ACTION_INTERACT, player.unit_id, target_id)
-	if not session_manager.confirm_extraction():
-		return _action_rejected(&"wrong_phase", ACTION_INTERACT, player.unit_id, target_id)
+	var result := _execute_runtime_action(request, player)
+	if not result.success:
+		_update_hud(_action_message("无法确认撤离", result.reason))
+		return result
 	_log("确认撤离：%s 从 %s 撤离。" % [player.name, target_id])
-	return validation
+	return result
 
 
 func cancel_extraction() -> bool:
@@ -640,17 +813,7 @@ func _try_move_selected(destination: Vector3i) -> bool:
 		_update_hud("请先选择一个蓝色单位。")
 		return false
 	var path := grid.find_path(selected_unit.grid_cell, destination)
-	var validation := ActionValidator.validate_move(
-		selected_unit.current_action_points,
-		MOVE_ACTION_COST,
-		maxi(grid.get_path_cost(path), 0),
-		selected_unit.move_range,
-		grid.is_walkable(destination) and not grid.is_occupied(destination)
-	)
-	if not validation.success:
-		_update_hud("无法移动：%s。" % validation.reason)
-		return false
-	var moved := await _move_unit(selected_unit, destination, path, validation.ap_cost)
+	var moved := await _move_unit(selected_unit, destination, path, MOVE_ACTION_COST)
 	_evaluate_detection()
 	return moved
 
@@ -660,18 +823,36 @@ func _move_selected_unit(destination: Vector3i) -> void:
 
 
 func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i], ap_cost: int) -> bool:
-	if path.size() < 2 or not unit.can_spend_action_points(ap_cost):
+	if not is_instance_valid(unit) or path.size() < 2:
 		return false
 	var start_cell := unit.grid_cell
-	if not grid.vacate(start_cell, unit.unit_id):
-		return false
-	if not grid.occupy(destination, unit.unit_id):
-		grid.occupy(start_cell, unit.unit_id)
-		return false
+	var actor_id := unit.unit_id
+	var target_id := StringName("cell_%d_%d_%d" % [destination.x, destination.y, destination.z])
+	var request := ActionRequestScript.new(
+		ACTION_MOVE,
+		actor_id,
+		target_id,
+		ap_cost,
+		{
+			ActionExecutorScript.KEY_PATH: path,
+			ActionExecutorScript.KEY_PATH_LENGTH: maxi(grid.get_path_cost(path), 0),
+			ActionExecutorScript.KEY_MAX_DISTANCE: unit.move_range,
+			ActionExecutorScript.KEY_DESTINATION_AVAILABLE: grid.is_walkable(destination) and not grid.is_occupied(destination),
+			&"unit": unit,
+			&"start_cell": start_cell,
+			&"destination": destination,
+		}
+	)
 	input_locked = true
 	end_turn_button.disabled = true
 	_clear_highlights()
-	unit.spend_action_points(ap_cost)
+	var result := _execute_runtime_action(request, unit)
+	if not result.success:
+		input_locked = false
+		end_turn_button.disabled = false
+		_refresh_highlights()
+		_update_hud("无法移动：%s。" % result.reason)
+		return false
 	var world_points: Array[Vector3] = []
 	for index in range(1, path.size()):
 		world_points.append(grid.cell_to_world(path[index]))
@@ -699,21 +880,28 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 	var has_los := GridVisibility.has_line_of_sight(
 		attacker.grid_cell, target.grid_cell, opaque_cells, attacker.attack_range
 	)
-	var validation := ActionValidator.validate_attack(
-		attacker.unit_id, target.unit_id, attacker.current_action_points,
-		attacker.attack_ap_cost, attacker.grid_cell, target.grid_cell,
-		attacker.attack_range, target.is_alive(), attacker.faction != target.faction, has_los
+	var request := ActionRequestScript.new(
+		ACTION_ATTACK,
+		attacker.unit_id,
+		target.unit_id,
+		attacker.attack_ap_cost,
+		{
+			&"attacker": attacker,
+			&"target": target,
+			&"enter_combat": turn_manager.get_phase() == TurnManager.Phase.EXPLORATION,
+			ActionExecutorScript.KEY_ACTOR_CELL: attacker.grid_cell,
+			ActionExecutorScript.KEY_TARGET_CELL: target.grid_cell,
+			ActionExecutorScript.KEY_ATTACK_RANGE: attacker.attack_range,
+			ActionExecutorScript.KEY_TARGET_ALIVE: target.is_alive(),
+			ActionExecutorScript.KEY_HOSTILE: attacker.faction != target.faction,
+			ActionExecutorScript.KEY_HAS_LOS: has_los,
+		}
 	)
-	if not validation.success:
-		_update_hud("无法攻击：%s。" % validation.reason)
-		return validation
-	if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION:
-		if not _start_combat(true, target, attacker.grid_cell):
-			return _action_rejected(&"wrong_phase", ACTION_ATTACK, attacker.unit_id, target.unit_id)
-	attacker.set_facing(target.grid_cell - attacker.grid_cell)
-	attacker.spend_action_points(validation.ap_cost)
-	var result := CombatResolver.resolve_attack(validation, target.current_hp, attacker.attack_damage)
-	var applied := target.take_damage(result.damage)
+	var result := _execute_runtime_action(request, attacker)
+	if not result.success:
+		_update_hud("无法攻击：%s。" % result.reason)
+		return result
+	var applied := result.damage
 	_update_hud("%s 命中 %s，造成 %d 伤害%s。" % [
 		attacker.name, target.name, applied, "并击杀目标" if result.killed else ""
 	])
@@ -726,7 +914,7 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 
 func _run_exploration_tick() -> void:
 	world_tick += 1
-	for enemy_id in turn_manager.get_enemy_ids():
+	for enemy_id in _living_enemy_ids():
 		var enemy := _unit_by_id(enemy_id)
 		if not is_instance_valid(enemy) or not enemy_patrols.has(enemy_id):
 			continue
@@ -749,7 +937,7 @@ func _run_exploration_tick() -> void:
 func _evaluate_detection() -> bool:
 	if turn_manager.get_phase() != TurnManager.Phase.EXPLORATION:
 		return false
-	for enemy_id in turn_manager.get_enemy_ids():
+	for enemy_id in _living_enemy_ids():
 		var enemy := _unit_by_id(enemy_id)
 		if not is_instance_valid(enemy):
 			continue
@@ -771,6 +959,8 @@ func _start_combat(player_first: bool, alert_enemy: PrototypeUnit, known_cell: V
 		return false
 	if not is_instance_valid(alert_enemy):
 		return false
+	if not _activate_encounter_for(alert_enemy):
+		return false
 	var reason_text := reason if reason != "" else ("被玩家主动攻击" if player_first else "发现玩家")
 	_log("进入交战：%s%s（位置 %s）。" % [alert_enemy.name, reason_text, known_cell])
 	var effective_target := target_id
@@ -782,8 +972,12 @@ func _start_combat(player_first: bool, alert_enemy: PrototypeUnit, known_cell: V
 		if enemy_alerts.has(enemy_id) and enemy_id != alert_enemy.unit_id:
 			(enemy_alerts[enemy_id] as AlertState).become_suspicious(known_cell)
 	if not session_manager.start_combat():
+		turn_manager.configure(_living_player_ids(), [])
+		active_encounter_id = &""
 		return false
 	if not turn_manager.start_combat(player_first):
+		turn_manager.configure(_living_player_ids(), [])
+		active_encounter_id = &""
 		session_manager.resolve_combat()
 		return false
 	if not player_first:
@@ -802,7 +996,10 @@ func _run_enemy_turn() -> void:
 		if not is_instance_valid(enemy) or not enemy.is_alive():
 			continue
 		enemy.reset_action_points()
-		while enemy.current_action_points > 0 and turn_manager.is_enemy_turn():
+		var action_attempts := 0
+		var max_action_attempts := maxi(enemy.max_action_points + 1, 1)
+		while enemy.current_action_points > 0 and turn_manager.is_enemy_turn() and action_attempts < max_action_attempts:
+			action_attempts += 1
 			var target := _nearest_living_player(enemy.grid_cell)
 			if not is_instance_valid(target):
 				break
@@ -811,7 +1008,13 @@ func _run_enemy_turn() -> void:
 			)
 			var distance := _manhattan(enemy.grid_cell, target.grid_cell)
 			if distance <= enemy.attack_range and has_los:
-				await _attack_with_unit(enemy, target)
+				var attack_result := await _attack_with_unit(enemy, target)
+				if not attack_result.success:
+					# A failed action, especially no_ap after a move, cannot change
+					# the tactical situation. End this unit's loop instead of retrying.
+					break
+				if enemy.attack_ap_cost <= 0 or enemy.current_action_points < enemy.attack_ap_cost:
+					break
 				continue
 			var destination := _best_enemy_move(enemy, target)
 			if destination == enemy.grid_cell:
@@ -860,15 +1063,19 @@ func _select_unit(unit: PrototypeUnit, allow_enemy: bool = false) -> void:
 
 func _refresh_highlights() -> void:
 	_clear_highlights()
-	if _can_show_move_highlights():
-		highlights_root.visible = true
-		attack_highlights_root.visible = true
-	if _can_show_move_highlights() and selected_unit.can_spend_action_points(MOVE_ACTION_COST):
+	var can_show_tactical_highlights := _can_show_move_highlights()
+	if is_instance_valid(highlights_root):
+		highlights_root.visible = can_show_tactical_highlights
+	if is_instance_valid(attack_highlights_root):
+		attack_highlights_root.visible = can_show_tactical_highlights
+	if is_instance_valid(object_highlights_root):
+		object_highlights_root.visible = can_show_tactical_highlights
+	if can_show_tactical_highlights and selected_unit.can_spend_action_points(MOVE_ACTION_COST):
 		for cell in grid.get_reachable_cells(selected_unit.grid_cell, selected_unit.move_range):
 			if cell != selected_unit.grid_cell:
 				_add_highlight(highlights_root, cell, MOVE_HIGHLIGHT_COLOR)
-	if _can_show_move_highlights() and selected_unit.can_spend_action_points(selected_unit.attack_ap_cost):
-		for enemy_id in turn_manager.get_enemy_ids():
+	if can_show_tactical_highlights and selected_unit.can_spend_action_points(selected_unit.attack_ap_cost):
+		for enemy_id in _enemy_ids_for_context():
 			var enemy := _unit_by_id(enemy_id)
 			if not is_instance_valid(enemy) or not enemy.visible:
 				continue
@@ -940,6 +1147,8 @@ func _add_highlight(parent: Node3D, cell: Vector3i, color: Color, height_offset:
 
 func _refresh_object_highlights() -> void:
 	if not is_instance_valid(object_highlights_root):
+		return
+	if input_locked:
 		return
 	if session_manager == null or not _player_can_act():
 		return
@@ -1035,10 +1244,6 @@ func _on_unit_died(unit: PrototypeUnit) -> void:
 	unit.set_selected(false)
 	unit.visible = false
 	unit.process_mode = Node.PROCESS_MODE_DISABLED
-	if unit.faction == &"enemy" and session_manager != null and session_manager.get_state() == GameStateManagerScript.State.COMBAT:
-		if turn_manager.get_phase() == TurnManager.Phase.VICTORY:
-			turn_manager.reset_to_exploration()
-			session_manager.resolve_combat()
 	if unit.faction == &"player" and _living_player_count() == 0:
 		if session_manager != null:
 			session_manager.report_team_defeated()
@@ -1058,7 +1263,12 @@ func _on_phase_changed(_previous: TurnManager.Phase, _current: TurnManager.Phase
 		TurnManager.Phase.DEFEAT:
 			_log("—— 交战结束：小队全灭 ——")
 	if _current == TurnManager.Phase.VICTORY and session_manager != null and session_manager.get_state() == GameStateManagerScript.State.COMBAT:
+		var resolved_id := active_encounter_id
 		turn_manager.reset_to_exploration()
+		if not resolved_id.is_empty():
+			resolved_encounters[resolved_id] = true
+		active_encounter_id = &""
+		turn_manager.configure(_living_player_ids(), [])
 		session_manager.resolve_combat()
 	elif _current == TurnManager.Phase.DEFEAT and session_manager != null:
 		session_manager.report_team_defeated()
@@ -1111,7 +1321,7 @@ func _unit_by_name(unit_name: StringName) -> PrototypeUnit:
 func _nearest_living_player(from_cell: Vector3i) -> PrototypeUnit:
 	var result: PrototypeUnit
 	var best_distance := 1_000_000
-	for player_id in turn_manager.get_player_ids():
+	for player_id in _living_player_ids():
 		var player := _unit_by_id(player_id)
 		if not is_instance_valid(player):
 			continue
@@ -1187,31 +1397,30 @@ func _loot_all(container_id: StringName) -> ActionResult:
 	var placement = object_placements.get(container_id)
 	var player := selected_unit
 	var contents: Array = container.get_contents_instances() if container != null else []
-	var validation := ActionValidator.validate_loot(
-		player.unit_id if is_instance_valid(player) else &"",
+	var request := ActionRequestScript.new(
+		ACTION_LOOT,
+		player.unit_id,
 		container_id,
-		player.current_action_points if is_instance_valid(player) else 0,
 		LOOT_ACTION_COST,
-		player.grid_cell if is_instance_valid(player) else Vector3i(-1, -1, -1),
-		placement.cell if placement != null else Vector3i(-1, -1, -1),
-		INTERACTION_RANGE,
-		container != null and placement != null and container_id == open_loot_container_id,
-		container != null and not container.is_depleted(),
-		squad_inventory != null and container != null and squad_inventory.can_add_items(contents)
+		{
+			&"operation": &"loot_all",
+			ActionExecutorScript.KEY_ACTOR_CELL: player.grid_cell,
+			ActionExecutorScript.KEY_TARGET_CELL: placement.cell if placement != null else Vector3i(-1, -1, -1),
+			ActionExecutorScript.KEY_INTERACTION_RANGE: INTERACTION_RANGE,
+			ActionExecutorScript.KEY_CONTAINER_VALID: container != null and placement != null and container_id == open_loot_container_id,
+			ActionExecutorScript.KEY_CONTAINER_AVAILABLE: container != null and not container.is_depleted(),
+			ActionExecutorScript.KEY_INVENTORY_CAN_RECEIVE: squad_inventory != null and container != null and squad_inventory.can_add_items(contents),
+		}
 	)
-	if not validation.success:
-		_update_hud(_action_message("无法全部拾取", validation.reason))
-		return validation
-	if not container.transfer_all_to_inventory(squad_inventory):
-		var failed := _action_rejected(&"inventory_full", ACTION_LOOT, player.unit_id, container_id)
-		_update_hud("空间碎片：全部物品无法同时放入，Loot 与 AP 未改变。")
-		return failed
-	player.spend_action_points(validation.ap_cost)
+	var result := _execute_runtime_action(request, player)
+	if not result.success:
+		_update_hud(_action_message("无法全部拾取", result.reason))
+		return result
 	_refresh_inventory_ui()
-	_update_hud("已全部拾取。")
-	_log("全部拾取 %s（%d 件，拾取不消耗 AP）。" % [container_id, contents.size()])
+	_update_hud("已全部拾取（不消耗 AP）。")
+	_log("全部拾取 %s（%d 件，不消耗 AP）。" % [container_id, contents.size()])
 	_refresh_highlights()
-	return validation
+	return result
 
 
 func _on_loot_item_pressed(index: int) -> void:
@@ -1322,7 +1531,8 @@ func _refresh_result_panel() -> void:
 
 
 func _action_rejected(reason: StringName, action_type: StringName, actor_id: StringName = &"", target_id: StringName = &"") -> ActionResult:
-	return ActionResultScript.rejected(reason, actor_id, target_id, action_type)
+	last_action_result = ActionResultScript.rejected(reason, actor_id, target_id, action_type)
+	return last_action_result
 
 
 func _action_message(prefix: String, reason: StringName) -> String:
@@ -1342,12 +1552,12 @@ func _action_message(prefix: String, reason: StringName) -> String:
 func _update_enemy_visibility() -> void:
 	if not is_instance_valid(turn_manager):
 		return
-	for enemy_id in turn_manager.get_enemy_ids():
+	for enemy_id in _living_enemy_ids():
 		var enemy := _unit_by_id(enemy_id)
 		if not is_instance_valid(enemy):
 			continue
 		var visible_to_player := false
-		for player_id in turn_manager.get_player_ids():
+		for player_id in _living_player_ids():
 			var player := _unit_by_id(player_id)
 			if is_instance_valid(player) and DetectionRules.can_player_see(
 				player.grid_cell, enemy.grid_cell, player.vision_range, opaque_cells
@@ -1383,7 +1593,8 @@ func _player_can_act() -> bool:
 
 
 func _can_show_move_highlights() -> bool:
-	return is_instance_valid(selected_unit) \
+	return not input_locked \
+		and is_instance_valid(selected_unit) \
 		and selected_unit.faction == &"player" \
 		and selected_unit.is_alive() \
 		and _player_can_act() \
@@ -1470,10 +1681,13 @@ func _update_hud(message: String = "") -> void:
 				selected_unit.attack_range, selected_unit.vision_range, alert_text,
 			]
 		else:
-			selection_label.text = "%s | HP %d/%d | AP %d/%d | 格 %s | 射程 %d" % [
-				selected_unit.name, selected_unit.current_hp, selected_unit.max_hp,
+			var archetype_name := selected_unit.archetype.display_name if selected_unit.archetype != null else "未配置原型"
+			selection_label.text = "%s | 原型 %s | 武器 %s | 伤害 %d | 射程 %d | 攻击 AP %d | HP %d/%d | AP %d/%d | 格 %s" % [
+				selected_unit.name, archetype_name, selected_unit.get_weapon_display_name(),
+				selected_unit.attack_damage, selected_unit.attack_range, selected_unit.attack_ap_cost,
+				selected_unit.current_hp, selected_unit.max_hp,
 				selected_unit.current_action_points, selected_unit.max_action_points,
-				selected_unit.grid_cell, selected_unit.attack_range,
+				selected_unit.grid_cell,
 			]
 	else:
 		selection_label.text = "未选择单位"

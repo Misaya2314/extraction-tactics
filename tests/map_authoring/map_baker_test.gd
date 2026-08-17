@@ -6,6 +6,10 @@ const SUPPLY_TABLE: LootTableDefinition = preload("res://resources/loot/loot_tab
 const WAREHOUSE_TABLE: LootTableDefinition = preload("res://resources/loot/loot_table_warehouse.tres")
 const OUTPOST_TABLE: LootTableDefinition = preload("res://resources/loot/loot_table_outpost.tres")
 const HIGH_VALUE_TABLE: LootTableDefinition = preload("res://resources/loot/loot_table_high_value.tres")
+const PLAYER_ALPHA: UnitArchetype = preload("res://resources/units/player_alpha.tres")
+const PLAYER_BRAVO: UnitArchetype = preload("res://resources/units/player_bravo.tres")
+const RIFLEMAN: UnitArchetype = preload("res://resources/units/rifleman.tres")
+const ASSAULT: UnitArchetype = preload("res://resources/units/assault.tres")
 
 var _failures: Array[String] = []
 
@@ -20,10 +24,11 @@ func _init() -> void:
 	_expect(errors.is_empty(), "baker: prototype author scene should validate: %s" % [errors])
 	_expect(definition.cells.size() == 129, "baker: two-level floor grid should bake 129 standable surfaces")
 	_expect(definition.transitions.size() == 1, "baker: explicit stairs should bake as one transition")
-	_expect(definition.spawns.size() == 4, "baker: all unit spawn markers should bake")
+	_expect(definition.spawns.size() == 8, "baker: all unit spawn markers should bake")
 	_expect(definition.objects.size() == 7, "baker: gameplay object markers should bake")
 	_expect(definition.get_extraction_cells() == [Vector3i(11, 0, 8)], "baker: extraction marker should retain its full coordinate")
 	_test_loot_contract(definition)
+	_test_spawn_contract(definition)
 	_test_non_loot_objects_unchanged(definition)
 	_expect(_signature(definition) == _signature(BAKED_DEFINITION), "baker: checked-in resource should match the authoring scene")
 	var model := GridModel.new()
@@ -42,11 +47,38 @@ func _signature(definition: TacticalMapDefinition) -> String:
 	for transition in definition.transitions:
 		rows.append("T:%s:%s:%d:%s" % [transition.from_cell, transition.to_cell, transition.move_cost, transition.bidirectional])
 	for spawn in definition.spawns:
-		rows.append("S:%s:%s:%s:%s" % [spawn.unit_name, spawn.faction, spawn.cell, spawn.patrol_route_id])
+		var archetype_id := spawn.archetype.archetype_id if spawn.archetype != null else &""
+		var weapon_id := spawn.weapon.weapon_id if spawn.weapon != null else &""
+		rows.append("S:%s:%s:%s:%s:%s:%s:%s" % [spawn.unit_name, spawn.faction, spawn.cell, spawn.patrol_route_id, archetype_id, weapon_id, spawn.encounter_id])
 	for placement in definition.objects:
 		var table_id := placement.loot_table.table_id if placement.loot_table != null else &""
 		rows.append("O:%s:%d:%s:%s:%s:%s:%d" % [placement.object_id, placement.kind, placement.cell, placement.blocks_movement, placement.blocks_los, table_id, placement.loot_seed])
 	return "\n".join(rows)
+
+
+func _test_spawn_contract(definition: TacticalMapDefinition) -> void:
+	var expected := {
+		&"PlayerAlpha": {&"archetype": PLAYER_ALPHA, &"weapon": &"assault_rifle", &"encounter": &""},
+		&"PlayerBravo": {&"archetype": PLAYER_BRAVO, &"weapon": &"shotgun", &"encounter": &""},
+		&"EnemyScout": {&"archetype": RIFLEMAN, &"weapon": &"carbine", &"encounter": &"warehouse"},
+		&"EnemyRifleman_2": {&"archetype": RIFLEMAN, &"weapon": &"carbine", &"encounter": &"warehouse"},
+		&"EnemyAssault_1": {&"archetype": ASSAULT, &"weapon": &"shotgun", &"encounter": &"warehouse"},
+		&"EnemyGuard": {&"archetype": RIFLEMAN, &"weapon": &"carbine", &"encounter": &"outpost"},
+		&"EnemyAssault_2": {&"archetype": ASSAULT, &"weapon": &"shotgun", &"encounter": &"outpost"},
+		&"EnemyAssault_3": {&"archetype": ASSAULT, &"weapon": &"shotgun", &"encounter": &"outpost"},
+	}
+	var seen: Dictionary = {}
+	for spawn in definition.spawns:
+		seen[spawn.unit_name] = true
+		_expect(expected.has(spawn.unit_name), "baker: unexpected spawn %s" % spawn.unit_name)
+		if not expected.has(spawn.unit_name):
+			continue
+		var contract: Dictionary = expected[spawn.unit_name]
+		var archetype: UnitArchetype = contract[&"archetype"]
+		_expect(spawn.archetype != null and spawn.archetype.archetype_id == archetype.archetype_id, "baker: %s archetype" % spawn.unit_name)
+		_expect(spawn.weapon != null and spawn.weapon.weapon_id == contract[&"weapon"], "baker: %s weapon" % spawn.unit_name)
+		_expect(spawn.encounter_id == contract[&"encounter"], "baker: %s encounter" % spawn.unit_name)
+	_expect(seen.size() == expected.size(), "baker: all authored spawn profiles should be present")
 
 
 func _test_loot_contract(definition: TacticalMapDefinition) -> void:

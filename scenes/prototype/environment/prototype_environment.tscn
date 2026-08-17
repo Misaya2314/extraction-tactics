@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene format=3 uid="uid://c7h22umeeca0d"]
 
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_tile.tscn" id="1_tile"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_tile_alt.tscn" id="2_tile_alt"]
@@ -15,593 +15,591 @@ ambient_light_source = 2
 ambient_light_color = Color(0.32, 0.4, 0.52, 1)
 ambient_light_energy = 0.7
 
-[node name="PrototypeEnvironment" type="Node3D"]
+[node name="PrototypeEnvironment" type="Node3D" unique_id=1968231593]
 metadata/grid_size = Vector2i(12, 10)
 metadata/cell_size = 2.0
 metadata/world_origin = Vector3(0, 0, 0)
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=116079587]
 environment = SubResource("Environment_graybox")
 
-[node name="KeyLight" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-55, -35, 0)
+[node name="KeyLight" type="DirectionalLight3D" parent="." unique_id=504383110]
+transform = Transform3D(0.81915206, 0.46984634, -0.32898995, 0, 0.57357645, 0.81915206, 0.57357645, -0.6710101, 0.46984634, 0, 0, 0)
 light_color = Color(0.86, 0.92, 1, 1)
 light_energy = 1.2
 shadow_enabled = true
 
-[node name="FillLight" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-30, 145, 0)
+[node name="FillLight" type="DirectionalLight3D" parent="." unique_id=1759894327]
+transform = Transform3D(-0.81915206, -0.28678823, 0.49673176, 0, 0.8660254, 0.5, -0.57357645, 0.40957603, -0.7094065, 0, 0, 0)
 light_color = Color(0.42, 0.52, 0.72, 1)
 light_energy = 0.25
-shadow_enabled = false
 
-[node name="Grid" type="Node3D" parent="."]
+[node name="Grid" type="Node3D" parent="." unique_id=2077709536]
 
-[node name="Tile_0_0" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(0, 0, 0)
+[node name="Tile_0_0" parent="Grid" unique_id=843769847 instance=ExtResource("1_tile")]
 
-[node name="Tile_1_0" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(2, 0, 0)
+[node name="Tile_1_0" parent="Grid" unique_id=1900522811 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0)
 
-[node name="Tile_2_0" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(4, 0, 0)
+[node name="Tile_2_0" parent="Grid" unique_id=1029709137 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 0)
 
-[node name="Tile_3_0" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(6, 0, 0)
+[node name="Tile_3_0" parent="Grid" unique_id=1375660287 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 0)
 
-[node name="Tile_4_0" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(8, 0, 0)
+[node name="Tile_4_0" parent="Grid" unique_id=378336673 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 0)
 
-[node name="Tile_5_0" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(10, 0, 0)
+[node name="Tile_5_0" parent="Grid" unique_id=1117081303 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 0)
 
-[node name="Tile_6_0" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(12, 0, 0)
+[node name="Tile_6_0" parent="Grid" unique_id=415644634 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 0)
 
-[node name="Tile_7_0" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(14, 0, 0)
+[node name="Tile_7_0" parent="Grid" unique_id=2032259424 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 0)
 
-[node name="Tile_8_0" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(16, 0, 0)
+[node name="Tile_8_0" parent="Grid" unique_id=978739596 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 0)
 
-[node name="Tile_9_0" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(18, 0, 0)
+[node name="Tile_9_0" parent="Grid" unique_id=188214268 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 0)
 
-[node name="Tile_10_0" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(20, 0, 0)
+[node name="Tile_10_0" parent="Grid" unique_id=603811680 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 0)
 
-[node name="Tile_11_0" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(22, 0, 0)
+[node name="Tile_11_0" parent="Grid" unique_id=2065761992 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 0)
 
-[node name="Tile_0_1" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(0, 0, 2)
+[node name="Tile_0_1" parent="Grid" unique_id=1827372325 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2)
 
-[node name="Tile_1_1" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(2, 0, 2)
+[node name="Tile_1_1" parent="Grid" unique_id=82614014 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 2)
 
-[node name="Tile_2_1" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(4, 0, 2)
+[node name="Tile_2_1" parent="Grid" unique_id=901538298 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 2)
 
-[node name="Tile_3_1" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(6, 0, 2)
+[node name="Tile_3_1" parent="Grid" unique_id=939463492 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 2)
 
-[node name="Tile_4_1" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(8, 0, 2)
+[node name="Tile_4_1" parent="Grid" unique_id=1421309843 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 2)
 
-[node name="Tile_5_1" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(10, 0, 2)
+[node name="Tile_5_1" parent="Grid" unique_id=1581680893 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 2)
 
-[node name="Tile_6_1" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(12, 0, 2)
+[node name="Tile_6_1" parent="Grid" unique_id=1260072940 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 2)
 
-[node name="Tile_7_1" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(14, 0, 2)
+[node name="Tile_7_1" parent="Grid" unique_id=574699888 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 2)
 
-[node name="Tile_8_1" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(16, 0, 2)
+[node name="Tile_8_1" parent="Grid" unique_id=312727398 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 2)
 
-[node name="Tile_9_1" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(18, 0, 2)
+[node name="Tile_9_1" parent="Grid" unique_id=1567399311 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 2)
 
-[node name="Tile_10_1" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(20, 0, 2)
+[node name="Tile_10_1" parent="Grid" unique_id=121153510 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 2)
 
-[node name="Tile_11_1" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(22, 0, 2)
+[node name="Tile_11_1" parent="Grid" unique_id=168374232 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 2)
 
-[node name="Tile_0_2" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(0, 0, 4)
+[node name="Tile_0_2" parent="Grid" unique_id=1567124071 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4)
 
-[node name="Tile_1_2" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(2, 0, 4)
+[node name="Tile_1_2" parent="Grid" unique_id=2058679884 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 4)
 
-[node name="Tile_2_2" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(4, 0, 4)
+[node name="Tile_2_2" parent="Grid" unique_id=1445332041 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 4)
 
-[node name="Tile_3_2" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(6, 0, 4)
+[node name="Tile_3_2" parent="Grid" unique_id=1397390425 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 4)
 
-[node name="Tile_4_2" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(8, 0, 4)
+[node name="Tile_4_2" parent="Grid" unique_id=25724259 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 4)
 
-[node name="Tile_5_2" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(10, 0, 4)
+[node name="Tile_5_2" parent="Grid" unique_id=1650903632 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 4)
 
-[node name="Tile_6_2" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(12, 0, 4)
+[node name="Tile_6_2" parent="Grid" unique_id=1643862582 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 4)
 
-[node name="Tile_7_2" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(14, 0, 4)
+[node name="Tile_7_2" parent="Grid" unique_id=1567031578 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 4)
 
-[node name="Tile_8_2" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(16, 0, 4)
+[node name="Tile_8_2" parent="Grid" unique_id=1283902905 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 4)
 
-[node name="Tile_9_2" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(18, 0, 4)
+[node name="Tile_9_2" parent="Grid" unique_id=107880586 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 4)
 
-[node name="Tile_10_2" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(20, 0, 4)
+[node name="Tile_10_2" parent="Grid" unique_id=2039513150 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 4)
 
-[node name="Tile_11_2" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(22, 0, 4)
+[node name="Tile_11_2" parent="Grid" unique_id=525249460 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 4)
 
-[node name="Tile_0_3" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(0, 0, 6)
+[node name="Tile_0_3" parent="Grid" unique_id=2043595199 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6)
 
-[node name="Tile_1_3" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(2, 0, 6)
+[node name="Tile_1_3" parent="Grid" unique_id=508898169 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 6)
 
-[node name="Tile_2_3" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(4, 0, 6)
+[node name="Tile_2_3" parent="Grid" unique_id=1243868453 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 6)
 
-[node name="Tile_3_3" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(6, 0, 6)
+[node name="Tile_3_3" parent="Grid" unique_id=524055047 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 6)
 
-[node name="Tile_4_3" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(8, 0, 6)
+[node name="Tile_4_3" parent="Grid" unique_id=750679307 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 6)
 
-[node name="Tile_5_3" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(10, 0, 6)
+[node name="Tile_5_3" parent="Grid" unique_id=1571418917 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 6)
 
-[node name="Tile_6_3" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(12, 0, 6)
+[node name="Tile_6_3" parent="Grid" unique_id=2011136538 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 6)
 
-[node name="Tile_7_3" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(14, 0, 6)
+[node name="Tile_7_3" parent="Grid" unique_id=1128611422 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 6)
 
-[node name="Tile_8_3" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(16, 0, 6)
+[node name="Tile_8_3" parent="Grid" unique_id=1006318318 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 6)
 
-[node name="Tile_9_3" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(18, 0, 6)
+[node name="Tile_9_3" parent="Grid" unique_id=507212707 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 6)
 
-[node name="Tile_10_3" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(20, 0, 6)
+[node name="Tile_10_3" parent="Grid" unique_id=1512697108 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 6)
 
-[node name="Tile_11_3" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(22, 0, 6)
+[node name="Tile_11_3" parent="Grid" unique_id=715910033 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 6)
 
-[node name="Tile_0_4" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(0, 0, 8)
+[node name="Tile_0_4" parent="Grid" unique_id=1186345098 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 8)
 
-[node name="Tile_1_4" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(2, 0, 8)
+[node name="Tile_1_4" parent="Grid" unique_id=474178962 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 8)
 
-[node name="Tile_2_4" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(4, 0, 8)
+[node name="Tile_2_4" parent="Grid" unique_id=1195168712 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 8)
 
-[node name="Tile_3_4" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(6, 0, 8)
+[node name="Tile_3_4" parent="Grid" unique_id=1562729191 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 8)
 
-[node name="Tile_4_4" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(8, 0, 8)
+[node name="Tile_4_4" parent="Grid" unique_id=578074618 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 8)
 
-[node name="Tile_5_4" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(10, 0, 8)
+[node name="Tile_5_4" parent="Grid" unique_id=959938440 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 8)
 
-[node name="Tile_6_4" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(12, 0, 8)
+[node name="Tile_6_4" parent="Grid" unique_id=1543020952 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 8)
 
-[node name="Tile_7_4" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(14, 0, 8)
+[node name="Tile_7_4" parent="Grid" unique_id=1439767663 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 8)
 
-[node name="Tile_8_4" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(16, 0, 8)
+[node name="Tile_8_4" parent="Grid" unique_id=837193093 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 8)
 
-[node name="Tile_9_4" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(18, 0, 8)
+[node name="Tile_9_4" parent="Grid" unique_id=471663045 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 8)
 
-[node name="Tile_10_4" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(20, 0, 8)
+[node name="Tile_10_4" parent="Grid" unique_id=1800925741 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 8)
 
-[node name="Tile_11_4" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(22, 0, 8)
+[node name="Tile_11_4" parent="Grid" unique_id=1322981421 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 8)
 
-[node name="Tile_0_5" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(0, 0, 10)
+[node name="Tile_0_5" parent="Grid" unique_id=318934483 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 10)
 
-[node name="Tile_1_5" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(2, 0, 10)
+[node name="Tile_1_5" parent="Grid" unique_id=602931497 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 10)
 
-[node name="Tile_2_5" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(4, 0, 10)
+[node name="Tile_2_5" parent="Grid" unique_id=573810850 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 10)
 
-[node name="Tile_3_5" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(6, 0, 10)
+[node name="Tile_3_5" parent="Grid" unique_id=1836513237 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 10)
 
-[node name="Tile_4_5" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(8, 0, 10)
+[node name="Tile_4_5" parent="Grid" unique_id=1298626128 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 10)
 
-[node name="Tile_5_5" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(10, 0, 10)
+[node name="Tile_5_5" parent="Grid" unique_id=391076608 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 10)
 
-[node name="Tile_6_5" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(12, 0, 10)
+[node name="Tile_6_5" parent="Grid" unique_id=2136662826 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 10)
 
-[node name="Tile_7_5" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(14, 0, 10)
+[node name="Tile_7_5" parent="Grid" unique_id=778769537 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 10)
 
-[node name="Tile_8_5" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(16, 0, 10)
+[node name="Tile_8_5" parent="Grid" unique_id=586983922 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 10)
 
-[node name="Tile_9_5" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(18, 0, 10)
+[node name="Tile_9_5" parent="Grid" unique_id=603192730 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 10)
 
-[node name="Tile_10_5" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(20, 0, 10)
+[node name="Tile_10_5" parent="Grid" unique_id=1849505909 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 10)
 
-[node name="Tile_11_5" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(22, 0, 10)
+[node name="Tile_11_5" parent="Grid" unique_id=1940169792 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 10)
 
-[node name="Tile_0_6" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(0, 0, 12)
+[node name="Tile_0_6" parent="Grid" unique_id=308784695 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 12)
 
-[node name="Tile_1_6" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(2, 0, 12)
+[node name="Tile_1_6" parent="Grid" unique_id=2080773385 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 12)
 
-[node name="Tile_2_6" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(4, 0, 12)
+[node name="Tile_2_6" parent="Grid" unique_id=904552639 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 12)
 
-[node name="Tile_3_6" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(6, 0, 12)
+[node name="Tile_3_6" parent="Grid" unique_id=863469969 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 12)
 
-[node name="Tile_4_6" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(8, 0, 12)
+[node name="Tile_4_6" parent="Grid" unique_id=1170077924 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 12)
 
-[node name="Tile_5_6" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(10, 0, 12)
+[node name="Tile_5_6" parent="Grid" unique_id=1526324592 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 12)
 
-[node name="Tile_6_6" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(12, 0, 12)
+[node name="Tile_6_6" parent="Grid" unique_id=1379080118 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 12)
 
-[node name="Tile_7_6" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(14, 0, 12)
+[node name="Tile_7_6" parent="Grid" unique_id=438739536 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 12)
 
-[node name="Tile_8_6" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(16, 0, 12)
+[node name="Tile_8_6" parent="Grid" unique_id=752024112 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 12)
 
-[node name="Tile_9_6" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(18, 0, 12)
+[node name="Tile_9_6" parent="Grid" unique_id=853301239 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 12)
 
-[node name="Tile_10_6" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(20, 0, 12)
+[node name="Tile_10_6" parent="Grid" unique_id=27773059 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 12)
 
-[node name="Tile_11_6" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(22, 0, 12)
+[node name="Tile_11_6" parent="Grid" unique_id=1784945481 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 12)
 
-[node name="Tile_0_7" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(0, 0, 14)
+[node name="Tile_0_7" parent="Grid" unique_id=609001366 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 14)
 
-[node name="Tile_1_7" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(2, 0, 14)
+[node name="Tile_1_7" parent="Grid" unique_id=382838521 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 14)
 
-[node name="Tile_2_7" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(4, 0, 14)
+[node name="Tile_2_7" parent="Grid" unique_id=1033390649 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 14)
 
-[node name="Tile_3_7" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(6, 0, 14)
+[node name="Tile_3_7" parent="Grid" unique_id=1823198650 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 14)
 
-[node name="Tile_4_7" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(8, 0, 14)
+[node name="Tile_4_7" parent="Grid" unique_id=305339649 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 14)
 
-[node name="Tile_5_7" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(10, 0, 14)
+[node name="Tile_5_7" parent="Grid" unique_id=858857431 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 14)
 
-[node name="Tile_6_7" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(12, 0, 14)
+[node name="Tile_6_7" parent="Grid" unique_id=861778765 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 14)
 
-[node name="Tile_7_7" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(14, 0, 14)
+[node name="Tile_7_7" parent="Grid" unique_id=246578928 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 14)
 
-[node name="Tile_8_7" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(16, 0, 14)
+[node name="Tile_8_7" parent="Grid" unique_id=120439946 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 14)
 
-[node name="Tile_9_7" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(18, 0, 14)
+[node name="Tile_9_7" parent="Grid" unique_id=1673028669 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 14)
 
-[node name="Tile_10_7" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(20, 0, 14)
+[node name="Tile_10_7" parent="Grid" unique_id=937112965 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 14)
 
-[node name="Tile_11_7" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(22, 0, 14)
+[node name="Tile_11_7" parent="Grid" unique_id=455291741 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 14)
 
-[node name="Tile_0_8" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(0, 0, 16)
+[node name="Tile_0_8" parent="Grid" unique_id=1367244382 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 16)
 
-[node name="Tile_1_8" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(2, 0, 16)
+[node name="Tile_1_8" parent="Grid" unique_id=60883163 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 16)
 
-[node name="Tile_2_8" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(4, 0, 16)
+[node name="Tile_2_8" parent="Grid" unique_id=220197875 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 16)
 
-[node name="Tile_3_8" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(6, 0, 16)
+[node name="Tile_3_8" parent="Grid" unique_id=648428423 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 16)
 
-[node name="Tile_4_8" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(8, 0, 16)
+[node name="Tile_4_8" parent="Grid" unique_id=671096282 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 16)
 
-[node name="Tile_5_8" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(10, 0, 16)
+[node name="Tile_5_8" parent="Grid" unique_id=476372618 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 16)
 
-[node name="Tile_6_8" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(12, 0, 16)
+[node name="Tile_6_8" parent="Grid" unique_id=1464798982 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 16)
 
-[node name="Tile_7_8" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(14, 0, 16)
+[node name="Tile_7_8" parent="Grid" unique_id=1858845447 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 16)
 
-[node name="Tile_8_8" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(16, 0, 16)
+[node name="Tile_8_8" parent="Grid" unique_id=291298033 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 16)
 
-[node name="Tile_9_8" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(18, 0, 16)
+[node name="Tile_9_8" parent="Grid" unique_id=1353387539 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 16)
 
-[node name="Tile_10_8" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(20, 0, 16)
+[node name="Tile_10_8" parent="Grid" unique_id=2020591274 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 16)
 
-[node name="Tile_11_8" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(22, 0, 16)
+[node name="Tile_11_8" parent="Grid" unique_id=1102516148 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 16)
 
-[node name="Tile_0_9" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(0, 0, 18)
+[node name="Tile_0_9" parent="Grid" unique_id=491186197 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 18)
 
-[node name="Tile_1_9" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(2, 0, 18)
+[node name="Tile_1_9" parent="Grid" unique_id=2037944404 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 18)
 
-[node name="Tile_2_9" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(4, 0, 18)
+[node name="Tile_2_9" parent="Grid" unique_id=336026215 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 18)
 
-[node name="Tile_3_9" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(6, 0, 18)
+[node name="Tile_3_9" parent="Grid" unique_id=2116925853 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 18)
 
-[node name="Tile_4_9" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(8, 0, 18)
+[node name="Tile_4_9" parent="Grid" unique_id=580668675 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 18)
 
-[node name="Tile_5_9" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(10, 0, 18)
+[node name="Tile_5_9" parent="Grid" unique_id=856786439 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 18)
 
-[node name="Tile_6_9" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(12, 0, 18)
+[node name="Tile_6_9" parent="Grid" unique_id=751122781 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 18)
 
-[node name="Tile_7_9" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(14, 0, 18)
+[node name="Tile_7_9" parent="Grid" unique_id=1039164113 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 18)
 
-[node name="Tile_8_9" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(16, 0, 18)
+[node name="Tile_8_9" parent="Grid" unique_id=900167552 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 18)
 
-[node name="Tile_9_9" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(18, 0, 18)
+[node name="Tile_9_9" parent="Grid" unique_id=2110934138 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 18)
 
-[node name="Tile_10_9" parent="Grid" instance=ExtResource("2_tile_alt")]
-position = Vector3(20, 0, 18)
+[node name="Tile_10_9" parent="Grid" unique_id=1693707307 instance=ExtResource("2_tile_alt")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 18)
 
-[node name="Tile_11_9" parent="Grid" instance=ExtResource("1_tile")]
-position = Vector3(22, 0, 18)
+[node name="Tile_11_9" parent="Grid" unique_id=112620753 instance=ExtResource("1_tile")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 18)
 
-[node name="Boundary" type="Node3D" parent="."]
+[node name="Boundary" type="Node3D" parent="." unique_id=1146212037]
 
-[node name="BoundaryNorth_0" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(0, 0, -2)
+[node name="BoundaryNorth_0" parent="Boundary" unique_id=357747925 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -2)
 
-[node name="BoundarySouth_0" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(0, 0, 20)
+[node name="BoundarySouth_0" parent="Boundary" unique_id=16624090 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 20)
 
-[node name="BoundaryNorth_1" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(2, 0, -2)
+[node name="BoundaryNorth_1" parent="Boundary" unique_id=1627069660 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, -2)
 
-[node name="BoundarySouth_1" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(2, 0, 20)
+[node name="BoundarySouth_1" parent="Boundary" unique_id=1925643066 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 20)
 
-[node name="BoundaryNorth_2" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(4, 0, -2)
+[node name="BoundaryNorth_2" parent="Boundary" unique_id=1767486625 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, -2)
 
-[node name="BoundarySouth_2" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(4, 0, 20)
+[node name="BoundarySouth_2" parent="Boundary" unique_id=2078920280 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 20)
 
-[node name="BoundaryNorth_3" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(6, 0, -2)
+[node name="BoundaryNorth_3" parent="Boundary" unique_id=385865393 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -2)
 
-[node name="BoundarySouth_3" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(6, 0, 20)
+[node name="BoundarySouth_3" parent="Boundary" unique_id=325844230 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 20)
 
-[node name="BoundaryNorth_4" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(8, 0, -2)
+[node name="BoundaryNorth_4" parent="Boundary" unique_id=184085341 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, -2)
 
-[node name="BoundarySouth_4" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(8, 0, 20)
+[node name="BoundarySouth_4" parent="Boundary" unique_id=363688520 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 20)
 
-[node name="BoundaryNorth_5" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(10, 0, -2)
+[node name="BoundaryNorth_5" parent="Boundary" unique_id=388348917 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, -2)
 
-[node name="BoundarySouth_5" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(10, 0, 20)
+[node name="BoundarySouth_5" parent="Boundary" unique_id=1857808977 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 20)
 
-[node name="BoundaryNorth_6" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(12, 0, -2)
+[node name="BoundaryNorth_6" parent="Boundary" unique_id=938469913 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, -2)
 
-[node name="BoundarySouth_6" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(12, 0, 20)
+[node name="BoundarySouth_6" parent="Boundary" unique_id=873483301 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 20)
 
-[node name="BoundaryNorth_7" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(14, 0, -2)
+[node name="BoundaryNorth_7" parent="Boundary" unique_id=618787554 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, -2)
 
-[node name="BoundarySouth_7" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(14, 0, 20)
+[node name="BoundarySouth_7" parent="Boundary" unique_id=43387126 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 20)
 
-[node name="BoundaryNorth_8" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(16, 0, -2)
+[node name="BoundaryNorth_8" parent="Boundary" unique_id=1440837123 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, -2)
 
-[node name="BoundarySouth_8" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(16, 0, 20)
+[node name="BoundarySouth_8" parent="Boundary" unique_id=1841855323 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 20)
 
-[node name="BoundaryNorth_9" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(18, 0, -2)
+[node name="BoundaryNorth_9" parent="Boundary" unique_id=1891593439 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, -2)
 
-[node name="BoundarySouth_9" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(18, 0, 20)
+[node name="BoundarySouth_9" parent="Boundary" unique_id=712573996 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 20)
 
-[node name="BoundaryNorth_10" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(20, 0, -2)
+[node name="BoundaryNorth_10" parent="Boundary" unique_id=171299726 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, -2)
 
-[node name="BoundarySouth_10" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(20, 0, 20)
+[node name="BoundarySouth_10" parent="Boundary" unique_id=581305986 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 20)
 
-[node name="BoundaryNorth_11" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(22, 0, -2)
+[node name="BoundaryNorth_11" parent="Boundary" unique_id=397949932 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, -2)
 
-[node name="BoundarySouth_11" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(22, 0, 20)
+[node name="BoundarySouth_11" parent="Boundary" unique_id=1294603125 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 20)
 
-[node name="BoundaryWest_0" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(-2, 0, 0)
+[node name="BoundaryWest_0" parent="Boundary" unique_id=1133005116 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0)
 
-[node name="BoundaryEast_0" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(24, 0, 0)
+[node name="BoundaryEast_0" parent="Boundary" unique_id=1721558211 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 0)
 
-[node name="BoundaryWest_1" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(-2, 0, 2)
+[node name="BoundaryWest_1" parent="Boundary" unique_id=702152520 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 2)
 
-[node name="BoundaryEast_1" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(24, 0, 2)
+[node name="BoundaryEast_1" parent="Boundary" unique_id=512988622 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 2)
 
-[node name="BoundaryWest_2" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(-2, 0, 4)
+[node name="BoundaryWest_2" parent="Boundary" unique_id=1720997287 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 4)
 
-[node name="BoundaryEast_2" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(24, 0, 4)
+[node name="BoundaryEast_2" parent="Boundary" unique_id=1268633417 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 4)
 
-[node name="BoundaryWest_3" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(-2, 0, 6)
+[node name="BoundaryWest_3" parent="Boundary" unique_id=1223795569 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 6)
 
-[node name="BoundaryEast_3" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(24, 0, 6)
+[node name="BoundaryEast_3" parent="Boundary" unique_id=846190299 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 6)
 
-[node name="BoundaryWest_4" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(-2, 0, 8)
+[node name="BoundaryWest_4" parent="Boundary" unique_id=1576150974 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 8)
 
-[node name="BoundaryEast_4" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(24, 0, 8)
+[node name="BoundaryEast_4" parent="Boundary" unique_id=2073555529 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 8)
 
-[node name="BoundaryWest_5" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(-2, 0, 10)
+[node name="BoundaryWest_5" parent="Boundary" unique_id=982854822 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 10)
 
-[node name="BoundaryEast_5" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(24, 0, 10)
+[node name="BoundaryEast_5" parent="Boundary" unique_id=1084292872 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 10)
 
-[node name="BoundaryWest_6" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(-2, 0, 12)
+[node name="BoundaryWest_6" parent="Boundary" unique_id=1200978819 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 12)
 
-[node name="BoundaryEast_6" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(24, 0, 12)
+[node name="BoundaryEast_6" parent="Boundary" unique_id=808225941 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 12)
 
-[node name="BoundaryWest_7" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(-2, 0, 14)
+[node name="BoundaryWest_7" parent="Boundary" unique_id=1475650761 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 14)
 
-[node name="BoundaryEast_7" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(24, 0, 14)
+[node name="BoundaryEast_7" parent="Boundary" unique_id=1313277570 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 14)
 
-[node name="BoundaryWest_8" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(-2, 0, 16)
+[node name="BoundaryWest_8" parent="Boundary" unique_id=1209161048 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 16)
 
-[node name="BoundaryEast_8" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(24, 0, 16)
+[node name="BoundaryEast_8" parent="Boundary" unique_id=2062628066 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 16)
 
-[node name="BoundaryWest_9" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(-2, 0, 18)
+[node name="BoundaryWest_9" parent="Boundary" unique_id=692535171 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 18)
 
-[node name="BoundaryEast_9" parent="Boundary" instance=ExtResource("3_wall")]
-position = Vector3(24, 0, 18)
+[node name="BoundaryEast_9" parent="Boundary" unique_id=1580157229 instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 18)
 
-[node name="Wall_4_1" parent="." groups=["grid_blocker"] instance=ExtResource("3_wall")]
-position = Vector3(8, 0, 2)
+[node name="Wall_4_1" parent="." unique_id=1706878660 groups=["grid_blocker"] instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 2)
 metadata/grid_cell = Vector2i(4, 1)
 
-[node name="Wall_4_2" parent="." groups=["grid_blocker"] instance=ExtResource("3_wall")]
-position = Vector3(8, 0, 4)
+[node name="Wall_4_2" parent="." unique_id=2096003452 groups=["grid_blocker"] instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 4)
 metadata/grid_cell = Vector2i(4, 2)
 
-[node name="Wall_4_3" parent="." groups=["grid_blocker"] instance=ExtResource("3_wall")]
-position = Vector3(8, 0, 6)
+[node name="Wall_4_3" parent="." unique_id=1544431909 groups=["grid_blocker"] instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 6)
 metadata/grid_cell = Vector2i(4, 3)
 
-[node name="Wall_4_5" parent="." groups=["grid_blocker"] instance=ExtResource("3_wall")]
-position = Vector3(8, 0, 10)
+[node name="Wall_4_5" parent="." unique_id=2040647704 groups=["grid_blocker"] instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 10)
 metadata/grid_cell = Vector2i(4, 5)
 
-[node name="Wall_4_6" parent="." groups=["grid_blocker"] instance=ExtResource("3_wall")]
-position = Vector3(8, 0, 12)
+[node name="Wall_4_6" parent="." unique_id=44719203 groups=["grid_blocker"] instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 12)
 metadata/grid_cell = Vector2i(4, 6)
 
-[node name="Wall_4_7" parent="." groups=["grid_blocker"] instance=ExtResource("3_wall")]
-position = Vector3(8, 0, 14)
+[node name="Wall_4_7" parent="." unique_id=1975451454 groups=["grid_blocker"] instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0, 14)
 metadata/grid_cell = Vector2i(4, 7)
 
-[node name="Wall_8_3" parent="." groups=["grid_blocker"] instance=ExtResource("3_wall")]
-position = Vector3(16, 0, 6)
+[node name="Wall_8_3" parent="." unique_id=109783902 groups=["grid_blocker"] instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 6)
 metadata/grid_cell = Vector2i(8, 3)
 
-[node name="Wall_8_4" parent="." groups=["grid_blocker"] instance=ExtResource("3_wall")]
-position = Vector3(16, 0, 8)
+[node name="Wall_8_4" parent="." unique_id=2000145973 groups=["grid_blocker"] instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 8)
 metadata/grid_cell = Vector2i(8, 4)
 
-[node name="Wall_8_5" parent="." groups=["grid_blocker"] instance=ExtResource("3_wall")]
-position = Vector3(16, 0, 10)
+[node name="Wall_8_5" parent="." unique_id=20428457 groups=["grid_blocker"] instance=ExtResource("3_wall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 10)
 metadata/grid_cell = Vector2i(8, 5)
 
-[node name="LowCover_2_4" parent="." groups=["grid_blocker"] instance=ExtResource("4_cover")]
-position = Vector3(4, 0, 8)
+[node name="LowCover_2_4" parent="." unique_id=35551926 groups=["grid_blocker"] instance=ExtResource("4_cover")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 8)
 metadata/grid_cell = Vector2i(2, 4)
 
-[node name="LowCover_6_2" parent="." groups=["grid_blocker"] instance=ExtResource("4_cover")]
-position = Vector3(12, 0, 4)
+[node name="LowCover_6_2" parent="." unique_id=1842499204 groups=["grid_blocker"] instance=ExtResource("4_cover")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 4)
 metadata/grid_cell = Vector2i(6, 2)
 
-[node name="LowCover_6_6" parent="." groups=["grid_blocker"] instance=ExtResource("4_cover")]
-position = Vector3(12, 0, 12)
+[node name="LowCover_6_6" parent="." unique_id=829020348 groups=["grid_blocker"] instance=ExtResource("4_cover")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 0, 12)
 metadata/grid_cell = Vector2i(6, 6)
 
-[node name="LowCover_9_7" parent="." groups=["grid_blocker"] instance=ExtResource("4_cover")]
-position = Vector3(18, 0, 14)
+[node name="LowCover_9_7" parent="." unique_id=1039263303 groups=["grid_blocker"] instance=ExtResource("4_cover")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 0, 14)
 metadata/grid_cell = Vector2i(9, 7)
 
-[node name="LootCrate_1_3" parent="." groups=["grid_blocker"] instance=ExtResource("5_loot")]
-position = Vector3(2, 0, 6)
+[node name="LootCrate_1_3" parent="." unique_id=1647780970 groups=["grid_blocker"] instance=ExtResource("5_loot")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 6)
 metadata/grid_cell = Vector2i(1, 3)
 
-[node name="LootCrate_7_4" parent="." groups=["grid_blocker"] instance=ExtResource("5_loot")]
-position = Vector3(14, 0, 8)
+[node name="LootCrate_7_4" parent="." unique_id=1519638112 groups=["grid_blocker"] instance=ExtResource("5_loot")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 14, 0, 8)
 metadata/grid_cell = Vector2i(7, 4)
 
-[node name="LootCrate_10_6" parent="." groups=["grid_blocker"] instance=ExtResource("5_loot")]
-position = Vector3(20, 0, 12)
+[node name="LootCrate_10_6" parent="." unique_id=988162450 groups=["grid_blocker"] instance=ExtResource("5_loot")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 12)
 metadata/grid_cell = Vector2i(10, 6)
 
-[node name="ExplosiveBarrel_3_7" parent="." groups=["grid_blocker"] instance=ExtResource("6_barrel")]
-position = Vector3(6, 0, 14)
+[node name="ExplosiveBarrel_3_7" parent="." unique_id=687154111 groups=["grid_blocker"] instance=ExtResource("6_barrel")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, 14)
 metadata/grid_cell = Vector2i(3, 7)
 
-[node name="ExplosiveBarrel_10_2" parent="." groups=["grid_blocker"] instance=ExtResource("6_barrel")]
-position = Vector3(20, 0, 4)
+[node name="ExplosiveBarrel_10_2" parent="." unique_id=1522408335 groups=["grid_blocker"] instance=ExtResource("6_barrel")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 4)
 metadata/grid_cell = Vector2i(10, 2)
 
-[node name="Extraction_11_8" parent="." instance=ExtResource("7_extraction")]
-position = Vector3(22, 0, 16)
+[node name="Extraction_11_8" parent="." unique_id=1728103801 instance=ExtResource("7_extraction")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 16)

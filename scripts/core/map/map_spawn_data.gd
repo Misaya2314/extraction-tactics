@@ -8,4 +8,6 @@ extends Resource
 @export var facing: Vector2i = Vector2i.DOWN
 @export var visual_color: Color = Color.WHITE
 @export var patrol_route_id: StringName = &""
-
+@export var archetype: UnitArchetype
+@export var weapon: WeaponDefinition
+@export var encounter_id: StringName = &""
