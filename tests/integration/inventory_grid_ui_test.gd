@@ -92,6 +92,7 @@ func _test_loot_targeted_place_and_return() -> void:
 	var container = prototype.loot_containers[&"loot_1"]
 	var open_result := prototype.interact_with_loot(&"loot_1")
 	_expect(open_result.success and open_result.action_type == &"interact" and open_result.ap_cost == 1, "loot: opening remains a one-AP Interact")
+	_expect(not prototype.action_bar.visible, "loot: opening the modal should hide the action bar")
 	_expect(player.current_action_points == 1, "loot: opening consumes one AP")
 	_expect(prototype.loot_grid.get_item_control_count() > 0, "loot: instance controls should be visible")
 	var item: InventoryItemInstance = container.get_item(0)
@@ -118,6 +119,8 @@ func _test_loot_targeted_place_and_return() -> void:
 			found_returned = true
 	_expect(found_returned, "loot: return preserves instance identity")
 	_expect(player.current_action_points == before_ap, "loot: return is inventory management and costs no AP")
+	prototype._close_loot_panel()
+	_expect(prototype.action_bar.visible, "loot: closing the modal should restore the action bar")
 	await _free_prototype(prototype)
 
 

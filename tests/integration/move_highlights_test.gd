@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MAIN_SCENE: PackedScene = preload("res://scenes/main/prototype_main.tscn")
+const GameStateManagerScript = preload("res://scripts/core/session/game_state_manager.gd")
 const SURFACE_OFFSET := 0.025
 
 var _failures: Array[String] = []
@@ -23,9 +24,97 @@ func _run() -> void:
 
 	var initial_reachable := _movement_cells(prototype)
 	_expect(not initial_reachable.is_empty(), "initial: selected unit should have reachable cells")
+	_expect(prototype.action_mode == PrototypeController.ACTION_MODE_MOVE, "initial: selected player should start in move mode")
+	_expect(is_instance_valid(prototype.move_action_button), "initial: move action button should exist")
+	_expect(is_instance_valid(prototype.attack_action_button), "initial: attack action button should exist")
+	_expect(prototype.move_action_button.button_pressed, "initial: move action button should be selected")
+	_expect(not prototype.attack_action_button.button_pressed, "initial: attack action button should not be selected")
+	_expect(prototype.action_bar.visible, "initial: action bar should be visible for a selected player")
 	_expect(prototype.highlights_root.visible, "initial: move highlight layer should be visible")
+	_expect(not prototype.attack_highlights_root.visible, "initial: attack highlight layer should be hidden in move mode")
 	_expect(_highlight_cells(prototype) == initial_reachable, "initial: highlights should match weighted reachable cells")
 	_assert_highlight_nodes(prototype, "initial")
+	prototype._select_unit(null)
+	await process_frame
+	_expect(not prototype.action_bar.visible, "selection: action bar should hide without a selected player")
+	prototype._select_unit(unit)
+	await process_frame
+	_expect(prototype.action_bar.visible, "selection: action bar should return when a player is selected")
+
+	var mode_blocked_destination := initial_reachable[0]
+	var start_cell := unit.grid_cell
+	prototype.attack_action_button.emit_signal("pressed")
+	await process_frame
+	_expect(prototype.action_mode == PrototypeController.ACTION_MODE_ATTACK, "mode: attack button should switch to attack mode")
+	_expect(not prototype.highlights_root.visible, "mode: move highlights should hide in attack mode")
+	_expect(prototype.attack_highlights_root.visible, "mode: attack highlights should show in attack mode")
+	await prototype._handle_cell_click(mode_blocked_destination)
+	_expect(unit.grid_cell == start_cell, "mode: attack mode should not move on a movement cell click")
+	_expect(prototype.selected_unit == null, "mode: clicking an empty non-target cell should cancel selection")
+	prototype._select_unit(unit)
+	prototype.attack_action_button.emit_signal("pressed")
+	await process_frame
+	var other_player := prototype._unit_by_name(&"PlayerBravo")
+	await prototype._handle_cell_click(other_player.grid_cell)
+	_expect(prototype.selected_unit == other_player, "mode: clicking another player should select that unit")
+	_expect(prototype.action_mode == PrototypeController.ACTION_MODE_MOVE, "mode: selecting another player should return to move mode")
+	prototype._select_unit(unit)
+	prototype.move_action_button.emit_signal("pressed")
+	await process_frame
+	_expect(prototype.action_mode == PrototypeController.ACTION_MODE_MOVE, "mode: move button should restore move mode")
+
+	var attack_enemy := prototype._unit_by_name(&"EnemyScout")
+	var original_enemy_cell := attack_enemy.grid_cell
+	var attack_target_cell := mode_blocked_destination
+	_expect(prototype.grid.vacate(original_enemy_cell, attack_enemy.unit_id), "attack: setup should release the enemy cell")
+	_expect(prototype.grid.occupy(attack_target_cell, attack_enemy.unit_id), "attack: setup should occupy a visible target cell")
+	attack_enemy.grid_cell = attack_target_cell
+	attack_enemy.global_position = prototype.grid.cell_to_world(attack_target_cell)
+	prototype._set_debug_reveal_all(true)
+	prototype._select_unit(unit)
+	prototype.attack_action_button.emit_signal("pressed")
+	await process_frame
+	_expect(_attack_highlight_cells(prototype).has(attack_target_cell), "attack: attack mode should highlight a visible in-range enemy cell in red")
+	var attack_ap_before := unit.current_action_points
+	var attack_hp_before := attack_enemy.current_hp
+	await prototype._handle_cell_click(attack_target_cell)
+	_expect(attack_enemy.current_hp == attack_hp_before - unit.attack_damage, "attack: clicking a red enemy cell should apply the attack")
+	_expect(unit.current_action_points == attack_ap_before - unit.attack_ap_cost, "attack: clicking a red enemy cell should spend attack AP")
+	_expect(prototype.action_mode == PrototypeController.ACTION_MODE_ATTACK, "attack: successful attack should preserve attack mode")
+	prototype.turn_manager.reset_to_exploration()
+	prototype.session_manager.resolve_combat()
+	await process_frame
+	prototype.grid.vacate(attack_target_cell, attack_enemy.unit_id)
+	prototype.grid.occupy(original_enemy_cell, attack_enemy.unit_id)
+	attack_enemy.grid_cell = original_enemy_cell
+	attack_enemy.global_position = prototype.grid.cell_to_world(original_enemy_cell)
+	prototype._set_debug_reveal_all(false)
+	prototype._select_unit(unit)
+
+	var extraction_cell: Vector3i = prototype.extraction_cells[0]
+	var extraction_id: StringName = prototype._extraction_at_cell(extraction_cell)
+	var approach_cell := Vector3i(extraction_cell.x, extraction_cell.y, extraction_cell.z - 1)
+	var original_player_cell := unit.grid_cell
+	_expect(extraction_id != &"", "extraction: setup should find an extraction object")
+	_expect(prototype.grid.vacate(original_player_cell, unit.unit_id), "extraction: setup should release the player cell")
+	_expect(prototype.grid.occupy(approach_cell, unit.unit_id), "extraction: setup should occupy the approach cell")
+	unit.grid_cell = approach_cell
+	unit.global_position = prototype.grid.cell_to_world(approach_cell)
+	unit.reset_action_points()
+	prototype._select_unit(unit)
+	prototype.attack_action_button.emit_signal("pressed")
+	await process_frame
+	await prototype._handle_cell_click(extraction_cell)
+	_expect(prototype.session_manager.get_state() == GameStateManagerScript.State.EXTRACTION, "extraction: attack mode should still open extraction confirmation")
+	_expect(prototype.extraction_panel.visible, "extraction: attack mode should show extraction confirmation")
+	if prototype.session_manager.get_state() == GameStateManagerScript.State.EXTRACTION:
+		prototype.cancel_extraction()
+	prototype.grid.vacate(extraction_cell, unit.unit_id)
+	prototype.grid.occupy(original_player_cell, unit.unit_id)
+	unit.grid_cell = original_player_cell
+	unit.global_position = prototype.grid.cell_to_world(original_player_cell)
+	unit.reset_action_points()
+	prototype._select_unit(unit)
 
 	var destination := Vector3i(1, 0, 2)
 	await prototype._move_selected_unit(destination)
@@ -108,6 +197,14 @@ func _movement_cells(prototype: PrototypeController) -> Array[Vector3i]:
 func _highlight_cells(prototype: PrototypeController) -> Array[Vector3i]:
 	var result: Array[Vector3i] = []
 	for child in prototype.highlights_root.get_children():
+		if child.has_meta(&"grid_cell"):
+			result.append(child.get_meta(&"grid_cell"))
+	return result
+
+
+func _attack_highlight_cells(prototype: PrototypeController) -> Array[Vector3i]:
+	var result: Array[Vector3i] = []
+	for child in prototype.attack_highlights_root.get_children():
 		if child.has_meta(&"grid_cell"):
 			result.append(child.get_meta(&"grid_cell"))
 	return result

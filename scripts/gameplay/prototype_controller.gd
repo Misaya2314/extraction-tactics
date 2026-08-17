@@ -23,6 +23,8 @@ const ACTION_MOVE: StringName = &"move"
 const ACTION_INTERACT: StringName = &"interact"
 const ACTION_LOOT: StringName = &"loot"
 const ACTION_ATTACK: StringName = &"attack"
+const ACTION_MODE_MOVE: int = 0
+const ACTION_MODE_ATTACK: int = 1
 const PLAYER_COLOR := Color("4f9dff")
 const ENEMY_COLOR := Color("ef5b5b")
 const MOVE_HIGHLIGHT_COLOR := Color(0.2, 0.72, 1.0, 0.34)
@@ -59,6 +61,7 @@ var open_loot_container_id: StringName = &""
 var world_tick := 0
 var input_locked := false
 var debug_reveal_all := false
+var action_mode: int = ACTION_MODE_MOVE
 const VISION_BLOCK_COLOR := Color(0.0, 0.0, 0.0, 0.6)
 const ENEMY_VISION_COLOR := Color(0.62, 0.4, 1.0, 0.22)
 const ENEMY_DANGER_COLOR := Color(1.0, 0.55, 0.1, 0.3)
@@ -79,6 +82,9 @@ const INVENTORY_PANEL_COLLAPSED_BOTTOM := 300.0
 @onready var alert_label: Label = $HUD/TopLeftPanel/Margin/VBox/AlertLabel
 @onready var hint_label: Label = $HUD/TopLeftPanel/Margin/VBox/HintLabel
 @onready var end_turn_button: Button = $HUD/TopLeftPanel/Margin/VBox/EndTurnButton
+@onready var action_bar: PanelContainer = $HUD/ActionBar
+@onready var move_action_button: Button = $HUD/ActionBar/Margin/Buttons/MoveButton
+@onready var attack_action_button: Button = $HUD/ActionBar/Margin/Buttons/AttackButton
 @onready var inventory_summary_label: Label = $HUD/InventoryPanel/Margin/VBox/InventorySummary
 @onready var inventory_hint_label: Label = $HUD/InventoryPanel/Margin/VBox/InventoryHint
 @onready var inventory_panel: PanelContainer = $HUD/InventoryPanel
@@ -119,6 +125,8 @@ func _ready() -> void:
 	_configure_inventory_ui()
 	session_manager.start_exploration()
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
+	move_action_button.pressed.connect(_on_move_action_pressed)
+	attack_action_button.pressed.connect(_on_attack_action_pressed)
 	loot_all_button.pressed.connect(_on_loot_all_button_pressed)
 	loot_close_button.pressed.connect(_close_loot_panel)
 	extraction_confirm_button.pressed.connect(_on_extraction_confirm_pressed)
@@ -129,7 +137,7 @@ func _ready() -> void:
 	if not player_cells.is_empty():
 		_select_unit(_find_player_at(player_cells[0]))
 	_evaluate_detection()
-	_update_hud("探索中：蓝格为移动；看见敌人后点击红色单位攻击。")
+	_update_hud("探索中：用底部按钮切换移动/攻击；移动模式看蓝格，攻击模式看红格。")
 
 
 func _configure_inventory_ui() -> void:
@@ -258,6 +266,22 @@ func _set_debug_reveal_all(enabled: bool) -> void:
 	debug_reveal_all = enabled
 	_update_enemy_visibility()
 	_refresh_highlights()
+
+
+func _on_move_action_pressed() -> void:
+	_set_action_mode(ACTION_MODE_MOVE)
+
+
+func _on_attack_action_pressed() -> void:
+	_set_action_mode(ACTION_MODE_ATTACK)
+
+
+func _set_action_mode(mode: int) -> void:
+	if mode != ACTION_MODE_MOVE and mode != ACTION_MODE_ATTACK:
+		return
+	action_mode = mode
+	_refresh_highlights()
+	_update_hud("行动模式：移动。" if mode == ACTION_MODE_MOVE else "行动模式：攻击。")
 
 func _index_map_objects() -> void:
 	object_placements.clear()
@@ -473,14 +497,11 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 		return
 	var clicked_enemy := _find_enemy_at(clicked_cell)
 	if is_instance_valid(clicked_enemy):
-		# With a player unit selected that can afford an attack, clicking an
-		# enemy attacks it; otherwise the click inspects the enemy.
-		var can_attack := is_instance_valid(selected_unit) \
-			and selected_unit.faction == &"player" \
-			and selected_unit.is_alive() \
-			and selected_unit.can_spend_action_points(selected_unit.attack_ap_cost)
-		if can_attack:
+		if action_mode == ACTION_MODE_ATTACK and _can_attack_target(clicked_enemy):
 			await _attack_with_unit(selected_unit, clicked_enemy)
+		elif action_mode == ACTION_MODE_ATTACK:
+			_select_unit(clicked_enemy, true)
+			_update_hud("已选择 %s（敌方单位，仅侦察）。" % clicked_enemy.name)
 		else:
 			_select_unit(clicked_enemy, true)
 			_update_hud("已选择 %s（敌方单位，仅侦察）。" % clicked_enemy.name)
@@ -499,6 +520,10 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 			if moved and is_instance_valid(selected_unit) and selected_unit.grid_cell == clicked_cell and session_manager.get_state() == GameStateManagerScript.State.EXPLORATION:
 				begin_extraction_prompt(object_id)
 			return
+	if action_mode != ACTION_MODE_MOVE:
+		_select_unit(null)
+		_update_hud("已取消选择。")
+		return
 	# Only a highlighted (reachable) tile moves the unit; clicking any other
 	# tile cancels the current selection instead of issuing a stray move.
 	# The reachability gate mirrors the move-highlight gate (AP affordability),
@@ -1093,6 +1118,8 @@ func _select_unit(unit: PrototypeUnit, allow_enemy: bool = false) -> void:
 	selected_unit = unit
 	if is_instance_valid(selected_unit):
 		selected_unit.set_selected(true)
+		if selected_unit.faction == &"player":
+			action_mode = ACTION_MODE_MOVE
 	_refresh_highlights()
 	_update_hud()
 
@@ -1100,30 +1127,47 @@ func _select_unit(unit: PrototypeUnit, allow_enemy: bool = false) -> void:
 func _refresh_highlights() -> void:
 	_clear_highlights()
 	_update_object_visibility()
-	var can_show_tactical_highlights := _can_show_move_highlights()
+	var can_show_tactical_highlights := _can_show_tactical_highlights()
+	var can_show_move_highlights := can_show_tactical_highlights \
+		and action_mode == ACTION_MODE_MOVE \
+		and selected_unit.can_spend_action_points(MOVE_ACTION_COST)
+	var can_show_attack_highlights := can_show_tactical_highlights \
+		and action_mode == ACTION_MODE_ATTACK \
+		and selected_unit.can_spend_action_points(selected_unit.attack_ap_cost)
 	if is_instance_valid(highlights_root):
-		highlights_root.visible = can_show_tactical_highlights
+		highlights_root.visible = can_show_move_highlights
 	if is_instance_valid(attack_highlights_root):
-		attack_highlights_root.visible = can_show_tactical_highlights
+		attack_highlights_root.visible = can_show_attack_highlights
 	if is_instance_valid(object_highlights_root):
 		object_highlights_root.visible = can_show_tactical_highlights
-	if can_show_tactical_highlights and selected_unit.can_spend_action_points(MOVE_ACTION_COST):
+	if can_show_move_highlights:
 		for cell in grid.get_reachable_cells(selected_unit.grid_cell, selected_unit.move_range):
 			if cell != selected_unit.grid_cell:
 				_add_highlight(highlights_root, cell, MOVE_HIGHLIGHT_COLOR)
-	if can_show_tactical_highlights and selected_unit.can_spend_action_points(selected_unit.attack_ap_cost):
+	if can_show_attack_highlights:
 		for enemy_id in _enemy_ids_for_context():
 			var enemy := _unit_by_id(enemy_id)
-			if not is_instance_valid(enemy) or not enemy.visible:
-				continue
-			if GridVisibility.has_line_of_sight(
-				selected_unit.grid_cell, enemy.grid_cell, opaque_cells, selected_unit.attack_range
-			):
+			if _can_attack_target(enemy):
 				_add_highlight(attack_highlights_root, enemy.grid_cell, ATTACK_HIGHLIGHT_COLOR)
 	_refresh_object_highlights()
 	_refresh_vision_overlay()
 	if is_instance_valid(selected_unit) and selected_unit.faction == &"enemy":
 		_refresh_enemy_range_overlays(selected_unit)
+	_refresh_action_bar()
+
+
+func _can_attack_target(target: PrototypeUnit) -> bool:
+	if not _can_show_tactical_highlights() or not is_instance_valid(target):
+		return false
+	if not target.is_alive() or target.faction == selected_unit.faction or not target.visible:
+		return false
+	if not _enemy_ids_for_context().has(target.unit_id):
+		return false
+	if not selected_unit.can_spend_action_points(selected_unit.attack_ap_cost):
+		return false
+	return GridVisibility.has_line_of_sight(
+		selected_unit.grid_cell, target.grid_cell, opaque_cells, selected_unit.attack_range
+	)
 
 
 ## When an enemy unit is selected, tints its vision / danger / move zones on
@@ -1158,6 +1202,24 @@ func _refresh_enemy_range_overlays(enemy: PrototypeUnit) -> void:
 
 func _refresh_move_highlights() -> void:
 	_refresh_highlights()
+
+
+func _refresh_action_bar() -> void:
+	if not is_instance_valid(move_action_button) or not is_instance_valid(attack_action_button):
+		return
+	var has_player_selection := is_instance_valid(selected_unit) \
+		and selected_unit.faction == &"player" \
+		and selected_unit.is_alive()
+	if is_instance_valid(action_bar):
+		action_bar.visible = has_player_selection \
+		and (not is_instance_valid(loot_panel) or not loot_panel.visible)
+	var can_show_actions := _can_show_tactical_highlights()
+	move_action_button.disabled = not can_show_actions \
+		or not selected_unit.can_spend_action_points(MOVE_ACTION_COST)
+	attack_action_button.disabled = not can_show_actions \
+		or not selected_unit.can_spend_action_points(selected_unit.attack_ap_cost)
+	move_action_button.button_pressed = action_mode == ACTION_MODE_MOVE
+	attack_action_button.button_pressed = action_mode == ACTION_MODE_ATTACK
 
 
 func _add_highlight(parent: Node3D, cell: Vector3i, color: Color, height_offset: float = MOVE_HIGHLIGHT_SURFACE_OFFSET) -> void:
@@ -1491,6 +1553,7 @@ func _close_loot_panel() -> void:
 		loot_panel.visible = false
 	open_loot_container_id = &""
 	_restore_inventory_after_loot_state()
+	_refresh_action_bar()
 
 
 func _on_extraction_confirm_pressed() -> void:
@@ -1657,13 +1720,16 @@ func _player_can_act() -> bool:
 	)
 
 
-func _can_show_move_highlights() -> bool:
+func _can_show_tactical_highlights() -> bool:
 	return not input_locked \
 		and is_instance_valid(selected_unit) \
 		and selected_unit.faction == &"player" \
 		and selected_unit.is_alive() \
-		and _player_can_act() \
-		and selected_unit.can_spend_action_points(MOVE_ACTION_COST)
+		and _player_can_act()
+
+
+func _can_show_move_highlights() -> bool:
+	return _can_show_tactical_highlights() and selected_unit.can_spend_action_points(MOVE_ACTION_COST)
 
 
 func _is_terminal() -> bool:
@@ -1758,6 +1824,7 @@ func _update_hud(message: String = "") -> void:
 		selection_label.text = "未选择单位"
 	end_turn_button.text = "推进探索 Tick" if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION else "结束玩家回合"
 	end_turn_button.disabled = input_locked or _is_terminal() or turn_manager.is_enemy_turn() or (session_manager != null and session_manager.get_state() == GameStateManagerScript.State.EXTRACTION)
+	_refresh_action_bar()
 	if is_instance_valid(inventory_summary_label) and squad_inventory != null:
 		inventory_summary_label.text = "背包 6×8 · %d/%d | 总价值 %d" % [squad_inventory.used, squad_inventory.capacity, squad_inventory.total_value()]
 	if is_instance_valid(inventory_grid) and squad_inventory != null:

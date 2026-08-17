@@ -38,6 +38,7 @@ func _test_player_rifle_click_and_reentry() -> void:
 	var ap_before := attacker.current_action_points
 	var root_position := attacker.global_position
 	_watch_feedback(attacker)
+	prototype._on_attack_action_pressed()
 
 	prototype._handle_cell_click(target.grid_cell)
 	var feedback_started := await _wait_for_feedback_start(attacker)

@@ -31,6 +31,18 @@ corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_action"]
+bg_color = Color(0.035, 0.047, 0.064, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.23, 0.38, 0.52, 0.95)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
 [node name="PrototypeMain" type="Node3D" unique_id=1547153070]
 script = ExtResource("1_controller")
 map_definition = ExtResource("4_map_definition")
@@ -51,6 +63,45 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 0, 9)
 [node name="VisionHighlights" type="Node3D" parent="." unique_id=1742020001]
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1699104427]
+
+[node name="ActionBar" type="PanelContainer" parent="HUD"]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -166.0
+offset_top = -88.0
+offset_right = 166.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_action")
+
+[node name="Margin" type="MarginContainer" parent="HUD/ActionBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="Buttons" type="HBoxContainer" parent="HUD/ActionBar/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="MoveButton" type="Button" parent="HUD/ActionBar/Margin/Buttons"]
+custom_minimum_size = Vector2(150, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+button_pressed = true
+text = "移动"
+
+[node name="AttackButton" type="Button" parent="HUD/ActionBar/Margin/Buttons"]
+custom_minimum_size = Vector2(150, 54)
+layout_mode = 2
+size_flags_horizontal = 3
+toggle_mode = true
+text = "攻击"
 
 [node name="TopLeftPanel" type="PanelContainer" parent="HUD" unique_id=1309785730]
 offset_left = 16.0
@@ -90,7 +141,7 @@ text = "敌方警戒：未警戒"
 [node name="HintLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=1178240817]
 custom_minimum_size = Vector2(320, 28)
 layout_mode = 2
-text = "左键选择/移动；WASD 平移；滚轮缩放；X切换Debug视野。"
+text = "左键选择/移动；底部按钮切换移动/攻击；WASD 平移；滚轮缩放；X切换Debug视野。"
 autowrap_mode = 2
 
 [node name="EndTurnButton" type="Button" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=1158636587]
