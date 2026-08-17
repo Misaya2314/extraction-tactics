@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="WeaponAttackFeedbackProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/combat/weapon_attack_feedback_profile.gd" id="1_profile"]
+
+[resource]
+script = ExtResource("1_profile")
+profile_id = &"rifle"
+recoil_distance = 0.045
+weapon_kick_degrees = 4.0
+body_squash = 0.025
+recoil_duration = 0.07
+hold_duration = 0.035
+recover_duration = 0.11
+muzzle_flash_scale = 0.85
+muzzle_flash_duration = 0.06

@@ -21,6 +21,14 @@ func _test_resources() -> void:
 	_expect(ASSAULT_RIFLE.range != SHOTGUN.range, "weapon: rifle and shotgun range should differ")
 	_expect(SHOTGUN.damage == 5 and SHOTGUN.range == 3 and SHOTGUN.ap_cost == 1, "weapon: shotgun should use authored damage 5, range 3, and one AP")
 	_expect(CARBINE.range > ASSAULT_RIFLE.range, "weapon: carbine should have the longest range")
+	_expect(ASSAULT_RIFLE.attack_feedback_profile != null, "weapon: assault rifle should have feedback profile")
+	_expect(CARBINE.attack_feedback_profile != null, "weapon: carbine should have feedback profile")
+	_expect(SHOTGUN.attack_feedback_profile != null, "weapon: shotgun should have feedback profile")
+	_expect(ASSAULT_RIFLE.attack_feedback_profile.profile_id == &"rifle", "weapon: assault rifle should use rifle feedback")
+	_expect(CARBINE.attack_feedback_profile.profile_id == &"rifle", "weapon: carbine should share rifle feedback")
+	_expect(SHOTGUN.attack_feedback_profile.profile_id == &"shotgun", "weapon: shotgun should use shotgun feedback")
+	_expect(SHOTGUN.attack_feedback_profile.recoil_distance > ASSAULT_RIFLE.attack_feedback_profile.recoil_distance, "weapon: shotgun recoil should be stronger")
+	_expect(SHOTGUN.attack_feedback_profile.total_duration() > ASSAULT_RIFLE.attack_feedback_profile.total_duration(), "weapon: shotgun feedback should last longer")
 	_expect(ASSAULT_RIFLE.get_summary().contains("突击步枪"), "weapon: summary should expose display name")
 
 

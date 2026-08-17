@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="WeaponDefinition" load_steps=2 format=3]
+[gd_resource type="Resource" script_class="WeaponDefinition" load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/combat/weapon_definition.gd" id="1_weapon"]
+[ext_resource type="Resource" path="res://resources/weapons/feedback_profiles/rifle.tres" id="2_feedback"]
 
 [resource]
 script = ExtResource("1_weapon")
@@ -9,3 +10,4 @@ display_name = "突击步枪"
 damage = 4
 range = 5
 ap_cost = 1
+attack_feedback_profile = ExtResource("2_feedback")

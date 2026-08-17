@@ -10,6 +10,7 @@ extends Resource
 @export_range(1, 999, 1) var damage: int = 1
 @export_range(1, 99, 1) var range: int = 1
 @export_range(1, 9, 1) var ap_cost: int = 1
+@export var attack_feedback_profile: WeaponAttackFeedbackProfile
 
 
 func is_valid() -> bool:

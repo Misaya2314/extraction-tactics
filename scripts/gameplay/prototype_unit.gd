@@ -4,6 +4,8 @@ extends Node3D
 signal action_points_changed(current: int, maximum: int)
 signal health_changed(current: int, maximum: int)
 signal died(unit: PrototypeUnit)
+signal attack_feedback_started(unit: PrototypeUnit, profile_id: StringName)
+signal attack_feedback_finished(unit: PrototypeUnit, profile_id: StringName)
 
 @export var grid_cell := Vector3i.ZERO
 @export var faction: StringName = &"player"
@@ -22,18 +24,36 @@ var current_hp := 10
 var current_action_points := 2
 var unit_id: StringName
 
-@onready var body_mesh: MeshInstance3D = $Body
+@onready var visual_root: Node3D = get_node_or_null("VisualRoot") as Node3D
+@onready var body_mesh: MeshInstance3D = get_node_or_null("VisualRoot/Body") as MeshInstance3D
 @onready var selection_marker: MeshInstance3D = $SelectionMarker
 @onready var facing_marker: MeshInstance3D = $FacingMarker
 @onready var status_label: Label3D = $StatusLabel
+@onready var weapon_pivot: Node3D = get_node_or_null("VisualRoot/WeaponPivot") as Node3D
+@onready var muzzle_flash: MeshInstance3D = get_node_or_null("VisualRoot/WeaponPivot/MuzzleFlash") as MeshInstance3D
 
 var facing := Vector2i(0, 1)
+var last_attack_feedback_profile_id: StringName = &""
+var attack_feedback_play_count: int = 0
+var is_attack_feedback_playing: bool = false
+var last_attack_feedback_duration: float = 0.0
+
+var _attack_feedback_generation: int = 0
+var _attack_feedback_tweens: Array[Tween] = []
+var _visual_root_rest_position := Vector3.ZERO
+var _visual_root_rest_rotation := Vector3.ZERO
+var _visual_root_rest_scale := Vector3.ONE
+var _weapon_pivot_rest_position := Vector3.ZERO
+var _weapon_pivot_rest_rotation := Vector3.ZERO
+var _weapon_pivot_rest_scale := Vector3.ONE
+var _muzzle_flash_rest_scale := Vector3.ONE
 
 
 func _ready() -> void:
 	current_hp = max_hp
 	current_action_points = max_action_points
 	_apply_weapon_stats()
+	_capture_feedback_rest_pose()
 	if unit_id.is_empty():
 		unit_id = StringName("%s_%s" % [faction, get_instance_id()])
 	_apply_visual_color()
@@ -102,6 +122,227 @@ func set_facing(direction: Variant) -> void:
 		facing = Vector2i(0, 1 if direction.y > 0 else -1)
 	if is_instance_valid(facing_marker):
 		facing_marker.position = Vector3(float(facing.x) * 0.55, 0.66, float(facing.y) * 0.55)
+	_apply_weapon_facing()
+
+
+## Plays only local presentation feedback. Gameplay rules and root/grid state
+## are intentionally untouched by this coroutine.
+func play_attack_feedback() -> void:
+	if is_attack_feedback_playing:
+		_interrupt_attack_feedback()
+	else:
+		_reset_attack_feedback_visuals()
+
+	var profile: WeaponAttackFeedbackProfile = null
+	if weapon != null:
+		profile = weapon.attack_feedback_profile
+	if profile == null or not _feedback_nodes_are_ready():
+		last_attack_feedback_profile_id = profile.profile_id if profile != null else &""
+		last_attack_feedback_duration = profile.total_duration() if profile != null else 0.0
+		return
+
+	_attack_feedback_generation += 1
+	var generation := _attack_feedback_generation
+	last_attack_feedback_profile_id = profile.profile_id
+	last_attack_feedback_duration = profile.total_duration()
+	attack_feedback_play_count += 1
+	is_attack_feedback_playing = true
+	attack_feedback_started.emit(self, profile.profile_id)
+	_start_attack_feedback_tweens(profile)
+
+	if not is_inside_tree():
+		_complete_attack_feedback(generation, profile.profile_id)
+		return
+	await get_tree().create_timer(last_attack_feedback_duration).timeout
+	if generation != _attack_feedback_generation:
+		return
+	_complete_attack_feedback(generation, profile.profile_id)
+
+
+func _capture_feedback_rest_pose() -> void:
+	if is_instance_valid(visual_root):
+		_visual_root_rest_position = visual_root.position
+		_visual_root_rest_rotation = visual_root.rotation
+		_visual_root_rest_scale = visual_root.scale
+	if is_instance_valid(weapon_pivot):
+		_weapon_pivot_rest_position = weapon_pivot.position
+		_weapon_pivot_rest_rotation = weapon_pivot.rotation
+		_weapon_pivot_rest_scale = weapon_pivot.scale
+	if is_instance_valid(muzzle_flash):
+		_muzzle_flash_rest_scale = muzzle_flash.scale
+
+
+func _feedback_nodes_are_ready() -> bool:
+	return is_instance_valid(visual_root) \
+		and is_instance_valid(weapon_pivot) \
+		and is_instance_valid(muzzle_flash)
+
+
+func _apply_weapon_facing() -> void:
+	if not is_instance_valid(weapon_pivot):
+		return
+	var pivot_rotation := _weapon_pivot_rest_rotation
+	pivot_rotation.y = atan2(float(facing.x), float(facing.y))
+	weapon_pivot.rotation = pivot_rotation
+
+
+func _facing_forward() -> Vector3:
+	var forward := Vector3(float(facing.x), 0.0, float(facing.y))
+	return forward.normalized() if forward.length_squared() > 0.0 else Vector3.FORWARD
+
+
+func _queue_feedback_tween(
+		target: Object,
+		property: NodePath,
+		recoil_value: Variant,
+		rest_value: Variant,
+		profile: WeaponAttackFeedbackProfile
+) -> void:
+	var tween := create_tween()
+	_attack_feedback_tweens.append(tween)
+	var recoil_tweener := tween.tween_property(
+		target,
+		property,
+		recoil_value,
+		maxf(profile.recoil_duration, 0.001)
+	)
+	recoil_tweener.set_trans(Tween.TRANS_QUAD)
+	recoil_tweener.set_ease(Tween.EASE_OUT)
+	tween.tween_interval(maxf(profile.hold_duration, 0.0))
+	var recover_tweener := tween.tween_property(
+		target,
+		property,
+		rest_value,
+		maxf(profile.recover_duration, 0.001)
+	)
+	recover_tweener.set_trans(Tween.TRANS_QUAD)
+	recover_tweener.set_ease(Tween.EASE_IN_OUT)
+
+
+func _start_attack_feedback_tweens(profile: WeaponAttackFeedbackProfile) -> void:
+	var recoil_offset := -_facing_forward() * profile.recoil_distance
+	var visual_recoil_position := _visual_root_rest_position + recoil_offset
+	var visual_recoil_rotation := _visual_root_rest_rotation + Vector3(
+		deg_to_rad(profile.weapon_kick_degrees * 0.25),
+		0.0,
+		0.0
+	)
+	var squash_factor := clampf(1.0 - profile.body_squash, 0.5, 1.0)
+	var visual_recoil_scale := Vector3(
+		_visual_root_rest_scale.x,
+		_visual_root_rest_scale.y * squash_factor,
+		_visual_root_rest_scale.z
+	)
+	_queue_feedback_tween(
+		visual_root,
+		NodePath("position"),
+		visual_recoil_position,
+		_visual_root_rest_position,
+		profile
+	)
+	_queue_feedback_tween(
+		visual_root,
+		NodePath("rotation"),
+		visual_recoil_rotation,
+		_visual_root_rest_rotation,
+		profile
+	)
+	_queue_feedback_tween(
+		visual_root,
+		NodePath("scale"),
+		visual_recoil_scale,
+		_visual_root_rest_scale,
+		profile
+	)
+
+	var pivot_recoil_position := _weapon_pivot_rest_position + recoil_offset * 1.35
+	var pivot_rest_rotation := _weapon_pivot_rest_rotation
+	pivot_rest_rotation.y = atan2(float(facing.x), float(facing.y))
+	var pivot_recoil_rotation := pivot_rest_rotation
+	pivot_recoil_rotation.x += deg_to_rad(profile.weapon_kick_degrees)
+	_queue_feedback_tween(
+		weapon_pivot,
+		NodePath("position"),
+		pivot_recoil_position,
+		_weapon_pivot_rest_position,
+		profile
+	)
+	_queue_feedback_tween(
+		weapon_pivot,
+		NodePath("rotation"),
+		pivot_recoil_rotation,
+		pivot_rest_rotation,
+		profile
+	)
+
+	muzzle_flash.visible = true
+	muzzle_flash.scale = Vector3.ZERO
+	var flash_duration := maxf(profile.muzzle_flash_duration, 0.001)
+	var flash_rise_duration := minf(flash_duration * 0.35, 0.025)
+	var flash_fall_duration := maxf(flash_duration - flash_rise_duration, 0.001)
+	var flash_tween := create_tween()
+	_attack_feedback_tweens.append(flash_tween)
+	var flash_rise := flash_tween.tween_property(
+		muzzle_flash,
+		NodePath("scale"),
+		_muzzle_flash_rest_scale * profile.muzzle_flash_scale,
+		flash_rise_duration
+	)
+	flash_rise.set_trans(Tween.TRANS_BACK)
+	flash_rise.set_ease(Tween.EASE_OUT)
+	var flash_fall := flash_tween.tween_property(
+		muzzle_flash,
+		NodePath("scale"),
+		Vector3.ZERO,
+		flash_fall_duration
+	)
+	flash_fall.set_trans(Tween.TRANS_QUAD)
+	flash_fall.set_ease(Tween.EASE_IN)
+
+
+func _kill_attack_feedback_tweens() -> void:
+	for tween in _attack_feedback_tweens:
+		if is_instance_valid(tween):
+			tween.kill()
+	_attack_feedback_tweens.clear()
+
+
+func _reset_attack_feedback_visuals() -> void:
+	_kill_attack_feedback_tweens()
+	if is_instance_valid(visual_root):
+		visual_root.position = _visual_root_rest_position
+		visual_root.rotation = _visual_root_rest_rotation
+		visual_root.scale = _visual_root_rest_scale
+	if is_instance_valid(weapon_pivot):
+		weapon_pivot.position = _weapon_pivot_rest_position
+		weapon_pivot.scale = _weapon_pivot_rest_scale
+		_apply_weapon_facing()
+		weapon_pivot.rotation.x = _weapon_pivot_rest_rotation.x
+		weapon_pivot.rotation.z = _weapon_pivot_rest_rotation.z
+	if is_instance_valid(muzzle_flash):
+		muzzle_flash.scale = _muzzle_flash_rest_scale
+		muzzle_flash.visible = false
+
+
+func _interrupt_attack_feedback() -> void:
+	var interrupted_profile_id := last_attack_feedback_profile_id
+	_attack_feedback_generation += 1
+	_kill_attack_feedback_tweens()
+	_reset_attack_feedback_visuals()
+	var was_playing := is_attack_feedback_playing
+	is_attack_feedback_playing = false
+	if was_playing and interrupted_profile_id != &"":
+		attack_feedback_finished.emit(self, interrupted_profile_id)
+
+
+func _complete_attack_feedback(generation: int, profile_id: StringName) -> void:
+	if generation != _attack_feedback_generation:
+		return
+	_attack_feedback_generation += 1
+	_kill_attack_feedback_tweens()
+	_reset_attack_feedback_visuals()
+	is_attack_feedback_playing = false
+	attack_feedback_finished.emit(self, profile_id)
 
 
 func is_alive() -> bool:
@@ -181,3 +422,12 @@ func _update_status_label() -> void:
 		current_action_points,
 		max_action_points,
 	]
+
+
+func _exit_tree() -> void:
+	# Invalidate any coroutine timer before resetting local presentation state.
+	# Do not emit attack_feedback_finished here: leaving the tree can be part of
+	# Controller/scene teardown, where a gameplay callback would be unsafe.
+	_attack_feedback_generation += 1
+	_reset_attack_feedback_visuals()
+	is_attack_feedback_playing = false

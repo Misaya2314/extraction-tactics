@@ -442,7 +442,7 @@ func _handle_world_click(screen_position: Vector2) -> void:
 ## Unit selection and object handling happen before movement so an extraction
 ## cell can be approached and confirmed through the same click path.
 func _handle_cell_click(clicked_cell: Vector3i) -> void:
-	if not grid.in_bounds(clicked_cell) or not _player_can_act():
+	if input_locked or not grid.in_bounds(clicked_cell) or not _player_can_act():
 		return
 	var clicked_player := _find_player_at(clicked_cell)
 	if is_instance_valid(clicked_player):
@@ -854,13 +854,13 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 			&"destination": destination,
 		}
 	)
+	var previous_input_locked := input_locked
 	input_locked = true
 	end_turn_button.disabled = true
 	_clear_highlights()
 	var result := _execute_runtime_action(request, unit)
 	if not result.success:
-		input_locked = false
-		end_turn_button.disabled = false
+		input_locked = previous_input_locked
 		_refresh_highlights()
 		_update_hud("无法移动：%s。" % result.reason)
 		return false
@@ -868,8 +868,7 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 	for index in range(1, path.size()):
 		world_points.append(grid.cell_to_world(path[index]))
 	await unit.move_along_world_path(world_points, destination)
-	input_locked = false
-	end_turn_button.disabled = false
+	input_locked = previous_input_locked
 	_update_enemy_visibility()
 	_refresh_highlights()
 	_update_hud("%s 移动到 %s，消耗 %d AP。" % [unit.name, destination, ap_cost])
@@ -908,10 +907,18 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 			ActionExecutorScript.KEY_HAS_LOS: has_los,
 		}
 	)
+	var previous_input_locked := input_locked
+	input_locked = true
+	end_turn_button.disabled = true
+	_clear_highlights()
 	var result := _execute_runtime_action(request, attacker)
 	if not result.success:
+		input_locked = previous_input_locked
+		_refresh_highlights()
 		_update_hud("无法攻击：%s。" % result.reason)
 		return result
+	await attacker.play_attack_feedback()
+	input_locked = previous_input_locked
 	var applied := result.damage
 	_update_hud("%s 命中 %s，造成 %d 伤害%s。" % [
 		attacker.name, target.name, applied, "并击杀目标" if result.killed else ""
