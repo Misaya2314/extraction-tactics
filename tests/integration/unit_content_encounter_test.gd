@@ -37,6 +37,13 @@ func _run() -> void:
 	_expect(prototype.encounter_members.get(&"warehouse", []).size() == 3, "encounter: warehouse should contain three enemies")
 	_expect(prototype.encounter_members.get(&"outpost", []).size() == 3, "encounter: outpost should contain three enemies")
 	_expect(prototype.turn_manager.get_enemy_ids().is_empty(), "encounter: exploration should not preload enemy turn roster")
+	_expect(prototype.loot_nodes_by_id.size() == 4, "loot visibility: all loot placements should have visual nodes")
+	_expect(not (prototype.loot_nodes_by_id[&"loot_3"] as Node3D).visible, "loot visibility: unseen loot should be hidden")
+	var hidden_loot_result := prototype.interact_with_loot(&"loot_3")
+	_expect(not hidden_loot_result.success and hidden_loot_result.reason == &"invalid_target", "loot visibility: unseen loot should reject interaction")
+	prototype._set_debug_reveal_all(true)
+	_expect((prototype.loot_nodes_by_id[&"loot_3"] as Node3D).visible, "loot visibility: debug reveal should show unseen loot")
+	prototype._set_debug_reveal_all(false)
 
 	var hidden_enemy := prototype._unit_by_name(&"EnemyScout")
 	prototype._set_debug_reveal_all(true)
