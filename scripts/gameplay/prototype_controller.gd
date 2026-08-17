@@ -52,6 +52,7 @@ var all_enemy_ids: Array[StringName] = []
 var active_encounter_id: StringName = &""
 var opaque_cells: Dictionary = {}
 var object_placements: Dictionary = {}
+var loot_nodes_by_id: Dictionary = {}
 var loot_containers: Dictionary = {}
 var extraction_cells: Array[Vector3i] = []
 var open_loot_container_id: StringName = &""
@@ -260,8 +261,10 @@ func _set_debug_reveal_all(enabled: bool) -> void:
 
 func _index_map_objects() -> void:
 	object_placements.clear()
+	loot_nodes_by_id.clear()
 	loot_containers.clear()
 	extraction_cells.clear()
+	_index_loot_visual_nodes()
 	for placement in map_definition.objects:
 		if placement == null or placement.object_id == &"":
 			continue
@@ -280,6 +283,21 @@ func _index_map_objects() -> void:
 				loot_containers[placement.object_id] = container
 			else:
 				push_warning("Loot placement %s has an invalid loot_table; container skipped." % placement.object_id)
+
+
+func _index_loot_visual_nodes() -> void:
+	var environment := get_node_or_null("Environment")
+	if not is_instance_valid(environment):
+		return
+	var pending: Array[Node] = [environment]
+	while not pending.is_empty():
+		var node: Node = pending.pop_front()
+		if node is MapObjectMarker3D:
+			var marker := node as MapObjectMarker3D
+			if marker.kind == MapObjectPlacement.Kind.LOOT and marker.object_id != &"":
+				loot_nodes_by_id[marker.object_id] = marker
+		for child in node.get_children():
+			pending.append(child)
 
 
 func _placement_has_property(placement: Object, property_name: StringName) -> bool:
@@ -520,7 +538,7 @@ func interact_with_loot(container_id: StringName) -> ActionResult:
 			ActionExecutorScript.KEY_ACTOR_CELL: actor_cell,
 			ActionExecutorScript.KEY_TARGET_CELL: target_cell,
 			ActionExecutorScript.KEY_INTERACTION_RANGE: INTERACTION_RANGE,
-			ActionExecutorScript.KEY_TARGET_VALID: container != null and placement != null,
+			ActionExecutorScript.KEY_TARGET_VALID: container != null and placement != null and _is_loot_visible(container_id),
 			ActionExecutorScript.KEY_TARGET_AVAILABLE: container != null and not container.is_depleted(),
 		}
 	)
@@ -1081,6 +1099,7 @@ func _select_unit(unit: PrototypeUnit, allow_enemy: bool = false) -> void:
 
 func _refresh_highlights() -> void:
 	_clear_highlights()
+	_update_object_visibility()
 	var can_show_tactical_highlights := _can_show_move_highlights()
 	if is_instance_valid(highlights_root):
 		highlights_root.visible = can_show_tactical_highlights
@@ -1587,6 +1606,30 @@ func _update_enemy_visibility() -> void:
 				visible_to_player = true
 				break
 		enemy.visible = visible_to_player
+
+
+func _update_object_visibility() -> void:
+	for object_id in loot_containers.keys():
+		var visual := loot_nodes_by_id.get(object_id) as Node3D
+		var placement := object_placements.get(object_id) as MapObjectPlacement
+		if not is_instance_valid(visual) or placement == null:
+			continue
+		var visible_to_player := debug_reveal_all
+		for player_id in _living_player_ids():
+			if visible_to_player:
+				break
+			var player := _unit_by_id(player_id)
+			if is_instance_valid(player) and DetectionRules.can_player_see(
+				player.grid_cell, placement.cell, player.vision_range, opaque_cells
+			):
+				visible_to_player = true
+				break
+		visual.visible = visible_to_player
+
+
+func _is_loot_visible(container_id: StringName) -> bool:
+	var visual := loot_nodes_by_id.get(container_id) as Node3D
+	return is_instance_valid(visual) and visual.visible
 
 
 func _screen_to_cell(screen_position: Vector2) -> Vector3i:
