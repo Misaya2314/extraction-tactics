@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="TacticalMapDefinition" format=3 uid="uid://cgythshb2fowg"]
 
-[ext_resource type="Script" path="res://scripts/core/map/map_cell_data.gd" id="1_j1hh2"]
-[ext_resource type="Script" path="res://scripts/core/map/map_object_placement.gd" id="2_iv0ep"]
+[ext_resource type="Script" uid="uid://du4ihvqhh8sq6" path="res://scripts/core/map/map_cell_data.gd" id="1_j1hh2"]
+[ext_resource type="Script" uid="uid://cm4n0v302oqpm" path="res://scripts/core/map/map_object_placement.gd" id="2_iv0ep"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_explosive_barrel.tscn" id="3_lv6yt"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_extraction_marker.tscn" id="4_u1e4k"]
 [ext_resource type="Resource" path="res://resources/loot/loot_table_supply.tres" id="5_o8hwp"]
@@ -9,9 +9,9 @@
 [ext_resource type="Resource" path="res://resources/loot/loot_table_warehouse.tres" id="7_bgs0y"]
 [ext_resource type="Resource" path="res://resources/loot/loot_table_outpost.tres" id="8_pg4aj"]
 [ext_resource type="Resource" path="res://resources/loot/loot_table_high_value.tres" id="9_w0y3w"]
-[ext_resource type="Script" path="res://scripts/core/map/map_patrol_route_data.gd" id="10_1xnby"]
-[ext_resource type="Script" path="res://scripts/core/map/tactical_map_definition.gd" id="11_svwv7"]
-[ext_resource type="Script" path="res://scripts/core/map/map_spawn_data.gd" id="12_14xsv"]
+[ext_resource type="Script" uid="uid://ddxaoq75ktqcj" path="res://scripts/core/map/map_patrol_route_data.gd" id="10_1xnby"]
+[ext_resource type="Script" uid="uid://cwmifdbdr8yld" path="res://scripts/core/map/tactical_map_definition.gd" id="11_svwv7"]
+[ext_resource type="Script" uid="uid://dj166h1b4egv1" path="res://scripts/core/map/map_spawn_data.gd" id="12_14xsv"]
 [ext_resource type="Resource" path="res://resources/units/assault.tres" id="13_7k5my"]
 [ext_resource type="Resource" path="res://resources/weapons/shotgun.tres" id="14_60xms"]
 [ext_resource type="Resource" path="res://resources/units/rifleman.tres" id="15_t1nfk"]
@@ -19,7 +19,7 @@
 [ext_resource type="Resource" path="res://resources/units/player_alpha.tres" id="17_6tmnv"]
 [ext_resource type="Resource" path="res://resources/weapons/assault_rifle.tres" id="18_jd08d"]
 [ext_resource type="Resource" path="res://resources/units/player_bravo.tres" id="19_jjkbt"]
-[ext_resource type="Script" path="res://scripts/core/map/map_transition_data.gd" id="20_jinfu"]
+[ext_resource type="Script" uid="uid://bp0eam7ib73g8" path="res://scripts/core/map/map_transition_data.gd" id="20_jinfu"]
 
 [sub_resource type="Resource" id="Resource_383ke"]
 script = ExtResource("1_j1hh2")

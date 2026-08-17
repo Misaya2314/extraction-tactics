@@ -57,6 +57,7 @@ var extraction_cells: Array[Vector3i] = []
 var open_loot_container_id: StringName = &""
 var world_tick := 0
 var input_locked := false
+var debug_reveal_all := false
 const VISION_BLOCK_COLOR := Color(0.0, 0.0, 0.0, 0.6)
 const ENEMY_VISION_COLOR := Color(0.62, 0.4, 1.0, 0.22)
 const ENEMY_DANGER_COLOR := Color(1.0, 0.55, 0.1, 0.3)
@@ -241,11 +242,21 @@ func _handle_loot_action(request: Variant, _context: Variant) -> Variant:
 func _unhandled_input(event: InputEvent) -> void:
 	if input_locked or _is_terminal():
 		return
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_X:
+			_set_debug_reveal_all(not debug_reveal_all)
+			return
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
 		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed:
 			_handle_world_click(mouse_event.position)
 
+
+func _set_debug_reveal_all(enabled: bool) -> void:
+	debug_reveal_all = enabled
+	_update_enemy_visibility()
+	_refresh_highlights()
 
 func _index_map_objects() -> void:
 	object_placements.clear()
@@ -1186,6 +1197,8 @@ func _refresh_vision_overlay() -> void:
 	if not is_instance_valid(vision_highlights_root):
 		return
 	_clear_children(vision_highlights_root)
+	if debug_reveal_all:
+		return
 	var observers: Array = []
 	for unit_value in units_by_id.values():
 		var unit := unit_value as PrototypeUnit
@@ -1556,8 +1569,10 @@ func _update_enemy_visibility() -> void:
 		var enemy := _unit_by_id(enemy_id)
 		if not is_instance_valid(enemy):
 			continue
-		var visible_to_player := false
+		var visible_to_player := debug_reveal_all
 		for player_id in _living_player_ids():
+			if visible_to_player:
+				break
 			var player := _unit_by_id(player_id)
 			if is_instance_valid(player) and DetectionRules.can_player_see(
 				player.grid_cell, enemy.grid_cell, player.vision_range, opaque_cells
@@ -1682,7 +1697,7 @@ func _update_hud(message: String = "") -> void:
 			]
 		else:
 			var archetype_name := selected_unit.archetype.display_name if selected_unit.archetype != null else "未配置原型"
-			selection_label.text = "%s | 原型 %s | 武器 %s | 伤害 %d | 射程 %d | 攻击 AP %d | HP %d/%d | AP %d/%d | 格 %s" % [
+			selection_label.text = "%s | 原型 %s | 武器 %s\n伤害 %d | 射程 %d | 攻击 AP %d\nHP %d/%d | AP %d/%d | 格 %s" % [
 				selected_unit.name, archetype_name, selected_unit.get_weapon_display_name(),
 				selected_unit.attack_damage, selected_unit.attack_range, selected_unit.attack_ap_cost,
 				selected_unit.current_hp, selected_unit.max_hp,

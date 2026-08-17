@@ -38,6 +38,13 @@ func _run() -> void:
 	_expect(prototype.encounter_members.get(&"outpost", []).size() == 3, "encounter: outpost should contain three enemies")
 	_expect(prototype.turn_manager.get_enemy_ids().is_empty(), "encounter: exploration should not preload enemy turn roster")
 
+	var hidden_enemy := prototype._unit_by_name(&"EnemyScout")
+	prototype._set_debug_reveal_all(true)
+	_expect(hidden_enemy.visible, "debug reveal: all living enemies should be visible")
+	_expect(prototype.vision_highlights_root.get_child_count() == 0, "debug reveal: vision overlay should be cleared")
+	prototype._set_debug_reveal_all(false)
+	_expect(prototype.vision_highlights_root.get_child_count() > 0, "debug reveal: disabling reveal should restore the vision overlay")
+
 	var player := alpha
 	_expect(prototype._start_combat(true, rifleman, player.grid_cell, player.unit_id), "encounter: warehouse should activate")
 	_expect(prototype.active_encounter_id == &"warehouse", "encounter: warehouse ID should be active")

@@ -90,7 +90,7 @@ text = "敌方警戒：未警戒"
 [node name="HintLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=1178240817]
 custom_minimum_size = Vector2(320, 28)
 layout_mode = 2
-text = "左键选择/移动；WASD 平移；滚轮缩放。"
+text = "左键选择/移动；WASD 平移；滚轮缩放；X切换Debug视野。"
 autowrap_mode = 2
 
 [node name="EndTurnButton" type="Button" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=1158636587]
@@ -100,9 +100,9 @@ text = "结束回合 / 推进世界 Tick"
 
 [node name="InventoryPanel" type="PanelContainer" parent="HUD" unique_id=1914501418]
 offset_left = 16.0
-offset_top = 244.0
+offset_top = 307.0
 offset_right = 365.0
-offset_bottom = 300.0
+offset_bottom = 363.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
 
 [node name="Margin" type="MarginContainer" parent="HUD/InventoryPanel" unique_id=1139458512]
