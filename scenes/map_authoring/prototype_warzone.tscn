@@ -19,7 +19,7 @@
 [ext_resource type="Resource" path="res://resources/units/player_alpha.tres" id="17_xq0lp"]
 [ext_resource type="Resource" path="res://resources/weapons/assault_rifle.tres" id="18_d7lna"]
 [ext_resource type="Resource" uid="uid://mpdq1kfchbn5" path="res://resources/units/player_bravo.tres" id="19_fb8yp"]
-[ext_resource type="Resource" uid="uid://1dfqblssmpwb" path="res://resources/weapons/shotgun.tres" id="20_yv177"]
+[ext_resource type="Resource" uid="uid://daq6ympv5kkit" path="res://resources/weapons/shotgun.tres" id="20_yv177"]
 [ext_resource type="Resource" path="res://resources/units/rifleman.tres" id="21_wihbv"]
 [ext_resource type="Resource" path="res://resources/weapons/carbine.tres" id="22_ndlqv"]
 [ext_resource type="Resource" path="res://resources/units/assault.tres" id="23_bkjcp"]

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="UnitArchetype" format=3 uid="uid://mpdq1kfchbn5"]
 
 [ext_resource type="Script" uid="uid://c0ltiyyay4yqs" path="res://scripts/core/units/unit_archetype.gd" id="1_archetype"]
-[ext_resource type="Resource" path="res://resources/weapons/shotgun.tres" id="2_weapon"]
+[ext_resource type="Resource" uid="uid://daq6ympv5kkit" path="res://resources/weapons/shotgun.tres" id="2_weapon"]
 
 [resource]
 script = ExtResource("1_archetype")

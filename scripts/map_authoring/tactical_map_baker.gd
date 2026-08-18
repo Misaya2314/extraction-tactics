@@ -91,10 +91,61 @@ static func save(author: TacticalMapAuthor) -> Dictionary:
 	if output_path.is_empty() or not output_path.begins_with("res://") or not output_path.ends_with(".tres"):
 		errors.append("Output path must be a res:// path ending in .tres.")
 		return result
+	# Read existing UID before save so we can restore it after
+	var existing_uid := _read_existing_uid(output_path)
 	var save_error := ResourceSaver.save(result[&"definition"], output_path)
 	if save_error != OK:
 		errors.append("ResourceSaver failed for %s (error %d)." % [output_path, save_error])
+		return result
+	# ResourceSaver may generate a new UID; restore the original to avoid
+	# breaking ext_resource references in .tscn files.
+	if existing_uid != "":
+		_restore_uid_in_file(output_path, existing_uid)
 	return result
+
+
+static func _read_existing_uid(path: String) -> String:
+	if not FileAccess.file_exists(path):
+		return ""
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return ""
+	var first_line := file.get_line()
+	file.close()
+	# Format: [gd_resource ... uid="uid://xxxxx" ...]
+	var uid_start := first_line.find("uid=\"uid://")
+	if uid_start < 0:
+		return ""
+	uid_start += 5  # skip uid="
+	var uid_end := first_line.find("\"", uid_start)
+	if uid_end < 0:
+		return ""
+	return first_line.substr(uid_start, uid_end - uid_start)
+
+
+static func _restore_uid_in_file(path: String, uid: String) -> void:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return
+	var content := file.get_as_text()
+	file.close()
+	# Replace uid="uid://new" with uid="uid://old" on the first line
+	var new_uid_start := content.find("uid=\"uid://")
+	if new_uid_start < 0:
+		return
+	var new_uid_value_start := new_uid_start + 5
+	var new_uid_end := content.find("\"", new_uid_value_start)
+	if new_uid_end < 0:
+		return
+	var old_uid := content.substr(new_uid_value_start, new_uid_end - new_uid_value_start)
+	if old_uid == uid:
+		return  # already correct
+	content = content.substr(0, new_uid_value_start) + uid + content.substr(new_uid_end)
+	var write_file := FileAccess.open(path, FileAccess.WRITE)
+	if write_file == null:
+		return
+	write_file.store_string(content)
+	write_file.close()
 
 
 static func _collect_markers(author: TacticalMapAuthor, definition: TacticalMapDefinition, errors: Array[String]) -> void:

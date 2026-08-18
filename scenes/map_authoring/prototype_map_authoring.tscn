@@ -19,7 +19,7 @@
 [ext_resource type="Resource" path="res://resources/units/player_alpha.tres" id="17_dhrv0"]
 [ext_resource type="Resource" path="res://resources/weapons/assault_rifle.tres" id="18_e6of3"]
 [ext_resource type="Resource" uid="uid://mpdq1kfchbn5" path="res://resources/units/player_bravo.tres" id="19_gbpp6"]
-[ext_resource type="Resource" path="res://resources/weapons/shotgun.tres" id="20_sh8rx"]
+[ext_resource type="Resource" uid="uid://daq6ympv5kkit" path="res://resources/weapons/shotgun.tres" id="20_sh8rx"]
 [ext_resource type="Resource" path="res://resources/units/rifleman.tres" id="21_0b54d"]
 [ext_resource type="Resource" path="res://resources/weapons/carbine.tres" id="22_e3a7g"]
 [ext_resource type="Resource" path="res://resources/units/assault.tres" id="23_qev5h"]
@@ -134,7 +134,7 @@ ambient_light_energy = 0.7
 script = ExtResource("1_h22i1")
 map_id = &"prototype_map"
 tile_catalog = SubResource("Resource_aiis1")
-output_resource_path = "res://resources/maps/prototype_map.tres"
+output_resource_path = "uid://b8a7ubpq8llwa"
 
 [node name="FloorGrid" type="GridMap" parent="." unique_id=443737640]
 mesh_library = SubResource("MeshLibrary_naoqe")
@@ -169,7 +169,7 @@ kind = 1
 scene = ExtResource("9_f7meg")
 cell = Vector3i(11, 0, 8)
 
-[node name="_Preview" type="Node3D" parent="Objects/extraction" unique_id=252728488 instance=ExtResource("9_f7meg")]
+[node name="_Preview" type="Node3D" parent="Objects/extraction" unique_id=617884709 instance=ExtResource("9_f7meg")]
 metadata/map_marker_preview = true
 
 [node name="loot_1" type="Node3D" parent="Objects" unique_id=175576482]
@@ -183,7 +183,7 @@ loot_table = ExtResource("11_u7p6a")
 loot_seed = 101
 cell = Vector3i(1, 0, 3)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_1" unique_id=852082879 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_1" unique_id=1426927939 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="loot_2" type="Node3D" parent="Objects" unique_id=789496514]
@@ -197,7 +197,7 @@ loot_table = ExtResource("12_2s8lf")
 loot_seed = 202
 cell = Vector3i(7, 0, 4)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_2" unique_id=1633077709 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_2" unique_id=542474900 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="loot_3" type="Node3D" parent="Objects" unique_id=1132772281]
@@ -211,7 +211,7 @@ loot_table = ExtResource("13_y00vi")
 loot_seed = 303
 cell = Vector3i(10, 0, 6)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_3" unique_id=364736367 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_3" unique_id=1171586376 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="loot_high" type="Node3D" parent="Objects" unique_id=446513249]
@@ -225,7 +225,7 @@ loot_table = ExtResource("14_wf2yo")
 loot_seed = 404
 cell = Vector3i(10, 1, 1)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_high" unique_id=819046484 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_high" unique_id=580319982 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="barrel_1" type="Node3D" parent="Objects" unique_id=1599025707]
@@ -237,7 +237,7 @@ scene = ExtResource("15_surd2")
 blocks_movement = true
 cell = Vector3i(3, 0, 7)
 
-[node name="_Preview" type="Node3D" parent="Objects/barrel_1" unique_id=1353214390 instance=ExtResource("15_surd2")]
+[node name="_Preview" type="Node3D" parent="Objects/barrel_1" unique_id=622747494 instance=ExtResource("15_surd2")]
 metadata/map_marker_preview = true
 
 [node name="barrel_2" type="Node3D" parent="Objects" unique_id=200211528]
@@ -249,7 +249,7 @@ scene = ExtResource("15_surd2")
 blocks_movement = true
 cell = Vector3i(10, 0, 2)
 
-[node name="_Preview" type="Node3D" parent="Objects/barrel_2" unique_id=627766312 instance=ExtResource("15_surd2")]
+[node name="_Preview" type="Node3D" parent="Objects/barrel_2" unique_id=1331585243 instance=ExtResource("15_surd2")]
 metadata/map_marker_preview = true
 
 [node name="Spawns" type="Node3D" parent="." unique_id=1279936416]

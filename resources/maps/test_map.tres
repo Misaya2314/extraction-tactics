@@ -14,7 +14,7 @@
 [ext_resource type="Resource" path="res://resources/loot/loot_table_outpost.tres" id="8_rgtca"]
 [ext_resource type="Resource" path="res://resources/loot/loot_table_high_value.tres" id="9_452kg"]
 [ext_resource type="Resource" path="res://resources/units/assault.tres" id="13_aq1e7"]
-[ext_resource type="Resource" uid="uid://1dfqblssmpwb" path="res://resources/weapons/shotgun.tres" id="14_fv1et"]
+[ext_resource type="Resource" uid="uid://daq6ympv5kkit" path="res://resources/weapons/shotgun.tres" id="14_fv1et"]
 [ext_resource type="Resource" path="res://resources/units/rifleman.tres" id="15_o7i57"]
 [ext_resource type="Resource" path="res://resources/weapons/carbine.tres" id="16_ejsjc"]
 [ext_resource type="Resource" path="res://resources/units/player_alpha.tres" id="17_mbl77"]
