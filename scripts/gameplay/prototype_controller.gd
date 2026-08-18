@@ -36,6 +36,7 @@ const MOVE_HIGHLIGHT_SURFACE_OFFSET := 0.025
 @export var map_definition: TacticalMapDefinition
 
 var grid: GridModel
+var _environment_root: Node3D
 var turn_manager: TurnManager
 var action_executor: ActionExecutor
 var last_action_result: ActionResult
@@ -106,10 +107,28 @@ const INVENTORY_PANEL_COLLAPSED_BOTTOM := 300.0
 @onready var restart_button: Button = $HUD/ResultPanel/Margin/VBox/RestartButton
 
 
+func _load_authoring_scene() -> void:
+	if map_definition == null or map_definition.authoring_scene_path.is_empty():
+		push_warning("No authoring_scene_path in map definition; skipping visual load.")
+		return
+	var scene_resource := load(map_definition.authoring_scene_path)
+	if scene_resource == null:
+		push_error("Failed to load authoring scene: %s" % map_definition.authoring_scene_path)
+		return
+	_environment_root = scene_resource.instantiate() as Node3D
+	_environment_root.name = "Environment"
+	add_child(_environment_root)
+	move_child(_environment_root, 0)
+
+
 func _ready() -> void:
 	grid = GridModel.new()
-	if map_definition == null or not grid.configure_from_definition(map_definition):
+	if map_definition == null:
 		push_error("PrototypeController requires a valid TacticalMapDefinition.")
+		return
+	_load_authoring_scene()
+	if not grid.configure_from_definition(map_definition):
+		push_error("Failed to configure grid from map definition.")
 		return
 	_apply_camera_bounds()
 	session_manager = GameStateManagerScript.new()

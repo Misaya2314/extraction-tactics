@@ -19,6 +19,7 @@ static func build(author: TacticalMapAuthor) -> Dictionary:
 	definition.level_count = author.level_count
 	definition.cell_size = author.cell_dimensions
 	definition.origin = author.grid_origin
+	definition.authoring_scene_path = author.get_scene_file_path()
 	var catalog := author.tile_catalog
 	var floor_grid := author.get_node_or_null(NodePath(String(FLOOR_GRID_NAME))) as GridMap
 	var structure_grid := author.get_node_or_null(NodePath(String(STRUCTURE_GRID_NAME))) as GridMap
@@ -83,6 +84,10 @@ static func save(author: TacticalMapAuthor) -> Dictionary:
 	if not errors.is_empty():
 		return result
 	var output_path := author.output_resource_path.strip_edges()
+	if output_path.begins_with("uid://"):
+		var uid := ResourceUID.text_to_id(output_path)
+		if uid >= 0:
+			output_path = ResourceUID.get_id_path(uid)
 	if output_path.is_empty() or not output_path.begins_with("res://") or not output_path.ends_with(".tres"):
 		errors.append("Output path must be a res:// path ending in .tres.")
 		return result
