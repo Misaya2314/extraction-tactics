@@ -522,7 +522,7 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 			return
 	if action_mode != ACTION_MODE_MOVE:
 		_select_unit(null)
-		_update_hud("已取消选择。")
+		_update_hud("左键选择/移动；底部按钮切换移动/攻击；WASD 平移；滚轮缩放；X切换Debug视野。")
 		return
 	# Only a highlighted (reachable) tile moves the unit; clicking any other
 	# tile cancels the current selection instead of issuing a stray move.
@@ -539,7 +539,7 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 		await _try_move_selected(clicked_cell)
 	else:
 		_select_unit(null)
-		_update_hud("已取消选择。")
+		_update_hud("左键选择/移动；底部按钮切换移动/攻击；WASD 平移；滚轮缩放；X切换Debug视野。")
 
 
 ## Stable integration entry for UI/tests. Opening a Loot container is a
