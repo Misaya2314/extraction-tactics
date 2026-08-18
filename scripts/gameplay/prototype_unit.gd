@@ -30,6 +30,7 @@ var unit_id: StringName
 @onready var facing_marker: MeshInstance3D = $FacingMarker
 @onready var status_label: Label3D = $StatusLabel
 @onready var weapon_pivot: Node3D = get_node_or_null("VisualRoot/WeaponPivot") as Node3D
+@onready var weapon_model_root: Node3D = get_node_or_null("VisualRoot/WeaponPivot/WeaponModelRoot") as Node3D
 @onready var muzzle_flash: MeshInstance3D = get_node_or_null("VisualRoot/WeaponPivot/MuzzleFlash") as MeshInstance3D
 
 var facing := Vector2i(0, 1)
@@ -46,6 +47,7 @@ var _visual_root_rest_scale := Vector3.ONE
 var _weapon_pivot_rest_position := Vector3.ZERO
 var _weapon_pivot_rest_rotation := Vector3.ZERO
 var _weapon_pivot_rest_scale := Vector3.ONE
+var _muzzle_flash_rest_position := Vector3(0.0, 0.0, 0.78)
 var _muzzle_flash_rest_scale := Vector3.ONE
 
 
@@ -53,6 +55,7 @@ func _ready() -> void:
 	current_hp = max_hp
 	current_action_points = max_action_points
 	_apply_weapon_stats()
+	_refresh_weapon_model()
 	_capture_feedback_rest_pose()
 	if unit_id.is_empty():
 		unit_id = StringName("%s_%s" % [faction, get_instance_id()])
@@ -84,15 +87,29 @@ func configure(
 	_apply_weapon_stats()
 	unit_id = StringName("%s_%s" % [faction, get_instance_id()])
 	if is_node_ready():
+		if is_attack_feedback_playing:
+			_interrupt_attack_feedback()
+		else:
+			_reset_attack_feedback_visuals()
 		current_hp = max_hp
 		current_action_points = max_action_points
+		_refresh_weapon_model()
+		_capture_feedback_rest_pose()
+		_apply_weapon_facing()
 		_apply_visual_color()
 		_update_status_label()
 
 
 func set_weapon(new_weapon: WeaponDefinition) -> void:
+	if is_attack_feedback_playing:
+		_interrupt_attack_feedback()
+	else:
+		_reset_attack_feedback_visuals()
 	weapon = new_weapon
-	_apply_weapon_stats()
+	_apply_weapon_stats(new_weapon == null)
+	_refresh_weapon_model()
+	_capture_feedback_rest_pose()
+	_apply_weapon_facing()
 	_update_status_label()
 
 
@@ -169,6 +186,7 @@ func _capture_feedback_rest_pose() -> void:
 		_weapon_pivot_rest_rotation = weapon_pivot.rotation
 		_weapon_pivot_rest_scale = weapon_pivot.scale
 	if is_instance_valid(muzzle_flash):
+		_muzzle_flash_rest_position = muzzle_flash.position
 		_muzzle_flash_rest_scale = muzzle_flash.scale
 
 
@@ -320,6 +338,7 @@ func _reset_attack_feedback_visuals() -> void:
 		weapon_pivot.rotation.x = _weapon_pivot_rest_rotation.x
 		weapon_pivot.rotation.z = _weapon_pivot_rest_rotation.z
 	if is_instance_valid(muzzle_flash):
+		muzzle_flash.position = _muzzle_flash_rest_position
 		muzzle_flash.scale = _muzzle_flash_rest_scale
 		muzzle_flash.visible = false
 
@@ -404,12 +423,47 @@ func _apply_visual_color() -> void:
 	body_mesh.material_override = material
 
 
-func _apply_weapon_stats() -> void:
+func _apply_weapon_stats(reset_if_unarmed: bool = false) -> void:
 	if weapon == null:
+		if reset_if_unarmed:
+			attack_damage = 0
+			attack_range = 0
+			attack_ap_cost = 1
 		return
 	attack_range = weapon.range
 	attack_damage = weapon.damage
 	attack_ap_cost = weapon.ap_cost
+
+
+func _refresh_weapon_model() -> void:
+	_apply_muzzle_position()
+	if not is_instance_valid(weapon_model_root):
+		return
+	for child in weapon_model_root.get_children():
+		child.free()
+	if weapon == null or weapon.world_model_scene == null:
+		return
+	var model := weapon.world_model_scene.instantiate()
+	if model == null:
+		push_warning("Weapon model could not be instantiated for %s" % weapon.weapon_id)
+		return
+	if not (model is Node3D):
+		push_warning("Weapon model root is not Node3D for %s" % weapon.weapon_id)
+		model.free()
+		return
+	model.name = "WeaponModel"
+	weapon_model_root.add_child(model)
+	var model_root := model as Node3D
+	model_root.position = weapon.world_model_position
+	model_root.rotation_degrees = weapon.world_model_rotation_degrees
+	model_root.scale = weapon.world_model_scale
+
+
+func _apply_muzzle_position() -> void:
+	if not is_instance_valid(muzzle_flash):
+		return
+	_muzzle_flash_rest_position = weapon.muzzle_position if weapon != null else Vector3(0.0, 0.0, 0.78)
+	muzzle_flash.position = _muzzle_flash_rest_position
 
 
 func _update_status_label() -> void:

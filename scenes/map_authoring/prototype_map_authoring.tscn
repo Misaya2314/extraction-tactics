@@ -3,10 +3,6 @@
 [ext_resource type="Script" uid="uid://67vt5a0pdyiv" path="res://scripts/map_authoring/tactical_map_author.gd" id="1_h22i1"]
 [ext_resource type="Script" uid="uid://4n5a0xk24mkv" path="res://scripts/core/map/map_tile_rule.gd" id="2_7l4va"]
 [ext_resource type="Script" uid="uid://c0ijlb7pl2cyv" path="res://scripts/core/map/map_tile_catalog.gd" id="3_ab4mx"]
-[ext_resource type="Material" path="res://assets/prototype/materials/ground.tres" id="4_b4x07"]
-[ext_resource type="Material" path="res://assets/prototype/materials/ground_alt.tres" id="5_1gytw"]
-[ext_resource type="Material" path="res://assets/prototype/materials/wall.tres" id="6_orehu"]
-[ext_resource type="Material" path="res://assets/prototype/materials/low_cover.tres" id="7_4tmwv"]
 [ext_resource type="Script" uid="uid://7boxf3uhxunf" path="res://scripts/map_authoring/map_object_marker_3d.gd" id="8_n7beo"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_extraction_marker.tscn" id="9_f7meg"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_loot_crate.tscn" id="10_y6bde"]
@@ -17,14 +13,25 @@
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_explosive_barrel.tscn" id="15_surd2"]
 [ext_resource type="Script" uid="uid://nwx8r6qag522" path="res://scripts/map_authoring/unit_spawn_marker_3d.gd" id="16_ihx8j"]
 [ext_resource type="Resource" path="res://resources/units/player_alpha.tres" id="17_dhrv0"]
-[ext_resource type="Resource" path="res://resources/weapons/assault_rifle.tres" id="18_e6of3"]
+[ext_resource type="Resource" uid="uid://dl4xbce24g1dm" path="res://resources/weapons/assault_rifle.tres" id="18_e6of3"]
 [ext_resource type="Resource" uid="uid://mpdq1kfchbn5" path="res://resources/units/player_bravo.tres" id="19_gbpp6"]
-[ext_resource type="Resource" path="res://resources/weapons/shotgun.tres" id="20_sh8rx"]
+[ext_resource type="Resource" uid="uid://do3swy0x3pxwr" path="res://resources/weapons/shotgun.tres" id="20_sh8rx"]
 [ext_resource type="Resource" path="res://resources/units/rifleman.tres" id="21_0b54d"]
-[ext_resource type="Resource" path="res://resources/weapons/carbine.tres" id="22_e3a7g"]
+[ext_resource type="Resource" uid="uid://cv0wuwmy4a5w2" path="res://resources/weapons/carbine.tres" id="22_e3a7g"]
 [ext_resource type="Resource" path="res://resources/units/assault.tres" id="23_qev5h"]
 [ext_resource type="Script" uid="uid://7rj66gqmlpvo" path="res://scripts/map_authoring/patrol_route_3d.gd" id="24_omjrg"]
 [ext_resource type="Script" uid="uid://bp1awl00e5he5" path="res://scripts/map_authoring/traversal_link_3d.gd" id="25_6dyku"]
+[ext_resource type="ArrayMesh" uid="uid://dawm11blbwd16" path="res://kenney_factory-kit_3.0/Models/OBJ format/floor-large.obj" id="26_factory_floor"]
+[ext_resource type="ArrayMesh" uid="uid://cg7hl6hcaiio" path="res://kenney_factory-kit_3.0/Models/OBJ format/top-large-checkerboard.obj" id="27_factory_floor_alt"]
+[ext_resource type="ArrayMesh" uid="uid://c8okdav0y27na" path="res://kenney_factory-kit_3.0/Models/OBJ format/structure-wall.obj" id="28_factory_wall"]
+[ext_resource type="ArrayMesh" uid="uid://dtnokrmmr5ggu" path="res://kenney_factory-kit_3.0/Models/OBJ format/conveyor-bars-fence.obj" id="29_factory_cover"]
+[ext_resource type="ArrayMesh" uid="uid://32rsarqa2p08" path="res://kenney_factory-kit_3.0/Models/OBJ format/machine.obj" id="30_factory_machine"]
+[ext_resource type="ArrayMesh" uid="uid://cktopt5tnp80v" path="res://kenney_factory-kit_3.0/Models/OBJ format/machine-fortified.obj" id="31_factory_machine_fortified"]
+[ext_resource type="ArrayMesh" uid="uid://cmn7h5ovjejfr" path="res://kenney_factory-kit_3.0/Models/OBJ format/pipe-large.obj" id="32_factory_pipe"]
+[ext_resource type="ArrayMesh" uid="uid://bgdu7f4bytvb2" path="res://kenney_factory-kit_3.0/Models/OBJ format/scanner-low.obj" id="33_factory_scanner"]
+[ext_resource type="ArrayMesh" uid="uid://be2jfo26pxwx" path="res://kenney_factory-kit_3.0/Models/OBJ format/robot-arm-a.obj" id="34_factory_robot"]
+[ext_resource type="ArrayMesh" uid="uid://bbd6n6ehh1bi8" path="res://kenney_factory-kit_3.0/Models/OBJ format/warning-orange.obj" id="35_factory_warning"]
+[ext_resource type="ArrayMesh" uid="uid://c3ogoknocf2dk" path="res://kenney_factory-kit_3.0/Models/OBJ format/catwalk-stairs.obj" id="36_factory_stairs"]
 
 [sub_resource type="Resource" id="Resource_jgq0w"]
 script = ExtResource("2_7l4va")
@@ -58,67 +65,47 @@ cover_mask = 1
 script = ExtResource("3_ab4mx")
 rules = Array[ExtResource("2_7l4va")]([SubResource("Resource_jgq0w"), SubResource("Resource_bemd6"), SubResource("Resource_ckepw"), SubResource("Resource_n48je")])
 
-[sub_resource type="BoxMesh" id="BoxMesh_a0oya"]
-material = ExtResource("4_b4x07")
-size = Vector3(2, 0.2, 2)
-
 [sub_resource type="BoxShape3D" id="BoxShape3D_2ijl5"]
-size = Vector3(2, 0.2, 2)
-
-[sub_resource type="BoxMesh" id="BoxMesh_j4vsh"]
-material = ExtResource("5_1gytw")
 size = Vector3(2, 0.2, 2)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_eybwt"]
 size = Vector3(2, 0.2, 2)
 
-[sub_resource type="BoxMesh" id="BoxMesh_kdavn"]
-material = ExtResource("6_orehu")
-size = Vector3(2, 1.6, 2)
-
 [sub_resource type="BoxShape3D" id="BoxShape3D_lfqu4"]
 size = Vector3(2, 1.6, 2)
-
-[sub_resource type="BoxMesh" id="BoxMesh_3v8x3"]
-material = ExtResource("7_4tmwv")
-size = Vector3(1.6, 0.7, 0.55)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_t548j"]
 size = Vector3(1.6, 0.7, 0.55)
 
 [sub_resource type="MeshLibrary" id="MeshLibrary_naoqe"]
 item/0/name = "Floor"
-item/0/mesh = SubResource("BoxMesh_a0oya")
-item/0/mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
+item/0/mesh = ExtResource("26_factory_floor")
+item/0/mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/0/mesh_cast_shadow = 1
 item/0/shapes = [SubResource("BoxShape3D_2ijl5"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)]
 item/0/navigation_mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/0/navigation_layers = 1
 item/1/name = "FloorAlt"
-item/1/mesh = SubResource("BoxMesh_j4vsh")
-item/1/mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
+item/1/mesh = ExtResource("27_factory_floor_alt")
+item/1/mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/1/mesh_cast_shadow = 1
 item/1/shapes = [SubResource("BoxShape3D_eybwt"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)]
 item/1/navigation_mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/1/navigation_layers = 1
 item/2/name = "Wall"
-item/2/mesh = SubResource("BoxMesh_kdavn")
-item/2/mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+item/2/mesh = ExtResource("28_factory_wall")
+item/2/mesh_transform = Transform3D(2, 0, 0, 0, 0.6, 0, 0, 0, 1, 0, 0, -0.5)
 item/2/mesh_cast_shadow = 1
 item/2/shapes = [SubResource("BoxShape3D_lfqu4"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)]
 item/2/navigation_mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/2/navigation_layers = 1
 item/3/name = "LowCover"
-item/3/mesh = SubResource("BoxMesh_3v8x3")
-item/3/mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
+item/3/mesh = ExtResource("29_factory_cover")
+item/3/mesh_transform = Transform3D(0, 0, 1.333333, 0, 0.875, 0, -0.5464, 0, 0, 0, 0, 0)
 item/3/mesh_cast_shadow = 1
 item/3/shapes = [SubResource("BoxShape3D_t548j"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)]
 item/3/navigation_mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/3/navigation_layers = 1
-
-[sub_resource type="BoxMesh" id="BoxMesh_5cryi"]
-material = ExtResource("7_4tmwv")
-size = Vector3(2.82, 0.18, 1.7)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_y8sbs"]
 size = Vector3(2.82, 0.18, 1.7)
@@ -140,7 +127,7 @@ output_resource_path = "res://resources/maps/prototype_map.tres"
 mesh_library = SubResource("MeshLibrary_naoqe")
 collision_mask = 0
 data = {
-"cells": PackedInt32Array(0, 0, 0, 1, 0, 1, 2, 0, 0, 3, 0, 1, 4, 0, 0, 5, 0, 1, 6, 0, 0, 7, 0, 1, 8, 0, 0, 9, 0, 1, 10, 0, 0, 11, 0, 1, 0, 1, 1, 1, 1, 0, 2, 1, 1, 3, 1, 0, 4, 1, 1, 5, 1, 0, 6, 1, 1, 7, 1, 0, 8, 1, 1, 9, 1, 0, 10, 1, 1, 11, 1, 0, 0, 2, 0, 1, 2, 1, 2, 2, 0, 3, 2, 1, 4, 2, 0, 5, 2, 1, 6, 2, 0, 7, 2, 1, 8, 2, 0, 9, 2, 1, 10, 2, 0, 11, 2, 1, 0, 3, 1, 1, 3, 0, 2, 3, 1, 3, 3, 0, 4, 3, 1, 5, 3, 0, 6, 3, 1, 7, 3, 0, 8, 3, 1, 9, 3, 0, 10, 3, 1, 11, 3, 0, 0, 4, 0, 1, 4, 1, 2, 4, 0, 3, 4, 1, 4, 4, 0, 5, 4, 1, 6, 4, 0, 7, 4, 1, 8, 4, 0, 9, 4, 1, 10, 4, 0, 11, 4, 1, 0, 5, 1, 1, 5, 0, 2, 5, 1, 3, 5, 0, 4, 5, 1, 5, 5, 0, 6, 5, 1, 7, 5, 0, 8, 5, 1, 9, 5, 0, 10, 5, 1, 11, 5, 0, 0, 6, 0, 1, 6, 1, 2, 6, 0, 3, 6, 1, 4, 6, 0, 5, 6, 1, 6, 6, 0, 7, 6, 1, 8, 6, 0, 9, 6, 1, 10, 6, 0, 11, 6, 1, 0, 7, 1, 1, 7, 0, 2, 7, 1, 3, 7, 0, 4, 7, 1, 5, 7, 0, 6, 7, 1, 7, 7, 0, 8, 7, 1, 9, 7, 0, 10, 7, 1, 11, 7, 0, 0, 8, 0, 1, 8, 1, 2, 8, 0, 3, 8, 1, 4, 8, 0, 5, 8, 1, 6, 8, 0, 7, 8, 1, 8, 8, 0, 9, 8, 1, 10, 8, 0, 11, 8, 1, 0, 9, 1, 1, 9, 0, 2, 9, 1, 3, 9, 0, 4, 9, 1, 5, 9, 0, 6, 9, 1, 7, 9, 0, 8, 9, 1, 9, 9, 0, 10, 9, 1, 11, 9, 0, 65544, 0, 0, 65545, 0, 1, 65546, 0, 0, 65544, 1, 1, 65545, 1, 0, 65546, 1, 1, 65544, 2, 0, 65545, 2, 1, 65546, 2, 0)
+"cells": PackedInt32Array(0, 0, 0, 1, 0, 1, 2, 0, 0, 3, 0, 1, 4, 0, 0, 5, 0, 1, 6, 0, 0, 7, 0, 1, 8, 0, 0, 9, 0, 1, 10, 0, 0, 11, 0, 1, 0, 1, 1, 1, 1, 0, 2, 1, 1, 3, 1, 0, 4, 1, 1, 5, 1, 0, 6, 1, 1, 7, 1, 0, 8, 1, 1, 9, 1, 0, 10, 1, 1, 11, 1, 0, 0, 2, 0, 1, 2, 1, 2, 2, 0, 3, 2, 1, 4, 2, 0, 5, 2, 1, 6, 2, 0, 7, 2, 1, 8, 2, 0, 9, 2, 1, 10, 2, 0, 11, 2, 1, 0, 3, 1, 1, 3, 0, 2, 3, 1, 3, 3, 0, 4, 3, 1, 5, 3, 0, 6, 3, 1, 7, 3, 0, 8, 3, 1, 9, 3, 0, 10, 3, 1, 11, 3, 0, 0, 4, 0, 1, 4, 1, 2, 4, 0, 3, 4, 1, 4, 4, 0, 5, 4, 1, 6, 4, 0, 7, 4, 1, 8, 4, 0, 9, 4, 1, 10, 4, 0, 11, 4, 1, 0, 5, 1, 1, 5, 0, 2, 5, 1, 3, 5, 0, 4, 5, 1, 5, 5, 0, 6, 5, 1, 7, 5, 0, 8, 5, 1, 9, 5, 0, 10, 5, 1, 11, 5, 0, 0, 6, 0, 1, 6, 1, 2, 6, 0, 3, 6, 1, 4, 6, 0, 5, 6, 1, 6, 6, 0, 7, 6, 1, 8, 6, 0, 9, 6, 1, 10, 6, 0, 11, 6, 1, 0, 7, 1, 1, 7, 0, 2, 7, 1, 3, 7, 0, 4, 7, 1, 5, 7, 0, 6, 7, 1, 7, 7, 0, 8, 7, 1, 9, 7, 0, 10, 7, 1, 11, 7, 0, 0, 8, 0, 1, 8, 1, 2, 8, 0, 3, 8, 1, 4, 8, 0, 5, 8, 1, 6, 8, 0, 7, 8, 1, 8, 8, 0, 9, 8, 1, 10, 8, 0, 0, 9, 1, 1, 9, 0, 2, 9, 1, 3, 9, 0, 4, 9, 1, 5, 9, 0, 6, 9, 1, 7, 9, 0, 8, 9, 1, 9, 9, 0, 10, 9, 1, 11, 9, 0, 65544, 0, 0, 65545, 0, 1, 65546, 0, 0, 65544, 1, 1, 65545, 1, 0, 65546, 1, 1, 65544, 2, 0, 65545, 2, 1, 65546, 2, 0, 11, 8, 983041)
 }
 
 [node name="StructureGrid" type="GridMap" parent="." unique_id=216885669]
@@ -148,7 +135,7 @@ mesh_library = SubResource("MeshLibrary_naoqe")
 collision_layer = 2
 collision_mask = 0
 data = {
-"cells": PackedInt32Array(4, 1, 2, 4, 2, 2, 4, 3, 2, 4, 5, 2, 4, 6, 2, 4, 7, 2, 8, 3, 2, 8, 4, 2, 8, 5, 2, 2, 4, 3, 6, 2, 3, 6, 6, 3, 9, 7, 3)
+"cells": PackedInt32Array(4, 1, 1048578, 4, 2, 1048578, 4, 3, 1048578, 4, 5, 1048578, 4, 6, 1048578, 4, 7, 1048578, 8, 3, 1048578, 8, 4, 1048578, 8, 5, 1048578, 2, 4, 3, 6, 2, 3, 6, 6, 3, 9, 7, 3)
 }
 
 [node name="DecorationGrid" type="GridMap" parent="." unique_id=1466287506]
@@ -156,7 +143,7 @@ mesh_library = SubResource("MeshLibrary_naoqe")
 collision_layer = 2
 collision_mask = 0
 data = {
-"cells": PackedInt32Array(0, 65535, 2, 0, 10, 2, 1, 65535, 2, 1, 10, 2, 2, 65535, 2, 2, 10, 2, 3, 65535, 2, 3, 10, 2, 4, 65535, 2, 4, 10, 2, 5, 65535, 2, 5, 10, 2, 6, 65535, 2, 6, 10, 2, 7, 65535, 2, 7, 10, 2, 8, 65535, 2, 8, 10, 2, 9, 65535, 2, 9, 10, 2, 10, 65535, 2, 10, 10, 2, 11, 65535, 2, 11, 10, 2, 65535, 0, 2, 12, 0, 2, 65535, 1, 2, 12, 1, 2, 65535, 2, 2, 12, 2, 2, 65535, 3, 2, 12, 3, 2, 65535, 4, 2, 12, 4, 2, 65535, 5, 2, 12, 5, 2, 65535, 6, 2, 12, 6, 2, 65535, 7, 2, 12, 7, 2, 65535, 8, 2, 12, 8, 2, 65535, 9, 2, 12, 9, 2)
+"cells": PackedInt32Array(0, 10, 2, 1, 10, 2, 2, 10, 2, 3, 10, 2, 4, 10, 2, 5, 10, 2, 6, 10, 2, 7, 10, 2, 8, 10, 2, 9, 10, 2, 10, 10, 2, 11, 10, 2, 65535, 0, 1441794, 12, 0, 1048578, 65535, 1, 1441794, 12, 1, 1048578, 65535, 2, 1441794, 12, 2, 1048578, 65535, 3, 1441794, 12, 3, 1048578, 65535, 4, 1441794, 12, 4, 1048578, 65535, 5, 1441794, 12, 5, 1048578, 65535, 6, 1441794, 12, 6, 1048578, 65535, 7, 1441794, 12, 7, 1048578, 65535, 8, 1441794, 12, 8, 1048578, 65535, 9, 1441794, 12, 9, 1048578, 11, 65535, 655362, 10, 65535, 655362, 9, 65535, 655362, 8, 65535, 655362, 7, 65535, 655362, 6, 65535, 655362, 5, 65535, 655362, 4, 65535, 655362, 3, 65535, 655362, 2, 65535, 655362, 1, 65535, 655362, 0, 65535, 655362)
 }
 
 [node name="Objects" type="Node3D" parent="." unique_id=1207341631]
@@ -169,7 +156,7 @@ kind = 1
 scene = ExtResource("9_f7meg")
 cell = Vector3i(11, 0, 8)
 
-[node name="_Preview" type="Node3D" parent="Objects/extraction" unique_id=252728488 instance=ExtResource("9_f7meg")]
+[node name="_Preview" type="Node3D" parent="Objects/extraction" unique_id=1624302825 instance=ExtResource("9_f7meg")]
 metadata/map_marker_preview = true
 
 [node name="loot_1" type="Node3D" parent="Objects" unique_id=175576482]
@@ -183,7 +170,7 @@ loot_table = ExtResource("11_u7p6a")
 loot_seed = 101
 cell = Vector3i(1, 0, 3)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_1" unique_id=852082879 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_1" unique_id=1871439339 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="loot_2" type="Node3D" parent="Objects" unique_id=789496514]
@@ -197,7 +184,7 @@ loot_table = ExtResource("12_2s8lf")
 loot_seed = 202
 cell = Vector3i(7, 0, 4)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_2" unique_id=1633077709 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_2" unique_id=46157059 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="loot_3" type="Node3D" parent="Objects" unique_id=1132772281]
@@ -211,7 +198,7 @@ loot_table = ExtResource("13_y00vi")
 loot_seed = 303
 cell = Vector3i(10, 0, 6)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_3" unique_id=364736367 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_3" unique_id=1574405909 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="loot_high" type="Node3D" parent="Objects" unique_id=446513249]
@@ -225,7 +212,7 @@ loot_table = ExtResource("14_wf2yo")
 loot_seed = 404
 cell = Vector3i(10, 1, 1)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_high" unique_id=819046484 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_high" unique_id=996873308 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="barrel_1" type="Node3D" parent="Objects" unique_id=1599025707]
@@ -237,7 +224,7 @@ scene = ExtResource("15_surd2")
 blocks_movement = true
 cell = Vector3i(3, 0, 7)
 
-[node name="_Preview" type="Node3D" parent="Objects/barrel_1" unique_id=1353214390 instance=ExtResource("15_surd2")]
+[node name="_Preview" type="Node3D" parent="Objects/barrel_1" unique_id=1388210794 instance=ExtResource("15_surd2")]
 metadata/map_marker_preview = true
 
 [node name="barrel_2" type="Node3D" parent="Objects" unique_id=200211528]
@@ -249,7 +236,7 @@ scene = ExtResource("15_surd2")
 blocks_movement = true
 cell = Vector3i(10, 0, 2)
 
-[node name="_Preview" type="Node3D" parent="Objects/barrel_2" unique_id=627766312 instance=ExtResource("15_surd2")]
+[node name="_Preview" type="Node3D" parent="Objects/barrel_2" unique_id=702382514 instance=ExtResource("15_surd2")]
 metadata/map_marker_preview = true
 
 [node name="Spawns" type="Node3D" parent="." unique_id=1279936416]
@@ -393,15 +380,45 @@ move_cost = 2
 [node name="TraversalVisuals" type="Node3D" parent="." unique_id=1164428184]
 
 [node name="StairsToUpperPlatform" type="MeshInstance3D" parent="TraversalVisuals" unique_id=1149883064]
-transform = Transform3D(0.70710677, -0.70710677, 0, 0.70710677, 0.70710677, 0, 0, 0, 1, 15, 1, 2)
-mesh = SubResource("BoxMesh_5cryi")
+transform = Transform3D(1, 0, 0, 0, 1.4285715, 0, 0, 0, 1, 15.5, 1, 3)
+mesh = ExtResource("36_factory_stairs")
 
 [node name="RampBody" type="StaticBody3D" parent="TraversalVisuals" unique_id=337904895]
-transform = Transform3D(0.70710677, -0.70710677, 0, 0.70710677, 0.70710677, 0, 0, 0, 1, 15, 1, 2)
+transform = Transform3D(0.70710677, -0.70710677, 0, 0.70710677, 0.70710677, 0, 0, 0, 1, 16, 2, 3)
 collision_mask = 0
 
 [node name="@CollisionShape3D@2" type="CollisionShape3D" parent="TraversalVisuals/RampBody" unique_id=1075115025]
 shape = SubResource("BoxShape3D_y8sbs")
+
+[node name="ArtDecorations" type="Node3D" parent="." unique_id=1086008389]
+
+[node name="MachineFortified_Wall_4_1" type="MeshInstance3D" parent="ArtDecorations" unique_id=2129991408]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 1, 3)
+mesh = ExtResource("31_factory_machine_fortified")
+
+[node name="Machine_Wall_8_3" type="MeshInstance3D" parent="ArtDecorations" unique_id=23283504]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 17, 1, 7)
+mesh = ExtResource("30_factory_machine")
+
+[node name="Pipe_Wall_4_5" type="MeshInstance3D" parent="ArtDecorations" unique_id=308619456]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 9, 1, 11)
+mesh = ExtResource("32_factory_pipe")
+
+[node name="Scanner_LowCover_6_2" type="MeshInstance3D" parent="ArtDecorations" unique_id=2080106175]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 13, 1, 5)
+mesh = ExtResource("33_factory_scanner")
+
+[node name="RobotArm_LowCover_9_7" type="MeshInstance3D" parent="ArtDecorations" unique_id=320852459]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 19, 1, 15)
+mesh = ExtResource("34_factory_robot")
+
+[node name="Warning_Outside_North" type="MeshInstance3D" parent="ArtDecorations" unique_id=1248580019]
+transform = Transform3D(0.55, 0, 0, 0, 0.75, 0, 0, 0, 0.55, 8, 1, -0.5)
+mesh = ExtResource("35_factory_warning")
+
+[node name="Warning_Outside_East" type="MeshInstance3D" parent="ArtDecorations" unique_id=1797864733]
+transform = Transform3D(0.55, 0, 0, 0, 0.75, 0, 0, 0, 0.55, 24.5, 1, 12)
+mesh = ExtResource("35_factory_warning")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=154644147]
 environment = SubResource("Environment_klkf8")

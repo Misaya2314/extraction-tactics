@@ -51,12 +51,15 @@ func _test_runtime_feedback() -> void:
 
 	var visual_root := unit.get_node("VisualRoot") as Node3D
 	var weapon_pivot := unit.get_node("VisualRoot/WeaponPivot") as Node3D
+	var weapon_model_root := unit.get_node("VisualRoot/WeaponPivot/WeaponModelRoot") as Node3D
 	var muzzle_flash := unit.get_node("VisualRoot/WeaponPivot/MuzzleFlash") as MeshInstance3D
 	_expect(visual_root != null, "scene: VisualRoot should exist")
 	_expect(weapon_pivot != null, "scene: WeaponPivot should exist")
-	_expect(unit.get_node("VisualRoot/WeaponPivot/WeaponMesh") is MeshInstance3D, "scene: WeaponMesh should exist")
+	_expect(weapon_model_root != null, "scene: WeaponModelRoot should exist")
 	_expect(muzzle_flash != null, "scene: MuzzleFlash should exist")
-	if visual_root == null or weapon_pivot == null or muzzle_flash == null:
+	if weapon_model_root != null:
+		_expect(weapon_model_root.get_child_count() == 1, "scene: configured weapon should instantiate one model")
+	if visual_root == null or weapon_pivot == null or weapon_model_root == null or muzzle_flash == null:
 		await _free_unit(unit)
 		return
 
@@ -110,6 +113,7 @@ func _test_missing_feedback_is_safe() -> void:
 	var unit := UNIT_SCENE.instantiate() as PrototypeUnit
 	get_root().add_child(unit)
 	await process_frame
+	_expect(unit.attack_damage == 4 and unit.attack_range == 5 and unit.attack_ap_cost == 1, "safe fallback: initial scene combat defaults should remain unchanged")
 	unit.configure(Vector3i.ZERO, &"player", Color.WHITE)
 	unit.play_attack_feedback()
 	await process_frame

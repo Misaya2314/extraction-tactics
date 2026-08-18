@@ -10,6 +10,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_test_resources()
+	_test_world_models()
 	_test_validation()
 	_finish()
 
@@ -30,6 +31,27 @@ func _test_resources() -> void:
 	_expect(SHOTGUN.attack_feedback_profile.recoil_distance > ASSAULT_RIFLE.attack_feedback_profile.recoil_distance, "weapon: shotgun recoil should be stronger")
 	_expect(SHOTGUN.attack_feedback_profile.total_duration() > ASSAULT_RIFLE.attack_feedback_profile.total_duration(), "weapon: shotgun feedback should last longer")
 	_expect(ASSAULT_RIFLE.get_summary().contains("突击步枪"), "weapon: summary should expose display name")
+
+
+func _test_world_models() -> void:
+	var expected_paths := {
+		&"assault_rifle": "res://kenney_blaster-kit_2.1/Models/GLB format/blaster-e.glb",
+		&"carbine": "res://kenney_blaster-kit_2.1/Models/GLB format/blaster-n.glb",
+		&"shotgun": "res://kenney_blaster-kit_2.1/Models/GLB format/blaster-l.glb",
+	}
+	for weapon in [ASSAULT_RIFLE, CARBINE, SHOTGUN]:
+		_expect(weapon.world_model_scene != null, "weapon: %s should have a world model" % weapon.weapon_id)
+		if weapon.world_model_scene != null:
+			_expect(
+				weapon.world_model_scene.resource_path == expected_paths[weapon.weapon_id],
+				"weapon: %s should use its authored Kenney model" % weapon.weapon_id
+			)
+	_expect(ASSAULT_RIFLE.world_model_scene != CARBINE.world_model_scene, "weapon: rifle and carbine models should differ")
+	_expect(CARBINE.world_model_scene != SHOTGUN.world_model_scene, "weapon: carbine and shotgun models should differ")
+	_expect(is_equal_approx(ASSAULT_RIFLE.world_model_scale.x, 0.55), "weapon: assault rifle model scale should be authored")
+	_expect(is_equal_approx(CARBINE.world_model_position.z, 0.36), "weapon: carbine model position should be authored")
+	_expect(is_equal_approx(SHOTGUN.world_model_scale.x, 1.35), "weapon: shotgun model scale should be authored")
+	_expect(is_equal_approx(ASSAULT_RIFLE.muzzle_position.z, 0.78), "weapon: muzzle position should be data driven")
 
 
 func _test_validation() -> void:

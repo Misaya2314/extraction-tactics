@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dgseaehliof2s"
+path="res://.godot/imported/piston-thin-square.obj-a680ebbabf016c5b8e9ff6436c67725e.mesh"
+
+[deps]
+
+files=["res://.godot/imported/piston-thin-square.obj-a680ebbabf016c5b8e9ff6436c67725e.mesh"]
+
+source_file="res://kenney_factory-kit_3.0/Models/OBJ format/piston-thin-square.obj"
+dest_files=["res://.godot/imported/piston-thin-square.obj-a680ebbabf016c5b8e9ff6436c67725e.mesh", "res://.godot/imported/piston-thin-square.obj-a680ebbabf016c5b8e9ff6436c67725e.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

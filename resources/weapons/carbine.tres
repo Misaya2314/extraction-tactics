@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="WeaponDefinition" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="WeaponDefinition" format=3 uid="uid://cv0wuwmy4a5w2"]
 
-[ext_resource type="Script" path="res://scripts/core/combat/weapon_definition.gd" id="1_weapon"]
+[ext_resource type="Script" uid="uid://dbe47d37q7bxk" path="res://scripts/core/combat/weapon_definition.gd" id="1_weapon"]
 [ext_resource type="Resource" path="res://resources/weapons/feedback_profiles/rifle.tres" id="2_feedback"]
+[ext_resource type="PackedScene" uid="uid://bl6gjxt4kli7m" path="res://kenney_blaster-kit_2.1/Models/GLB format/blaster-n.glb" id="3_model"]
 
 [resource]
 script = ExtResource("1_weapon")
@@ -9,5 +10,7 @@ weapon_id = &"carbine"
 display_name = "卡宾枪"
 damage = 3
 range = 7
-ap_cost = 1
 attack_feedback_profile = ExtResource("2_feedback")
+world_model_scene = ExtResource("3_model")
+world_model_position = Vector3(0, 0, 0.36)
+world_model_scale = Vector3(1.15, 1.15, 1.15)

@@ -1,7 +1,8 @@
-[gd_resource type="Resource" script_class="WeaponDefinition" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="WeaponDefinition" format=3 uid="uid://dl4xbce24g1dm"]
 
-[ext_resource type="Script" path="res://scripts/core/combat/weapon_definition.gd" id="1_weapon"]
+[ext_resource type="Script" uid="uid://dbe47d37q7bxk" path="res://scripts/core/combat/weapon_definition.gd" id="1_weapon"]
 [ext_resource type="Resource" path="res://resources/weapons/feedback_profiles/rifle.tres" id="2_feedback"]
+[ext_resource type="PackedScene" uid="uid://c1u2ht7crg6rd" path="res://kenney_blaster-kit_2.1/Models/GLB format/blaster-e.glb" id="3_model"]
 
 [resource]
 script = ExtResource("1_weapon")
@@ -9,5 +10,6 @@ weapon_id = &"assault_rifle"
 display_name = "突击步枪"
 damage = 4
 range = 5
-ap_cost = 1
 attack_feedback_profile = ExtResource("2_feedback")
+world_model_scene = ExtResource("3_model")
+world_model_scale = Vector3(0.55, 0.55, 0.55)

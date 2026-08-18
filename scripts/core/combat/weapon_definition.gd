@@ -11,6 +11,11 @@ extends Resource
 @export_range(1, 99, 1) var range: int = 1
 @export_range(1, 9, 1) var ap_cost: int = 1
 @export var attack_feedback_profile: WeaponAttackFeedbackProfile
+@export var world_model_scene: PackedScene
+@export var world_model_position: Vector3 = Vector3.ZERO
+@export var world_model_rotation_degrees: Vector3 = Vector3.ZERO
+@export var world_model_scale: Vector3 = Vector3.ONE
+@export var muzzle_position: Vector3 = Vector3(0.0, 0.0, 0.78)
 
 
 func is_valid() -> bool:

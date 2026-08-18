@@ -1,16 +1,6 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=4 format=3]
 
-[ext_resource type="Material" path="res://assets/prototype/materials/barrel.tres" id="1_barrel"]
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_barrel"]
-top_radius = 0.45
-bottom_radius = 0.45
-height = 1
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_barrel_cap"]
-top_radius = 0.34
-bottom_radius = 0.34
-height = 0.08
+[ext_resource type="ArrayMesh" path="res://kenney_factory-kit_3.0/Models/OBJ format/piston-round.obj" id="1_factory_piston"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape_barrel"]
 radius = 0.45
@@ -19,14 +9,7 @@ height = 1
 [node name="PrototypeExplosiveBarrel" type="Node3D"]
 
 [node name="Barrel" type="MeshInstance3D" parent="."]
-material_override = ExtResource("1_barrel")
-mesh = SubResource("CylinderMesh_barrel")
-position = Vector3(0, 0.5, 0)
-
-[node name="Cap" type="MeshInstance3D" parent="."]
-material_override = ExtResource("1_barrel")
-mesh = SubResource("CylinderMesh_barrel_cap")
-position = Vector3(0, 1.04, 0)
+mesh = ExtResource("1_factory_piston")
 
 [node name="BarrelBody" type="StaticBody3D" parent="."]
 collision_layer = 2
@@ -35,4 +18,3 @@ collision_mask = 0
 [node name="CollisionShape3D" type="CollisionShape3D" parent="BarrelBody"]
 shape = SubResource("CylinderShape_barrel")
 position = Vector3(0, 0.5, 0)
-

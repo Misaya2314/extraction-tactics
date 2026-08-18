@@ -28,15 +28,6 @@ roughness = 0.55
 material = SubResource("StandardMaterial3D_facing")
 size = Vector3(0.2, 0.14, 0.34)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_weapon"]
-albedo_color = Color(0.08, 0.1, 0.14, 1)
-metallic = 0.35
-roughness = 0.42
-
-[sub_resource type="BoxMesh" id="BoxMesh_weapon"]
-material = SubResource("StandardMaterial3D_weapon")
-size = Vector3(0.16, 0.12, 0.72)
-
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_flash"]
 shading_mode = 0
 albedo_color = Color(1, 0.34, 0.04, 1)
@@ -62,10 +53,7 @@ mesh = SubResource("CapsuleMesh_body")
 [node name="WeaponPivot" type="Node3D" parent="VisualRoot"]
 position = Vector3(0, 0.78, 0.34)
 
-[node name="WeaponMesh" type="MeshInstance3D" parent="VisualRoot/WeaponPivot"]
-position = Vector3(0, 0, 0.36)
-cast_shadow = 0
-mesh = SubResource("BoxMesh_weapon")
+[node name="WeaponModelRoot" type="Node3D" parent="VisualRoot/WeaponPivot"]
 
 [node name="MuzzleFlash" type="MeshInstance3D" parent="VisualRoot/WeaponPivot"]
 visible = false
