@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WeaponDefinition" format=3 uid="uid://do3swy0x3pxwr"]
+[gd_resource type="Resource" script_class="WeaponDefinition" format=3 uid="uid://daq6ympv5kkit"]
 
 [ext_resource type="Script" uid="uid://dbe47d37q7bxk" path="res://scripts/core/combat/weapon_definition.gd" id="1_weapon"]
 [ext_resource type="Resource" path="res://resources/weapons/feedback_profiles/shotgun.tres" id="2_feedback"]

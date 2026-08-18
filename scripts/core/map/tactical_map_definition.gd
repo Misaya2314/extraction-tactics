@@ -13,6 +13,7 @@ const CURRENT_SCHEMA_VERSION: int = 1
 @export var level_count: int = 1
 @export var cell_size: Vector3 = Vector3(2.0, 2.0, 2.0)
 @export var origin: Vector3 = Vector3.ZERO
+@export var authoring_scene_path: String = ""
 @export var cells: Array[MapCellData] = []
 @export var transitions: Array[MapTransitionData] = []
 @export var spawns: Array[MapSpawnData] = []
