@@ -21,57 +21,77 @@ static func build(author: TacticalMapAuthor) -> Dictionary:
 	definition.origin = author.grid_origin
 	definition.authoring_scene_path = author.get_scene_file_path()
 	var catalog := author.tile_catalog
+	var placeable_library := author.placeable_library
 	var floor_grid := author.get_node_or_null(NodePath(String(FLOOR_GRID_NAME))) as GridMap
 	var structure_grid := author.get_node_or_null(NodePath(String(STRUCTURE_GRID_NAME))) as GridMap
-	_validate_author_settings(author, floor_grid, structure_grid, catalog, errors)
-	if floor_grid == null or catalog == null:
+	if placeable_library != null:
+		var library_validation := TacticalMapValidator.validate_library(placeable_library)
+		errors.append_array(library_validation[&"errors"])
+		warnings.append_array(library_validation[&"warnings"])
+	_validate_author_settings(author, floor_grid, structure_grid, catalog, placeable_library, errors)
+	if floor_grid == null or (catalog == null and placeable_library == null):
 		return {&"definition": definition, &"errors": errors, &"warnings": warnings}
 
 	var cells_by_coordinate: Dictionary = {}
+	var rules_by_coordinate: Dictionary = {}
 	var floor_cells := floor_grid.get_used_cells()
 	floor_cells.sort_custom(_cell_less)
 	for coordinate in floor_cells:
 		var item_id := floor_grid.get_cell_item(coordinate)
-		var rule := catalog.find_rule(MapTileRule.Layer.FLOOR, item_id)
-		if rule == null:
-			errors.append("Floor item %d at %s has no catalog rule." % [item_id, coordinate])
+		var resolved := _resolve_cell_rule(MapTileRule.Layer.FLOOR, item_id, catalog, placeable_library, errors, warnings)
+		if resolved.is_empty():
 			continue
 		if not _inside_volume(author, coordinate):
 			errors.append("Floor cell %s is outside the declared map volume." % coordinate)
 			continue
-		var cell_data := MapCellData.new()
-		cell_data.coordinate = coordinate
-		cell_data.walkable = rule.walkable
-		cell_data.move_cost = maxi(rule.move_cost, 1)
-		cell_data.blocks_los = rule.blocks_los
-		cell_data.occluder_height = maxf(rule.occluder_height, 0.0)
-		cell_data.terrain_id = rule.tile_id
-		cell_data.cover_mask = _rotated_cover_mask(rule.cover_mask, floor_grid.get_cell_item_basis(coordinate))
+		var rules: TacticalCellRules = resolved[&"rules"]
+		var terrain_id: StringName = resolved[&"terrain_id"]
+		var cover_mask: int = _rotated_cover_mask(int(resolved[&"cover_mask"]), floor_grid.get_cell_item_basis(coordinate))
+		var cell_data := TacticalRuleMerger.to_map_cell_data(coordinate, rules, terrain_id, cover_mask)
 		cells_by_coordinate[coordinate] = cell_data
+		rules_by_coordinate[coordinate] = rules
 
 	if structure_grid != null:
 		var structure_cells := structure_grid.get_used_cells()
 		structure_cells.sort_custom(_cell_less)
 		for coordinate in structure_cells:
 			var item_id := structure_grid.get_cell_item(coordinate)
-			var rule := catalog.find_rule(MapTileRule.Layer.STRUCTURE, item_id)
-			if rule == null:
-				errors.append("Structure item %d at %s has no catalog rule." % [item_id, coordinate])
+			var resolved := _resolve_cell_rule(MapTileRule.Layer.STRUCTURE, item_id, catalog, placeable_library, errors, warnings)
+			if resolved.is_empty():
 				continue
 			if not cells_by_coordinate.has(coordinate):
 				errors.append("Structure at %s has no floor surface beneath it." % coordinate)
 				continue
 			var cell_data: MapCellData = cells_by_coordinate[coordinate]
-			cell_data.walkable = cell_data.walkable and rule.walkable
-			cell_data.move_cost = maxi(cell_data.move_cost, rule.move_cost)
-			cell_data.blocks_los = cell_data.blocks_los or rule.blocks_los
-			cell_data.occluder_height = maxf(cell_data.occluder_height, rule.occluder_height)
-			cell_data.cover_mask |= _rotated_cover_mask(rule.cover_mask, structure_grid.get_cell_item_basis(coordinate))
+			var merged_rules := TacticalRuleMerger.merge(rules_by_coordinate[coordinate], resolved[&"rules"])
+			var structure_cover := _rotated_cover_mask(int(resolved[&"cover_mask"]), structure_grid.get_cell_item_basis(coordinate))
+			cell_data.copy_from(TacticalRuleMerger.to_map_cell_data(
+				coordinate,
+				merged_rules,
+				cell_data.terrain_id,
+				cell_data.cover_mask | structure_cover
+			))
+			rules_by_coordinate[coordinate] = merged_rules
 
 	var ordered_cells: Array = cells_by_coordinate.keys()
 	ordered_cells.sort_custom(_cell_less)
 	for coordinate in ordered_cells:
 		definition.cells.append(cells_by_coordinate[coordinate])
+
+	if author.authoring_data != null:
+		var authoring_validation := TacticalMapValidator.validate_authoring_data(
+			author.authoring_data,
+			author.footprint_size,
+			author.level_count,
+			author.placeable_library
+		)
+		errors.append_array(authoring_validation[&"errors"])
+		warnings.append_array(authoring_validation[&"warnings"])
+		var orphan_validation := TacticalMapValidator.validate_against_cells(author.authoring_data, cells_by_coordinate)
+		errors.append_array(orphan_validation[&"errors"])
+		warnings.append_array(orphan_validation[&"warnings"])
+		_apply_cell_overrides(author.authoring_data, cells_by_coordinate, rules_by_coordinate, errors)
+		_collect_edges(author.authoring_data, definition, errors, warnings)
 
 	_collect_markers(author, definition, errors)
 	_validate_definition(definition, errors, warnings)
@@ -148,6 +168,91 @@ static func _restore_uid_in_file(path: String, uid: String) -> void:
 	write_file.close()
 
 
+static func _resolve_cell_rule(
+	layer: MapTileRule.Layer,
+	item_id: int,
+	catalog: MapTileCatalog,
+	placeable_library: TacticalPlaceableLibrary,
+	errors: Array[String],
+	warnings: Array[String]
+) -> Dictionary:
+	if placeable_library != null:
+		var placeable := placeable_library.find_cell_definition(layer, item_id)
+		if placeable != null:
+			var placeable_rules := placeable.rule_contribution
+			if placeable_rules == null:
+				placeable_rules = TacticalCellRules.new()
+			return {
+				&"rules": placeable_rules,
+				&"terrain_id": placeable.tile_id,
+				&"cover_mask": 0,
+			}
+	if catalog != null:
+		var legacy_rule := catalog.find_rule(layer, item_id)
+		if legacy_rule != null:
+			if placeable_library != null:
+				warnings.append("TMB-001: %s item %d has no placeable binding; fell back to MapTileCatalog." % [layer, item_id])
+			return {
+				&"rules": TacticalRuleMerger.from_legacy(legacy_rule),
+				&"terrain_id": legacy_rule.tile_id,
+				&"cover_mask": legacy_rule.cover_mask,
+			}
+	var layer_name := "Floor" if layer == MapTileRule.Layer.FLOOR else "Structure"
+	errors.append("TMB-002: %s item %d has no placeable or catalog rule." % [layer_name, item_id])
+	return {}
+
+
+static func _apply_cell_overrides(
+	data: TacticalMapAuthoringData,
+	cells_by_coordinate: Dictionary,
+	rules_by_coordinate: Dictionary,
+	_errors: Array[String]
+) -> void:
+	if data == null:
+		return
+	for cell_override in data.cell_overrides:
+		if cell_override == null or not cell_override.is_valid():
+			continue
+		if not cells_by_coordinate.has(cell_override.coordinate):
+			continue
+		var merged_rules := TacticalRuleMerger.apply_override(rules_by_coordinate[cell_override.coordinate], cell_override)
+		var old_cell: MapCellData = cells_by_coordinate[cell_override.coordinate]
+		old_cell.copy_from(TacticalRuleMerger.to_map_cell_data(
+			cell_override.coordinate,
+			merged_rules,
+			old_cell.terrain_id,
+			old_cell.cover_mask
+		))
+		rules_by_coordinate[cell_override.coordinate] = merged_rules
+
+
+static func _collect_edges(
+	data: TacticalMapAuthoringData,
+	definition: TacticalMapDefinition,
+	_errors: Array[String],
+	_warnings: Array[String]
+) -> void:
+	if data == null:
+		return
+	var ordered: Array[TacticalEdgePlacement] = []
+	for placement in data.edge_placements:
+		if placement != null and placement.enabled:
+			ordered.append(placement)
+	ordered.sort_custom(func(a: TacticalEdgePlacement, b: TacticalEdgePlacement) -> bool:
+		return a.key_string() < b.key_string()
+	)
+	var seen: Dictionary = {}
+	for placement in ordered:
+		if not placement.is_valid():
+			continue
+		var key := placement.key_string()
+		if seen.has(key):
+			_errors.append("TMB-003: Duplicate edge key '%s'." % key)
+			continue
+		seen[key] = true
+		definition.edges.append(MapEdgeData.from_placement(placement))
+
+
 static func _collect_markers(author: TacticalMapAuthor, definition: TacticalMapDefinition, errors: Array[String]) -> void:
 	for node in _descendants(author):
 		if node is UnitSpawnMarker3D:
@@ -181,7 +286,14 @@ static func _collect_markers(author: TacticalMapAuthor, definition: TacticalMapD
 			ids[placement.object_id] = true
 
 
-static func _validate_author_settings(author: TacticalMapAuthor, floor_grid: GridMap, structure_grid: GridMap, catalog: MapTileCatalog, errors: Array[String]) -> void:
+static func _validate_author_settings(
+	author: TacticalMapAuthor,
+	floor_grid: GridMap,
+	structure_grid: GridMap,
+	catalog: MapTileCatalog,
+	placeable_library: TacticalPlaceableLibrary,
+	errors: Array[String]
+) -> void:
 	if author.map_id == &"":
 		errors.append("Map id cannot be empty.")
 	if author.footprint_size.x <= 0 or author.footprint_size.y <= 0 or author.level_count <= 0:
@@ -190,8 +302,10 @@ static func _validate_author_settings(author: TacticalMapAuthor, floor_grid: Gri
 		errors.append("Cell dimensions must be positive.")
 	if floor_grid == null:
 		errors.append("TacticalMapAuthor requires a direct FloorGrid child.")
-	if catalog == null:
-		errors.append("TacticalMapAuthor requires a MapTileCatalog.")
+	if catalog == null and placeable_library == null:
+		errors.append("TacticalMapAuthor requires a MapTileCatalog or TacticalPlaceableLibrary.")
+	if placeable_library != null and placeable_library.schema_version != TacticalPlaceableLibrary.CURRENT_SCHEMA_VERSION:
+		errors.append("TacticalMapAuthor has an unsupported TacticalPlaceableLibrary schema.")
 	for grid in [floor_grid, structure_grid]:
 		if grid == null:
 			continue

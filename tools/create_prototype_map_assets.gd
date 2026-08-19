@@ -293,7 +293,6 @@ func _add_lighting(author: TacticalMapAuthor) -> void:
 	fill.shadow_enabled = false
 	_add_owned(author, fill)
 
-
 func _add_owned(parent: Node, child: Node, scene_owner: Node = null) -> void:
 	parent.add_child(child)
 	child.owner = scene_owner if scene_owner != null else parent

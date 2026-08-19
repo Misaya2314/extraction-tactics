@@ -11,6 +11,8 @@ extends Node3D
 		_sync_grid_settings()
 @export var grid_origin: Vector3 = Vector3.ZERO
 @export var tile_catalog: MapTileCatalog
+@export var placeable_library: TacticalPlaceableLibrary
+@export var authoring_data: TacticalMapAuthoringData
 @export_file("*.tres") var output_resource_path: String = "res://resources/maps/tactical_map.tres"
 @export_tool_button("Validate Map") var validate_action: Callable = validate_map
 @export_tool_button("Bake Map") var bake_action: Callable = bake_map

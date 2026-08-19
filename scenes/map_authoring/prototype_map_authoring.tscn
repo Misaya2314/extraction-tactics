@@ -127,7 +127,7 @@ output_resource_path = "res://resources/maps/prototype_map.tres"
 mesh_library = SubResource("MeshLibrary_naoqe")
 collision_mask = 0
 data = {
-"cells": PackedInt32Array(0, 0, 0, 1, 0, 1, 2, 0, 0, 3, 0, 1, 4, 0, 0, 5, 0, 1, 6, 0, 0, 7, 0, 1, 8, 0, 0, 9, 0, 1, 10, 0, 0, 11, 0, 1, 0, 1, 1, 1, 1, 0, 2, 1, 1, 3, 1, 0, 4, 1, 1, 5, 1, 0, 6, 1, 1, 7, 1, 0, 8, 1, 1, 9, 1, 0, 10, 1, 1, 11, 1, 0, 0, 2, 0, 1, 2, 1, 2, 2, 0, 3, 2, 1, 4, 2, 0, 5, 2, 1, 6, 2, 0, 7, 2, 1, 8, 2, 0, 9, 2, 1, 10, 2, 0, 11, 2, 1, 0, 3, 1, 1, 3, 0, 2, 3, 1, 3, 3, 0, 4, 3, 1, 5, 3, 0, 6, 3, 1, 7, 3, 0, 8, 3, 1, 9, 3, 0, 10, 3, 1, 11, 3, 0, 0, 4, 0, 1, 4, 1, 2, 4, 0, 3, 4, 1, 4, 4, 0, 5, 4, 1, 6, 4, 0, 7, 4, 1, 8, 4, 0, 9, 4, 1, 10, 4, 0, 11, 4, 1, 0, 5, 1, 1, 5, 0, 2, 5, 1, 3, 5, 0, 4, 5, 1, 5, 5, 0, 6, 5, 1, 7, 5, 0, 8, 5, 1, 9, 5, 0, 10, 5, 1, 11, 5, 0, 0, 6, 0, 1, 6, 1, 2, 6, 0, 3, 6, 1, 4, 6, 0, 5, 6, 1, 6, 6, 0, 7, 6, 1, 8, 6, 0, 9, 6, 1, 10, 6, 0, 11, 6, 1, 0, 7, 1, 1, 7, 0, 2, 7, 1, 3, 7, 0, 4, 7, 1, 5, 7, 0, 6, 7, 1, 7, 7, 0, 8, 7, 1, 9, 7, 0, 10, 7, 1, 11, 7, 0, 0, 8, 0, 1, 8, 1, 2, 8, 0, 3, 8, 1, 4, 8, 0, 5, 8, 1, 6, 8, 0, 7, 8, 1, 8, 8, 0, 9, 8, 1, 10, 8, 0, 0, 9, 1, 1, 9, 0, 2, 9, 1, 3, 9, 0, 4, 9, 1, 5, 9, 0, 6, 9, 1, 7, 9, 0, 8, 9, 1, 9, 9, 0, 10, 9, 1, 11, 9, 0, 65544, 0, 0, 65545, 0, 1, 65546, 0, 0, 65544, 1, 1, 65545, 1, 0, 65546, 1, 1, 65544, 2, 0, 65545, 2, 1, 65546, 2, 0, 11, 8, 983041)
+"cells": PackedInt32Array(0, 0, 0, 1, 0, 1, 2, 0, 0, 3, 0, 1, 4, 0, 0, 5, 0, 1, 6, 0, 0, 7, 0, 1, 8, 0, 0, 9, 0, 1, 10, 0, 0, 11, 0, 1, 0, 1, 1, 1, 1, 0, 2, 1, 1, 3, 1, 0, 4, 1, 1, 5, 1, 0, 6, 1, 1, 7, 1, 0, 8, 1, 1, 9, 1, 0, 10, 1, 1, 11, 1, 0, 0, 2, 0, 1, 2, 1, 2, 2, 0, 3, 2, 1, 4, 2, 0, 5, 2, 1, 6, 2, 0, 7, 2, 1, 8, 2, 0, 9, 2, 1, 10, 2, 0, 11, 2, 1, 0, 3, 1, 1, 3, 0, 2, 3, 1, 3, 3, 0, 4, 3, 1, 5, 3, 0, 6, 3, 1, 7, 3, 0, 8, 3, 1, 9, 3, 0, 10, 3, 1, 11, 3, 0, 0, 4, 0, 1, 4, 1, 2, 4, 0, 3, 4, 1, 4, 4, 0, 5, 4, 1, 6, 4, 0, 7, 4, 1, 8, 4, 0, 9, 4, 1, 10, 4, 0, 11, 4, 1, 0, 5, 1, 1, 5, 0, 2, 5, 1, 3, 5, 0, 4, 5, 1, 5, 5, 0, 6, 5, 1, 7, 5, 0, 8, 5, 1, 9, 5, 0, 10, 5, 1, 11, 5, 0, 0, 6, 0, 1, 6, 1, 2, 6, 0, 3, 6, 1, 4, 6, 0, 5, 6, 1, 11, 6, 1, 0, 7, 1, 1, 7, 0, 2, 7, 1, 3, 7, 0, 4, 7, 1, 5, 7, 0, 6, 7, 1, 7, 7, 0, 8, 7, 1, 9, 7, 0, 10, 7, 1, 11, 7, 0, 0, 8, 0, 1, 8, 1, 2, 8, 0, 3, 8, 1, 4, 8, 0, 5, 8, 1, 6, 8, 0, 7, 8, 1, 8, 8, 0, 9, 8, 1, 10, 8, 0, 0, 9, 1, 1, 9, 0, 2, 9, 1, 3, 9, 0, 4, 9, 1, 5, 9, 0, 6, 9, 1, 7, 9, 0, 8, 9, 1, 9, 9, 0, 10, 9, 1, 11, 9, 0, 65544, 0, 0, 65545, 0, 1, 65546, 0, 0, 65544, 1, 1, 65545, 1, 0, 65546, 1, 1, 65544, 2, 0, 65545, 2, 1, 65546, 2, 0, 6, 6, 0, 7, 6, 1, 8, 6, 0, 9, 6, 1, 10, 6, 0, 11, 8, 0)
 }
 
 [node name="StructureGrid" type="GridMap" parent="." unique_id=216885669]
@@ -143,7 +143,7 @@ mesh_library = SubResource("MeshLibrary_naoqe")
 collision_layer = 2
 collision_mask = 0
 data = {
-"cells": PackedInt32Array(0, 10, 2, 1, 10, 2, 2, 10, 2, 3, 10, 2, 4, 10, 2, 5, 10, 2, 6, 10, 2, 7, 10, 2, 8, 10, 2, 9, 10, 2, 10, 10, 2, 11, 10, 2, 65535, 0, 1441794, 12, 0, 1048578, 65535, 1, 1441794, 12, 1, 1048578, 65535, 2, 1441794, 12, 2, 1048578, 65535, 3, 1441794, 12, 3, 1048578, 65535, 4, 1441794, 12, 4, 1048578, 65535, 5, 1441794, 12, 5, 1048578, 65535, 6, 1441794, 12, 6, 1048578, 65535, 7, 1441794, 12, 7, 1048578, 65535, 8, 1441794, 12, 8, 1048578, 65535, 9, 1441794, 12, 9, 1048578, 11, 65535, 655362, 10, 65535, 655362, 9, 65535, 655362, 8, 65535, 655362, 7, 65535, 655362, 6, 65535, 655362, 5, 65535, 655362, 4, 65535, 655362, 3, 65535, 655362, 2, 65535, 655362, 1, 65535, 655362, 0, 65535, 655362)
+"cells": PackedInt32Array(0, 10, 2, 1, 10, 2, 2, 10, 2, 3, 10, 2, 4, 10, 2, 5, 10, 2, 6, 10, 2, 7, 10, 2, 8, 10, 2, 9, 10, 2, 10, 10, 2, 11, 10, 2, 65535, 0, 1441794, 12, 0, 1048578, 65535, 1, 1441794, 12, 1, 1048578, 65535, 2, 1441794, 12, 2, 1048578, 65535, 3, 1441794, 12, 3, 1048578, 65535, 4, 1441794, 12, 4, 1048578, 65535, 5, 1441794, 12, 5, 1048578, 65535, 6, 1441794, 12, 6, 1048578, 65535, 7, 1441794, 12, 7, 1048578, 65535, 8, 1441794, 12, 8, 1048578, 65535, 9, 1441794, 12, 9, 1048578, 11, 65535, 655362, 10, 65535, 655362, 9, 65535, 655362, 8, 65535, 655362, 7, 65535, 655362, 6, 65535, 655362, 5, 65535, 655362, 4, 65535, 655362, 3, 65535, 655362, 2, 65535, 655362, 1, 65535, 655362, 0, 65535, 655362, 8, 8, 0)
 }
 
 [node name="Objects" type="Node3D" parent="." unique_id=1207341631]
@@ -156,35 +156,7 @@ kind = 1
 scene = ExtResource("9_f7meg")
 cell = Vector3i(11, 0, 8)
 
-[node name="_Preview" type="Node3D" parent="Objects/extraction" unique_id=617884709 instance=ExtResource("9_f7meg")]
-metadata/map_marker_preview = true
-
-[node name="loot_1" type="Node3D" parent="Objects" unique_id=175576482]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 1, 7)
-script = ExtResource("8_n7beo")
-object_id = &"loot_1"
-kind = 0
-scene = ExtResource("10_y6bde")
-blocks_movement = true
-loot_table = ExtResource("11_u7p6a")
-loot_seed = 101
-cell = Vector3i(1, 0, 3)
-
-[node name="_Preview" type="Node3D" parent="Objects/loot_1" unique_id=1426927939 instance=ExtResource("10_y6bde")]
-metadata/map_marker_preview = true
-
-[node name="loot_2" type="Node3D" parent="Objects" unique_id=789496514]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 1, 9)
-script = ExtResource("8_n7beo")
-object_id = &"loot_2"
-kind = 0
-scene = ExtResource("10_y6bde")
-blocks_movement = true
-loot_table = ExtResource("12_2s8lf")
-loot_seed = 202
-cell = Vector3i(7, 0, 4)
-
-[node name="_Preview" type="Node3D" parent="Objects/loot_2" unique_id=542474900 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/extraction" unique_id=1140908036 instance=ExtResource("9_f7meg")]
 metadata/map_marker_preview = true
 
 [node name="loot_3" type="Node3D" parent="Objects" unique_id=1132772281]
@@ -198,7 +170,7 @@ loot_table = ExtResource("13_y00vi")
 loot_seed = 303
 cell = Vector3i(10, 0, 6)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_3" unique_id=1171586376 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_3" unique_id=1289714570 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="loot_high" type="Node3D" parent="Objects" unique_id=446513249]
@@ -212,7 +184,7 @@ loot_table = ExtResource("14_wf2yo")
 loot_seed = 404
 cell = Vector3i(10, 1, 1)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_high" unique_id=580319982 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_high" unique_id=259008266 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="barrel_1" type="Node3D" parent="Objects" unique_id=1599025707]
@@ -224,7 +196,7 @@ scene = ExtResource("15_surd2")
 blocks_movement = true
 cell = Vector3i(3, 0, 7)
 
-[node name="_Preview" type="Node3D" parent="Objects/barrel_1" unique_id=622747494 instance=ExtResource("15_surd2")]
+[node name="_Preview" type="Node3D" parent="Objects/barrel_1" unique_id=1793646928 instance=ExtResource("15_surd2")]
 metadata/map_marker_preview = true
 
 [node name="barrel_2" type="Node3D" parent="Objects" unique_id=200211528]
@@ -236,7 +208,65 @@ scene = ExtResource("15_surd2")
 blocks_movement = true
 cell = Vector3i(10, 0, 2)
 
-[node name="_Preview" type="Node3D" parent="Objects/barrel_2" unique_id=1331585243 instance=ExtResource("15_surd2")]
+[node name="_Preview" type="Node3D" parent="Objects/barrel_2" unique_id=1060560745 instance=ExtResource("15_surd2")]
+metadata/map_marker_preview = true
+
+[node name="loot_2" type="Node3D" parent="Objects" unique_id=1895152242]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 1, 9)
+script = ExtResource("8_n7beo")
+object_id = &"loot_2"
+kind = 0
+facing = Vector2i(-1, 0)
+scene = ExtResource("10_y6bde")
+blocks_movement = true
+loot_table = ExtResource("12_2s8lf")
+loot_seed = 202
+cell = Vector3i(7, 0, 4)
+
+[node name="_Preview" type="Node3D" parent="Objects/loot_2" unique_id=1752969488 instance=ExtResource("10_y6bde")]
+metadata/map_marker_preview = true
+
+[node name="loot_1" type="Node3D" parent="Objects" unique_id=1203230928]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 1, 7)
+script = ExtResource("8_n7beo")
+object_id = &"loot_1"
+kind = 0
+facing = Vector2i(0, -1)
+scene = ExtResource("10_y6bde")
+blocks_movement = true
+loot_table = ExtResource("11_u7p6a")
+loot_seed = 101
+cell = Vector3i(1, 0, 3)
+
+[node name="_Preview" type="Node3D" parent="Objects/loot_1" unique_id=1485893569 instance=ExtResource("10_y6bde")]
+metadata/map_marker_preview = true
+
+[node name="对象___loot_017" type="Node3D" parent="Objects" unique_id=544532906]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 1, 11)
+script = ExtResource("8_n7beo")
+object_id = &"对象___loot_017"
+kind = 0
+scene = ExtResource("10_y6bde")
+blocks_movement = true
+loot_table = ExtResource("13_y00vi")
+loot_seed = 303
+cell = Vector3i(1, 0, 5)
+
+[node name="_Preview" type="Node3D" parent="Objects/对象___loot_017" unique_id=1562760070 instance=ExtResource("10_y6bde")]
+metadata/map_marker_preview = true
+
+[node name="对象___loot_049" type="Node3D" parent="Objects" unique_id=44092805]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 1, 13)
+script = ExtResource("8_n7beo")
+object_id = &"对象___loot_049"
+kind = 0
+scene = ExtResource("10_y6bde")
+blocks_movement = true
+loot_table = ExtResource("13_y00vi")
+loot_seed = 303
+cell = Vector3i(1, 0, 6)
+
+[node name="_Preview" type="Node3D" parent="Objects/对象___loot_049" unique_id=1730757154 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="Spawns" type="Node3D" parent="." unique_id=1279936416]

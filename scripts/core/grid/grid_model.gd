@@ -52,7 +52,7 @@ func initialize(grid_size: Vector2i, cell_size: float = DEFAULT_CELL_SIZE, origi
 
 ## Loads sparse surfaces and explicit vertical connections from baked map data.
 func configure_from_definition(definition: TacticalMapDefinition) -> bool:
-	if definition == null or definition.schema_version != TacticalMapDefinition.CURRENT_SCHEMA_VERSION:
+	if definition == null or not definition.is_schema_compatible():
 		return false
 	if definition.footprint_size.x <= 0 or definition.footprint_size.y <= 0:
 		return false

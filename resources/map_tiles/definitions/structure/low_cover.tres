@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="TacticalCellTileDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/map/tactical_cell_tile_definition.gd" id="1_cell"]
+[ext_resource type="Script" path="res://scripts/core/map/tactical_cell_rules.gd" id="2_rules"]
+
+[sub_resource type="Resource" id="TacticalCellRules_low_cover"]
+script = ExtResource("2_rules")
+walkable = false
+move_cost = 1
+sight_block = 0.0
+projectile_block = 0.0
+occluder_height = 0.7
+sound_cost = 0.0
+terrain_tags = PackedStringArray("low_cover")
+
+[resource]
+script = ExtResource("1_cell")
+placeable_id = &"tile.structure.low_cover"
+display_name = "Low Cover"
+placement_kind = 0
+tile_id = &"low_cover"
+target_layer = 1
+mesh_item_id = 3
+rule_contribution = SubResource("TacticalCellRules_low_cover")
+

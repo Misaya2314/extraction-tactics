@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="TacticalPlaceableLibrary" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/map/tactical_placeable_library.gd" id="1_library"]
+[ext_resource type="Resource" path="res://resources/map_tiles/definitions/terrain/floor_concrete.tres" id="2_floor"]
+[ext_resource type="Resource" path="res://resources/map_tiles/definitions/terrain/floor_alt.tres" id="3_floor_alt"]
+[ext_resource type="Resource" path="res://resources/map_tiles/definitions/structure/wall.tres" id="4_wall"]
+[ext_resource type="Resource" path="res://resources/map_tiles/definitions/structure/low_cover.tres" id="5_cover"]
+[ext_resource type="Script" path="res://scripts/core/map/mesh_item_binding.gd" id="6_binding"]
+
+[sub_resource type="Resource" id="MeshItemBinding_floor"]
+script = ExtResource("6_binding")
+placeable_id = &"tile.floor.concrete"
+target_layer = 0
+mesh_item_id = 0
+
+[sub_resource type="Resource" id="MeshItemBinding_floor_alt"]
+script = ExtResource("6_binding")
+placeable_id = &"tile.floor.alt"
+target_layer = 0
+mesh_item_id = 1
+
+[sub_resource type="Resource" id="MeshItemBinding_wall"]
+script = ExtResource("6_binding")
+placeable_id = &"tile.structure.wall"
+target_layer = 1
+mesh_item_id = 2
+
+[sub_resource type="Resource" id="MeshItemBinding_cover"]
+script = ExtResource("6_binding")
+placeable_id = &"tile.structure.low_cover"
+target_layer = 1
+mesh_item_id = 3
+
+[resource]
+script = ExtResource("1_library")
+schema_version = 1
+definitions = Array[ExtResource("2_floor")]([ExtResource("2_floor"), ExtResource("3_floor_alt"), ExtResource("4_wall"), ExtResource("5_cover")])
+item_bindings = Array[ExtResource("6_binding")]([SubResource("MeshItemBinding_floor"), SubResource("MeshItemBinding_floor_alt"), SubResource("MeshItemBinding_wall"), SubResource("MeshItemBinding_cover")])

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="TacticalCellTileDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/map/tactical_cell_tile_definition.gd" id="1_cell"]
+[ext_resource type="Script" path="res://scripts/core/map/tactical_cell_rules.gd" id="2_rules"]
+
+[sub_resource type="Resource" id="TacticalCellRules_floor_concrete"]
+script = ExtResource("2_rules")
+walkable = true
+move_cost = 1
+sight_block = 0.0
+projectile_block = 0.0
+occluder_height = 0.0
+sound_cost = 0.0
+terrain_tags = PackedStringArray("floor")
+
+[resource]
+script = ExtResource("1_cell")
+placeable_id = &"tile.floor.concrete"
+display_name = "Floor"
+placement_kind = 0
+tile_id = &"floor"
+target_layer = 0
+mesh_item_id = 0
+rule_contribution = SubResource("TacticalCellRules_floor_concrete")
+
