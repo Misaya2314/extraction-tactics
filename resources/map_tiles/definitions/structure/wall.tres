@@ -1,25 +1,22 @@
-[gd_resource type="Resource" script_class="TacticalCellTileDefinition" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="TacticalCellTileDefinition" format=3 uid="uid://bj2kr4r68en1o"]
 
-[ext_resource type="Script" path="res://scripts/core/map/tactical_cell_tile_definition.gd" id="1_cell"]
-[ext_resource type="Script" path="res://scripts/core/map/tactical_cell_rules.gd" id="2_rules"]
+[ext_resource type="Script" uid="uid://dg7mgs6ut3kbt" path="res://scripts/core/map/tactical_cell_tile_definition.gd" id="1_cell"]
+[ext_resource type="Script" uid="uid://d1esqxh8ro8fi" path="res://scripts/core/map/tactical_cell_rules.gd" id="2_rules"]
 
 [sub_resource type="Resource" id="TacticalCellRules_wall"]
 script = ExtResource("2_rules")
 walkable = false
-move_cost = 1
 sight_block = 1.0
 projectile_block = 1.0
 occluder_height = 1.6
-sound_cost = 0.0
 terrain_tags = PackedStringArray("wall")
 
 [resource]
 script = ExtResource("1_cell")
-placeable_id = &"tile.structure.wall"
-display_name = "Wall"
-placement_kind = 0
 tile_id = &"wall"
 target_layer = 1
 mesh_item_id = 2
 rule_contribution = SubResource("TacticalCellRules_wall")
-
+placeable_id = &"tile.structure.wall"
+display_name = "Wall"
+tags = PackedStringArray()

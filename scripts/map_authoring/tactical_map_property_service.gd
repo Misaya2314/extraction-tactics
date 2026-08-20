@@ -822,9 +822,9 @@ func _normalize_coordinates(coordinates: Array[Vector3i]) -> Array[Vector3i]:
 
 
 func _inside_volume(author: TacticalMapAuthor, coordinate: Vector3i) -> bool:
-	return author != null and coordinate.x >= 0 and coordinate.y >= 0 and coordinate.z >= 0 \
-		and coordinate.x < author.footprint_size.x and coordinate.z < author.footprint_size.y \
-		and coordinate.y < author.level_count
+	# Horizontal bounds are derived from authored content by TacticalMapBaker.
+	# The service only guards the shared non-negative, bounded level contract.
+	return author != null and coordinate.y >= 0 and coordinate.y < TacticalMapDefinition.MAX_LEVEL_COUNT
 
 
 func _coordinate_less(first: Vector3i, second: Vector3i) -> bool:

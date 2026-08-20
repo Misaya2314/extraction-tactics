@@ -46,6 +46,7 @@ static func build(author: TacticalMapAuthor) -> Dictionary:
 		_collect_edges(author.authoring_data, definition, errors, warnings, diagnostics)
 
 	_collect_markers(author, definition, errors, diagnostics)
+	_normalize_definition_coordinates(definition, author)
 	_validate_definition(definition, errors, warnings, diagnostics)
 	return {
 		&"definition": definition,
@@ -407,8 +408,8 @@ static func _validate_author_settings(
 ) -> void:
 	if author.map_id == &"":
 		TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-010", "Map id cannot be empty.")
-	if author.footprint_size.x <= 0 or author.footprint_size.y <= 0 or author.level_count <= 0:
-		TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-011", "Map footprint and level count must be positive.")
+	if author.level_count <= 0:
+		TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-011", "Map level count must be positive.")
 	if author.cell_dimensions.x <= 0.0 or author.cell_dimensions.y <= 0.0 or author.cell_dimensions.z <= 0.0:
 		TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-012", "Cell dimensions must be positive.")
 	if floor_grid == null:
@@ -463,13 +464,12 @@ static func _validate_definition(definition: TacticalMapDefinition, errors: Arra
 	for transition in definition.transitions:
 		if transition.from_cell == transition.to_cell:
 			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-047", "A traversal link connects %s to itself." % transition.from_cell, transition.from_cell)
-		var missing_endpoint: Variant = null
-		if not cells.has(transition.from_cell):
-			missing_endpoint = transition.from_cell
-		elif not cells.has(transition.to_cell):
-			missing_endpoint = transition.to_cell
-		if missing_endpoint != null:
-			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-048", "Traversal link %s -> %s has a missing endpoint." % [transition.from_cell, transition.to_cell], missing_endpoint)
+		var missing_from := not cells.has(transition.from_cell)
+		var missing_to := not cells.has(transition.to_cell)
+		if missing_from:
+			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-048", "Traversal link %s -> %s has a missing endpoint." % [transition.from_cell, transition.to_cell], transition.from_cell)
+		if missing_to:
+			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-048", "Traversal link %s -> %s has a missing endpoint." % [transition.from_cell, transition.to_cell], transition.to_cell)
 	for route in definition.patrol_routes:
 		if route.route_id == &"":
 			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-049", "A patrol route has an empty id.")
@@ -499,8 +499,105 @@ static func _validate_definition(definition: TacticalMapDefinition, errors: Arra
 
 
 static func _inside_volume(author: TacticalMapAuthor, cell: Vector3i) -> bool:
-	return cell.x >= 0 and cell.z >= 0 and cell.y >= 0 \
-		and cell.x < author.footprint_size.x and cell.z < author.footprint_size.y and cell.y < author.level_count
+	return author != null and cell.y >= 0 and cell.y < TacticalMapDefinition.MAX_LEVEL_COUNT
+
+
+## Convert arbitrary authoring coordinates into the runtime zero-based X/Z
+## contract while moving the definition origin by the same physical offset.
+## This operates only on the freshly-created runtime definition; authoring
+## GridMaps and marker cells remain in their authored coordinate space.
+static func _normalize_definition_coordinates(definition: TacticalMapDefinition, author: TacticalMapAuthor) -> void:
+	if definition == null or author == null:
+		return
+	var bounds := _definition_bounds(definition)
+	if not bool(bounds.get(&"has_content", false)):
+		return
+	var min_x := int(bounds[&"min_x"])
+	var min_z := int(bounds[&"min_z"])
+	var max_x := int(bounds[&"max_x"])
+	var max_z := int(bounds[&"max_z"])
+	var max_y := int(bounds[&"max_y"])
+	var shift := Vector3i(-min_x, 0, -min_z)
+	definition.origin = author.grid_origin + Vector3(
+		float(min_x) * definition.cell_size.x,
+		0.0,
+		float(min_z) * definition.cell_size.z
+	)
+	definition.footprint_size = Vector2i(max_x - min_x + 1, max_z - min_z + 1)
+	definition.level_count = clampi(max_y + 1, 1, TacticalMapDefinition.MAX_LEVEL_COUNT)
+	for cell_data in definition.cells:
+		if cell_data != null:
+			cell_data.coordinate += shift
+	for spawn in definition.spawns:
+		if spawn != null:
+			spawn.cell += shift
+	for placement in definition.objects:
+		if placement != null:
+			placement.cell += shift
+	for route in definition.patrol_routes:
+		if route == null:
+			continue
+		for index in range(route.points.size()):
+			route.points[index] += shift
+	for transition in definition.transitions:
+		if transition != null:
+			transition.from_cell += shift
+			transition.to_cell += shift
+	for edge in definition.edges:
+		if edge != null:
+			edge.cell_a += shift
+			edge.cell_b += shift
+
+
+static func _definition_bounds(definition: TacticalMapDefinition) -> Dictionary:
+	var bounds := {
+		&"has_content": false,
+		&"min_x": 0,
+		&"max_x": 0,
+		&"min_z": 0,
+		&"max_z": 0,
+		&"max_y": 0,
+	}
+	if definition == null:
+		return bounds
+	for cell_data in definition.cells:
+		if cell_data != null:
+			_include_definition_bound(bounds, cell_data.coordinate)
+	for spawn in definition.spawns:
+		if spawn != null:
+			_include_definition_bound(bounds, spawn.cell)
+	for placement in definition.objects:
+		if placement != null:
+			_include_definition_bound(bounds, placement.cell)
+	for route in definition.patrol_routes:
+		if route != null:
+			for point in route.points:
+				_include_definition_bound(bounds, point)
+	for transition in definition.transitions:
+		if transition != null:
+			_include_definition_bound(bounds, transition.from_cell)
+			_include_definition_bound(bounds, transition.to_cell)
+	for edge in definition.edges:
+		if edge != null:
+			_include_definition_bound(bounds, edge.cell_a)
+			_include_definition_bound(bounds, edge.cell_b)
+	return bounds
+
+
+static func _include_definition_bound(bounds: Dictionary, cell: Vector3i) -> void:
+	if not bool(bounds.get(&"has_content", false)):
+		bounds[&"has_content"] = true
+		bounds[&"min_x"] = cell.x
+		bounds[&"max_x"] = cell.x
+		bounds[&"min_z"] = cell.z
+		bounds[&"max_z"] = cell.z
+		bounds[&"max_y"] = cell.y
+		return
+	bounds[&"min_x"] = mini(int(bounds[&"min_x"]), cell.x)
+	bounds[&"max_x"] = maxi(int(bounds[&"max_x"]), cell.x)
+	bounds[&"min_z"] = mini(int(bounds[&"min_z"]), cell.z)
+	bounds[&"max_z"] = maxi(int(bounds[&"max_z"]), cell.z)
+	bounds[&"max_y"] = maxi(int(bounds[&"max_y"]), cell.y)
 
 
 static func _descendants(root: Node) -> Array[Node]:

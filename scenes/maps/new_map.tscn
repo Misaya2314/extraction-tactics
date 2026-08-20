@@ -1,0 +1,88 @@
+[gd_scene format=3 uid="uid://cgpq0cm0ecnuw"]
+
+[ext_resource type="Script" uid="uid://67vt5a0pdyiv" path="res://scripts/map_authoring/tactical_map_author.gd" id="1_wrrjm"]
+[ext_resource type="Resource" uid="uid://s1dtd4vmbcj0" path="res://resources/map_tiles/libraries/default_placeable_library.tres" id="2_ecrui"]
+[ext_resource type="Script" uid="uid://cb70l5i2lpm7x" path="res://scripts/core/map/tactical_cell_override.gd" id="3_7q3rw"]
+[ext_resource type="Script" uid="uid://tcmykitriw8v" path="res://scripts/core/map/tactical_edge_placement.gd" id="4_g42tx"]
+[ext_resource type="Script" uid="uid://dgr3igoi2vu4q" path="res://scripts/core/map/tactical_map_authoring_data.gd" id="5_k5ajt"]
+[ext_resource type="MeshLibrary" uid="uid://cmsgm4xtx1wug" path="res://resources/map_tiles/mesh_libraries/default_mesh_library.tres" id="6_qb4x7"]
+[ext_resource type="Script" uid="uid://nwx8r6qag522" path="res://scripts/map_authoring/unit_spawn_marker_3d.gd" id="7_ecrui"]
+[ext_resource type="Script" uid="uid://7boxf3uhxunf" path="res://scripts/map_authoring/map_object_marker_3d.gd" id="7_g42tx"]
+[ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_extraction_marker.tscn" id="8_k5ajt"]
+
+[sub_resource type="Resource" id="Resource_yxe7n"]
+script = ExtResource("5_k5ajt")
+
+[node name="MapAuthoring_new_map" type="Node3D" unique_id=1829913493]
+script = ExtResource("1_wrrjm")
+map_id = &"new_map"
+level_count = 1
+placeable_library = ExtResource("2_ecrui")
+authoring_data = SubResource("Resource_yxe7n")
+output_resource_path = "res://resources/maps/new_map.tres"
+metadata/display_name = "新地图"
+metadata/scene_path = "res://scenes/maps/new_map.tscn"
+metadata/output_resource_path = "res://resources/maps/new_map.tres"
+
+[node name="FloorGrid" type="GridMap" parent="." unique_id=777611458]
+mesh_library = ExtResource("6_qb4x7")
+collision_mask = 0
+data = {
+"cells": PackedInt32Array(0, 0, 0, 1, 0, 0, 1, 1, 0, 2, 1, 0, 1, 2, 0, 65535, 2, 0, 0, 2, 0, 0, 3, 1, 1, 3, 0, 2, 3, 0, 2, 2, 0, 2, 0, 0, 2, 65535, 0, 65534, 0, 0, 65535, 0, 0, 65535, 1, 0, 0, 1, 0, 65535, 3, 0, 65534, 3, 0, 65534, 2, 0, 65533, 2, 0, 65533, 1, 0, 65534, 1, 0, 4, 1, 0, 3, 3, 0, 1, 65535, 0, 3, 4, 0, 3, 2, 0, 3, 1, 0, 3, 0, 0, 4, 0, 0, 4, 2, 0, 4, 3, 0, 2, 4, 0, 1, 4, 0, 0, 4, 1, 65535, 4, 0, 4, 4, 0, 65535, 5, 0, 0, 5, 0, 1, 6, 0, 2, 6, 0, 3, 6, 0, 4, 6, 0, 3, 5, 0, 2, 5, 0, 1, 5, 0, 4, 5, 0, 1, 7, 1, 0, 7, 0, 0, 6, 0, 65535, 6, 0, 3, 7, 1, 4, 7, 1, 4, 8, 1, 3, 8, 1, 2, 8, 1, 2, 9, 1, 1, 9, 1, 2, 7, 1, 1, 8, 1, 0, 8, 1, 65535, 8, 1, 65535, 7, 1, 65534, 7, 1, 65534, 6, 1, 65533, 6, 1, 65533, 5, 1, 65533, 4, 1, 65533, 3, 1, 65534, 4, 1, 65534, 5, 1)
+}
+
+[node name="StructureGrid" type="GridMap" parent="." unique_id=44053900]
+mesh_library = ExtResource("6_qb4x7")
+collision_layer = 2
+collision_mask = 0
+
+[node name="DecorationGrid" type="GridMap" parent="." unique_id=900832596]
+mesh_library = ExtResource("6_qb4x7")
+collision_layer = 0
+collision_mask = 0
+data = {
+"cells": PackedInt32Array(4, 4, 2, 5, 4, 2, 6, 4, 2, 6, 3, 2, 6, 2, 2, 7, 1, 2, 7, 0, 2, 7, 65535, 2)
+}
+
+[node name="Objects" type="Node3D" parent="." unique_id=604307863]
+
+[node name="extraction" type="Node3D" parent="Objects" unique_id=1893743474]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23, 1, 17)
+script = ExtResource("7_g42tx")
+object_id = &"extraction"
+kind = 1
+scene = ExtResource("8_k5ajt")
+cell = Vector3i(11, 0, 8)
+
+[node name="_Preview" type="Node3D" parent="Objects/extraction" unique_id=2112524762 instance=ExtResource("8_k5ajt")]
+metadata/map_marker_preview = true
+
+[node name="Spawns" type="Node3D" parent="." unique_id=592865336]
+
+[node name="enemyspawn_003" type="Node3D" parent="Spawns" unique_id=1981020139]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1, 11)
+script = ExtResource("7_ecrui")
+unit_name = &"enemyspawn_003"
+faction = "enemy"
+visual_color = Color(1, 0.35686275, 0.35686275, 1)
+cell = Vector3i(2, 0, 5)
+
+[node name="playerspawn_001" type="Node3D" parent="Spawns" unique_id=1653164932]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1, 3)
+script = ExtResource("7_ecrui")
+unit_name = &"playerspawn_001"
+cell = Vector3i(-1, 0, 1)
+
+[node name="playerspawn_002" type="Node3D" parent="Spawns" unique_id=1017003964]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 1, 7)
+script = ExtResource("7_ecrui")
+unit_name = &"playerspawn_002"
+cell = Vector3i(1, 0, 3)
+
+[node name="PatrolRoutes" type="Node3D" parent="." unique_id=988158443]
+
+[node name="TraversalLinks" type="Node3D" parent="." unique_id=242466216]
+
+[node name="TraversalVisuals" type="Node3D" parent="." unique_id=1076185395]
+
+[node name="ArtDecorations" type="Node3D" parent="." unique_id=117159871]

@@ -285,21 +285,20 @@ func _test_structured_diagnostics() -> void:
 	traversal.to_cell = Vector3i(9, 0, 0)
 	author.add_child(traversal)
 	var reverse_traversal := TraversalLink3D.new()
-	reverse_traversal.from_cell = Vector3i(8, 0, 0)
+	reverse_traversal.from_cell = Vector3i(10, 0, 0)
 	reverse_traversal.to_cell = Vector3i(0, 0, 0)
 	author.add_child(reverse_traversal)
 
 	var result := TacticalMapBaker.build(author)
 	var diagnostics: Array[Dictionary] = result[&"diagnostics"]
 	_expect(not result[&"errors"].is_empty(), "diagnostics: invalid synthetic author should have errors")
-	_expect(_has_diagnostic(diagnostics, &"TMB-018", Vector3i(8, 0, 0)), "diagnostics: Floor out-of-volume coordinate should be structured")
+	_expect(not _has_diagnostic(diagnostics, &"TMB-018", Vector3i(8, 0, 0)), "diagnostics: horizontal X/Z should not be rejected by legacy footprint")
 	_expect(_has_diagnostic(diagnostics, &"TMB-020", Vector3i(1, 0, 0)), "diagnostics: Structure-without-Floor coordinate should be structured")
 	_expect(_has_diagnostic(diagnostics, &"TMA-010", Vector3i(7, 0, 0)), "diagnostics: orphan override coordinate should be structured")
 	_expect(_has_diagnostic(diagnostics, &"TMB-041", Vector3i(9, 0, 0)), "diagnostics: invalid spawn coordinate should be structured")
-	_expect(_has_diagnostic(diagnostics, &"TMB-045", Vector3i(8, 0, 0)), "diagnostics: invalid object coordinate should be structured")
-	_expect(_has_diagnostic(diagnostics, &"TMB-046", null), "diagnostics: missing extraction should be non-coordinate diagnostic")
+	_expect(_has_diagnostic(diagnostics, &"TMB-045", Vector3i(9, 0, 0)), "diagnostics: extraction on a missing floor should be structured")
 	_expect(_has_diagnostic(diagnostics, &"TMB-048", Vector3i(9, 0, 0)), "diagnostics: missing traversal target should point to target coordinate")
-	_expect(_has_diagnostic(diagnostics, &"TMB-048", Vector3i(8, 0, 0)), "diagnostics: missing traversal source should point to source coordinate")
+	_expect(_has_diagnostic(diagnostics, &"TMB-048", Vector3i(10, 0, 0)), "diagnostics: missing traversal source should point to source coordinate")
 	for diagnostic in diagnostics:
 		var message: String = diagnostic[&"message"]
 		_expect(result[&"errors"].has(message) or result[&"warnings"].has(message), "diagnostics: every diagnostic message must remain in compatibility arrays")

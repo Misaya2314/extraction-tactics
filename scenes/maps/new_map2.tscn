@@ -1,0 +1,48 @@
+[gd_scene format=3 uid="uid://73ulh8ql7q82"]
+
+[ext_resource type="Script" uid="uid://67vt5a0pdyiv" path="res://scripts/map_authoring/tactical_map_author.gd" id="1_1oyr0"]
+[ext_resource type="Resource" uid="uid://s1dtd4vmbcj0" path="res://resources/map_tiles/libraries/default_placeable_library.tres" id="2_t02gw"]
+[ext_resource type="Script" uid="uid://cb70l5i2lpm7x" path="res://scripts/core/map/tactical_cell_override.gd" id="3_su7im"]
+[ext_resource type="Script" uid="uid://tcmykitriw8v" path="res://scripts/core/map/tactical_edge_placement.gd" id="4_ds5ja"]
+[ext_resource type="Script" uid="uid://dgr3igoi2vu4q" path="res://scripts/core/map/tactical_map_authoring_data.gd" id="5_r5308"]
+[ext_resource type="MeshLibrary" uid="uid://cmsgm4xtx1wug" path="res://resources/map_tiles/mesh_libraries/default_mesh_library.tres" id="6_4j47g"]
+
+[sub_resource type="Resource" id="Resource_fkm3l"]
+script = ExtResource("5_r5308")
+
+[node name="MapAuthoring_new_map2" type="Node3D" unique_id=1927807483]
+script = ExtResource("1_1oyr0")
+map_id = &"new_map2"
+level_count = 1
+placeable_library = ExtResource("2_t02gw")
+authoring_data = SubResource("Resource_fkm3l")
+output_resource_path = "res://resources/maps/new_map2.tres"
+metadata/display_name = "新地图"
+metadata/scene_path = "res://scenes/maps/new_map2.tscn"
+metadata/output_resource_path = "res://resources/maps/new_map2.tres"
+
+[node name="FloorGrid" type="GridMap" parent="." unique_id=426412285]
+mesh_library = ExtResource("6_4j47g")
+collision_mask = 0
+
+[node name="StructureGrid" type="GridMap" parent="." unique_id=864428670]
+mesh_library = ExtResource("6_4j47g")
+collision_layer = 2
+collision_mask = 0
+
+[node name="DecorationGrid" type="GridMap" parent="." unique_id=627636316]
+mesh_library = ExtResource("6_4j47g")
+collision_layer = 0
+collision_mask = 0
+
+[node name="Objects" type="Node3D" parent="." unique_id=1756818432]
+
+[node name="Spawns" type="Node3D" parent="." unique_id=9990795]
+
+[node name="PatrolRoutes" type="Node3D" parent="." unique_id=674182095]
+
+[node name="TraversalLinks" type="Node3D" parent="." unique_id=635902201]
+
+[node name="TraversalVisuals" type="Node3D" parent="." unique_id=156092554]
+
+[node name="ArtDecorations" type="Node3D" parent="." unique_id=499963153]

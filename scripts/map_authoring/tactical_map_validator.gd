@@ -142,9 +142,10 @@ static func validate_map_definition(definition: TacticalMapDefinition) -> Dictio
 	return validate_definition_schema(definition)
 
 
-static func _inside_volume(cell: Vector3i, footprint_size: Vector2i, level_count: int) -> bool:
-	return cell.x >= 0 and cell.z >= 0 and cell.y >= 0 \
-		and cell.x < footprint_size.x and cell.z < footprint_size.y and cell.y < level_count
+static func _inside_volume(cell: Vector3i, _footprint_size: Vector2i, _level_count: int) -> bool:
+	# footprint_size is a legacy authoring hint, not a horizontal edit bound.
+	# The Baker derives the runtime X/Z footprint from actual authored content.
+	return cell.y >= 0 and cell.y < TacticalMapDefinition.MAX_LEVEL_COUNT
 
 
 static func _edge_in_volume(key: TacticalEdgeKey, footprint_size: Vector2i, level_count: int) -> bool:

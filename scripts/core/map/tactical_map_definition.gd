@@ -9,6 +9,9 @@ extends Resource
 ## first-class edges while retaining every legacy field and cover_mask.
 const MIN_SUPPORTED_SCHEMA_VERSION: int = 1
 const CURRENT_SCHEMA_VERSION: int = 2
+## Authoring accepts a bounded non-negative level range.  Horizontal bounds
+## are derived by the Baker from the content that was actually authored.
+const MAX_LEVEL_COUNT: int = 32
 
 @export var schema_version: int = CURRENT_SCHEMA_VERSION
 @export var map_id: StringName = &"tactical_map"

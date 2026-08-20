@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TacticalObjectDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/map/tactical_object_definition.gd" id="1_object"]
+[ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_extraction_marker.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_object")
+placeable_id = &"prototype_extraction_marker"
+display_name = "撤离点"
+object_kind = &"extraction"
+category = &"对象 / 撤离"
+description = "战斗中用于确认撤离的区域标记。"
+scene = ExtResource("2_scene")
+blocks_movement = false
+blocks_los = false
+loot_seed = -1

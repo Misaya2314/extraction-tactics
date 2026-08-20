@@ -5,6 +5,8 @@ extends TacticalPlaceableDefinition
 ## A stable cell/tile definition. The numeric mesh item is only a binding.
 
 @export var tile_id: StringName = &"tile"
+@export var category: StringName = &"地面"
+@export_multiline var description: String = ""
 @export var target_layer: MapTileRule.Layer = MapTileRule.Layer.FLOOR
 @export var mesh_item_id: int = -1
 @export var mesh_library: MeshLibrary
@@ -22,4 +24,3 @@ func is_valid() -> bool:
 		and mesh_item_id >= 0 \
 		and footprint.x > 0 and footprint.y > 0 and footprint.z > 0 \
 		and (rule_contribution == null or rule_contribution.is_valid())
-

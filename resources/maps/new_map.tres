@@ -1,0 +1,436 @@
+[gd_resource type="Resource" script_class="TacticalMapDefinition" format=3 uid="uid://c3xjyddclkk2k"]
+
+[ext_resource type="Script" uid="uid://du4ihvqhh8sq6" path="res://scripts/core/map/map_cell_data.gd" id="1_kvope"]
+[ext_resource type="Script" uid="uid://b82dvhr3cibce" path="res://scripts/core/map/map_edge_data.gd" id="2_0xlpa"]
+[ext_resource type="Script" uid="uid://cm4n0v302oqpm" path="res://scripts/core/map/map_object_placement.gd" id="3_5aniv"]
+[ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_extraction_marker.tscn" id="4_efbur"]
+[ext_resource type="Script" uid="uid://ddxaoq75ktqcj" path="res://scripts/core/map/map_patrol_route_data.gd" id="5_15bhx"]
+[ext_resource type="Script" uid="uid://cwmifdbdr8yld" path="res://scripts/core/map/tactical_map_definition.gd" id="6_qyfki"]
+[ext_resource type="Script" uid="uid://dj166h1b4egv1" path="res://scripts/core/map/map_spawn_data.gd" id="7_mos3k"]
+[ext_resource type="Script" uid="uid://bp0eam7ib73g8" path="res://scripts/core/map/map_transition_data.gd" id="8_b7et6"]
+
+[sub_resource type="Resource" id="Resource_hfmlh"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(4, 0, 0)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_soiim"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(5, 0, 0)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_mgim0"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(1, 0, 1)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_w2d3g"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(2, 0, 1)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_u2sg8"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(3, 0, 1)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_saf2u"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(4, 0, 1)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_4prgm"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(5, 0, 1)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_0hl68"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(6, 0, 1)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_1bpp2"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(7, 0, 1)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_csxbx"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(0, 0, 2)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_ldw0m"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(1, 0, 2)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_mrhpt"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(2, 0, 2)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_8yn17"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(3, 0, 2)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_cj3in"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(4, 0, 2)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_7itij"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(5, 0, 2)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_rayh3"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(6, 0, 2)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_rw23x"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(7, 0, 2)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_6jagm"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(0, 0, 3)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_6ac05"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(1, 0, 3)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_56s18"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(2, 0, 3)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_5pjl7"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(3, 0, 3)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_b00nl"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(4, 0, 3)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_1oe5d"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(5, 0, 3)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_idekw"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(6, 0, 3)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_n23rd"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(7, 0, 3)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_ktxgt"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(0, 0, 4)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_dfeuv"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(1, 0, 4)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_d5ir1"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(2, 0, 4)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_0ju7f"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(3, 0, 4)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_pikjo"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(4, 0, 4)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_ybo1d"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(5, 0, 4)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_r627k"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(6, 0, 4)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_gfcq8"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(7, 0, 4)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_sxmdl"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(0, 0, 5)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_n1nc7"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(1, 0, 5)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_ani74"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(2, 0, 5)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_y02yo"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(3, 0, 5)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_ebrhh"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(4, 0, 5)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_4nlgm"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(5, 0, 5)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_qw2yb"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(6, 0, 5)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_4rrnd"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(7, 0, 5)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_dqgs2"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(0, 0, 6)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_y5ipi"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(1, 0, 6)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_w0160"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(2, 0, 6)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_c2f6d"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(3, 0, 6)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_hhvrc"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(4, 0, 6)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_ipv8r"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(5, 0, 6)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_tl3bl"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(6, 0, 6)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_w8dvl"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(7, 0, 6)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_dtt1x"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(0, 0, 7)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_smsuo"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(1, 0, 7)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_6cfwo"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(2, 0, 7)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_ksm8d"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(3, 0, 7)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_6f38j"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(4, 0, 7)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_bh30l"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(5, 0, 7)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_a3st8"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(6, 0, 7)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_bqvq6"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(7, 0, 7)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_u73x7"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(1, 0, 8)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_miuf5"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(2, 0, 8)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_u4001"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(3, 0, 8)
+terrain_tags = PackedStringArray("floor")
+
+[sub_resource type="Resource" id="Resource_t0j7h"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(4, 0, 8)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_2kles"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(5, 0, 8)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_gv607"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(6, 0, 8)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_jp6wb"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(7, 0, 8)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_ehch7"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(2, 0, 9)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_qyrm2"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(3, 0, 9)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_jp6ff"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(4, 0, 9)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_d0lbt"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(5, 0, 9)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_f54uk"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(6, 0, 9)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_sr1k8"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(7, 0, 9)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_r48sy"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(4, 0, 10)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_h5qhp"]
+script = ExtResource("1_kvope")
+coordinate = Vector3i(5, 0, 10)
+terrain_id = &"floor_alt"
+terrain_tags = PackedStringArray("floor_alt")
+
+[sub_resource type="Resource" id="Resource_tqafk"]
+script = ExtResource("3_5aniv")
+object_id = &"对象___extraction_004"
+kind = 1
+cell = Vector3i(3, 0, 7)
+scene = ExtResource("4_efbur")
+
+[sub_resource type="Resource" id="Resource_yss2v"]
+script = ExtResource("3_5aniv")
+object_id = &"撤离点_001"
+kind = 1
+cell = Vector3i(5, 0, 7)
+scene = ExtResource("4_efbur")
+
+[sub_resource type="Resource" id="Resource_e4fgv"]
+script = ExtResource("7_mos3k")
+unit_name = &"enemyspawn_003"
+faction = &"enemy"
+cell = Vector3i(5, 0, 6)
+visual_color = Color(1, 0.35686275, 0.35686275, 1)
+
+[sub_resource type="Resource" id="Resource_tol6a"]
+script = ExtResource("7_mos3k")
+unit_name = &"playerspawn_001"
+cell = Vector3i(2, 0, 2)
+visual_color = Color(0.30980393, 0.6156863, 1, 1)
+
+[sub_resource type="Resource" id="Resource_vjvg5"]
+script = ExtResource("7_mos3k")
+unit_name = &"playerspawn_002"
+cell = Vector3i(4, 0, 4)
+visual_color = Color(0.30980393, 0.6156863, 1, 1)
+
+[resource]
+script = ExtResource("6_qyfki")
+map_id = &"new_map"
+footprint_size = Vector2i(8, 11)
+origin = Vector3(-6, 0, -2)
+authoring_scene_path = "res://scenes/maps/new_map.tscn"
+cells = Array[ExtResource("1_kvope")]([SubResource("Resource_hfmlh"), SubResource("Resource_soiim"), SubResource("Resource_mgim0"), SubResource("Resource_w2d3g"), SubResource("Resource_u2sg8"), SubResource("Resource_saf2u"), SubResource("Resource_4prgm"), SubResource("Resource_0hl68"), SubResource("Resource_1bpp2"), SubResource("Resource_csxbx"), SubResource("Resource_ldw0m"), SubResource("Resource_mrhpt"), SubResource("Resource_8yn17"), SubResource("Resource_cj3in"), SubResource("Resource_7itij"), SubResource("Resource_rayh3"), SubResource("Resource_rw23x"), SubResource("Resource_6jagm"), SubResource("Resource_6ac05"), SubResource("Resource_56s18"), SubResource("Resource_5pjl7"), SubResource("Resource_b00nl"), SubResource("Resource_1oe5d"), SubResource("Resource_idekw"), SubResource("Resource_n23rd"), SubResource("Resource_ktxgt"), SubResource("Resource_dfeuv"), SubResource("Resource_d5ir1"), SubResource("Resource_0ju7f"), SubResource("Resource_pikjo"), SubResource("Resource_ybo1d"), SubResource("Resource_r627k"), SubResource("Resource_gfcq8"), SubResource("Resource_sxmdl"), SubResource("Resource_n1nc7"), SubResource("Resource_ani74"), SubResource("Resource_y02yo"), SubResource("Resource_ebrhh"), SubResource("Resource_4nlgm"), SubResource("Resource_qw2yb"), SubResource("Resource_4rrnd"), SubResource("Resource_dqgs2"), SubResource("Resource_y5ipi"), SubResource("Resource_w0160"), SubResource("Resource_c2f6d"), SubResource("Resource_hhvrc"), SubResource("Resource_ipv8r"), SubResource("Resource_tl3bl"), SubResource("Resource_w8dvl"), SubResource("Resource_dtt1x"), SubResource("Resource_smsuo"), SubResource("Resource_6cfwo"), SubResource("Resource_ksm8d"), SubResource("Resource_6f38j"), SubResource("Resource_bh30l"), SubResource("Resource_a3st8"), SubResource("Resource_bqvq6"), SubResource("Resource_u73x7"), SubResource("Resource_miuf5"), SubResource("Resource_u4001"), SubResource("Resource_t0j7h"), SubResource("Resource_2kles"), SubResource("Resource_gv607"), SubResource("Resource_jp6wb"), SubResource("Resource_ehch7"), SubResource("Resource_qyrm2"), SubResource("Resource_jp6ff"), SubResource("Resource_d0lbt"), SubResource("Resource_f54uk"), SubResource("Resource_sr1k8"), SubResource("Resource_r48sy"), SubResource("Resource_h5qhp")])
+spawns = Array[ExtResource("7_mos3k")]([SubResource("Resource_e4fgv"), SubResource("Resource_tol6a"), SubResource("Resource_vjvg5")])
+objects = Array[ExtResource("3_5aniv")]([SubResource("Resource_tqafk"), SubResource("Resource_yss2v")])

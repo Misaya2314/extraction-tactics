@@ -11,6 +11,9 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_test_catalog_integer_layer_routing()
 	_test_library_integer_placement_and_layer_routing()
+	_test_formal_target_layers_and_palette_filtering()
+	_test_default_library_object_entries()
+	_test_library_decoration_aliases()
 	_test_paint_uses_selected_entry_layer()
 	_test_noop_stroke_does_not_commit()
 	_test_undo_snapshot_call_signature()
@@ -22,6 +25,8 @@ func _init() -> void:
 	_test_debug_views_validation_and_focus()
 	_test_legacy_default_descriptor_constraints()
 	_test_default_property_service_undo_and_null_restore()
+	_test_special_spawn_configuration_and_state()
+	_test_special_undo_redo_roundtrips()
 	_finish()
 
 
@@ -39,7 +44,8 @@ func _test_catalog_integer_layer_routing() -> void:
 	session.begin_for_author(author, author)
 	var wall_index := _find_placeable(session.get_placeables(), "catalog:1:2")
 	var low_cover_index := _find_placeable(session.get_placeables(), "catalog:1:3")
-	_expect(wall_index >= 0 and low_cover_index >= 0, "catalog: wall and low_cover should be discoverable")
+	var floor_alias_index := _find_placeable(session.get_placeables(), "catalog:0:1:decoration")
+	_expect(wall_index >= 0 and low_cover_index >= 0 and floor_alias_index >= 0, "catalog: wall, low_cover, and Decoration alias should be discoverable")
 	if wall_index < 0 or low_cover_index < 0:
 		author.free()
 		return
@@ -47,6 +53,8 @@ func _test_catalog_integer_layer_routing() -> void:
 	var low_cover_entry: Dictionary = session.get_placeables()[low_cover_index]
 	_expect(int(wall_entry.get("layer", -1)) == SessionScript.TargetLayer.STRUCTURE, "catalog: wall integer layer should route to Structure")
 	_expect(int(low_cover_entry.get("layer", -1)) == SessionScript.TargetLayer.STRUCTURE, "catalog: low_cover integer layer should route to Structure")
+	if floor_alias_index >= 0:
+		_expect(int(session.get_placeables()[floor_alias_index].get("layer", -1)) == SessionScript.TargetLayer.DECORATION, "catalog: shared Decoration alias should target Decoration")
 
 	session.select_placeable(wall_index)
 	session.begin_stroke("catalog wall")
@@ -115,6 +123,174 @@ func _test_library_integer_placement_and_layer_routing() -> void:
 	var marker := (author.get_node("Objects") as Node).get_child(0) as MapObjectMarker3D
 	_expect(marker != null and marker.blocks_movement, "library: placed object should retain blocks_movement")
 	_expect(marker != null and marker.blocks_los, "library: placed object should retain blocks_los")
+	author.free()
+
+
+func _test_formal_target_layers_and_palette_filtering() -> void:
+	_expect(SessionScript.TargetLayer.FLOOR == 0, "layers: Floor must remain numeric 0")
+	_expect(SessionScript.TargetLayer.STRUCTURE == 1, "layers: Structure must remain numeric 1")
+	_expect(SessionScript.TargetLayer.DECORATION == 2, "layers: Decoration must remain numeric 2")
+	_expect(SessionScript.TargetLayer.TRAVERSAL == 3, "layers: Traversal must be numeric 3")
+	_expect(SessionScript.TargetLayer.SPAWNER == 4, "layers: Spawner must be numeric 4")
+	_expect(SessionScript.TargetLayer.OBJECT == 5, "layers: Object must be numeric 5, not the legacy 3")
+	_expect(SessionScript.TargetLayer.AI == 6, "layers: AI must be numeric 6")
+
+	var author := _make_author()
+	var library := TacticalPlaceableLibrary.new()
+	var floor_definition := TacticalCellTileDefinition.new()
+	floor_definition.placeable_id = &"formal.floor"
+	floor_definition.display_name = "Formal Floor"
+	floor_definition.target_layer = 0
+	floor_definition.mesh_item_id = 0
+	var invalid_cell_definition := TacticalCellTileDefinition.new()
+	invalid_cell_definition.placeable_id = &"formal.invalid_special_cell"
+	invalid_cell_definition.display_name = "Invalid Special Cell"
+	invalid_cell_definition.target_layer = 3
+	invalid_cell_definition.mesh_item_id = 4
+	var object_definition := TacticalObjectDefinition.new()
+	object_definition.placeable_id = &"formal.object"
+	object_definition.display_name = "Formal Object"
+	object_definition.object_kind = &"generic"
+	var spawn_definition := TacticalObjectDefinition.new()
+	spawn_definition.placeable_id = &"formal.spawn"
+	spawn_definition.display_name = "Formal Spawn"
+	spawn_definition.object_kind = &"enemy_spawn"
+	var traversal_definition := TacticalObjectDefinition.new()
+	traversal_definition.placeable_id = &"formal.traversal"
+	traversal_definition.display_name = "Formal Traversal"
+	traversal_definition.object_kind = &"traversal"
+	var patrol_definition := TacticalObjectDefinition.new()
+	patrol_definition.placeable_id = &"formal.patrol"
+	patrol_definition.display_name = "Formal Patrol"
+	patrol_definition.object_kind = &"patrol_route"
+	library.definitions = [floor_definition, invalid_cell_definition, object_definition, spawn_definition, traversal_definition, patrol_definition]
+	author.placeable_library = library
+
+	var session = SessionScript.new()
+	session.begin_for_author(author, author)
+	var entries: Array = session.get_placeables()
+	var floor_index := _find_placeable(entries, "formal.floor")
+	var object_index := _find_placeable(entries, "formal.object")
+	var spawn_index := _find_placeable(entries, "formal.spawn")
+	var traversal_index := _find_placeable(entries, "formal.traversal")
+	var patrol_index := _find_placeable(entries, "formal.patrol")
+	_expect(floor_index >= 0 and object_index >= 0 and spawn_index >= 0 and traversal_index >= 0 and patrol_index >= 0, "layers: all formal definitions should be discoverable")
+	_expect(_find_placeable(entries, "formal.invalid_special_cell") < 0, "layers: a Cell using special numeric layer 3 must not become an Object or GridMap entry")
+	if floor_index >= 0:
+		_expect(int(entries[floor_index].get("layer", -1)) == SessionScript.TargetLayer.FLOOR, "layers: cell definition should target Floor")
+	if object_index >= 0:
+		_expect(int(entries[object_index].get("layer", -1)) == SessionScript.TargetLayer.OBJECT, "layers: ordinary object should target Object")
+	if spawn_index >= 0:
+		_expect(int(entries[spawn_index].get("layer", -1)) == SessionScript.TargetLayer.SPAWNER, "layers: spawn definition should target Spawner")
+	if traversal_index >= 0:
+		_expect(int(entries[traversal_index].get("layer", -1)) == SessionScript.TargetLayer.TRAVERSAL, "layers: traversal definition should target Traversal")
+	if patrol_index >= 0:
+		_expect(int(entries[patrol_index].get("layer", -1)) == SessionScript.TargetLayer.AI, "layers: patrol definition should target AI")
+
+	_expect(session._layer_from_value(3) == SessionScript.TargetLayer.TRAVERSAL, "layers: numeric 3 must remain Traversal after enum expansion")
+	_expect(session._layer_from_value(5) == SessionScript.TargetLayer.OBJECT, "layers: numeric 5 must map to Object")
+	_expect(session.target_layer_name(SessionScript.TargetLayer.TRAVERSAL) == "Traversal", "layers: Traversal name should be stable")
+	_expect(session.target_layer_name(SessionScript.TargetLayer.SPAWNER) == "Spawner", "layers: Spawner name should be stable")
+	_expect(session.target_layer_name(SessionScript.TargetLayer.AI) == "AI", "layers: AI name should be stable")
+
+	for layer in [SessionScript.TargetLayer.FLOOR, SessionScript.TargetLayer.TRAVERSAL, SessionScript.TargetLayer.SPAWNER, SessionScript.TargetLayer.OBJECT, SessionScript.TargetLayer.AI]:
+		var layer_entries: Array = session.get_placeables("", layer)
+		for entry in layer_entries:
+			_expect(int(entry.get("layer", -1)) == layer, "layers: layer filter must return only the requested semantic layer")
+	_expect(session.get_placeables("spawn", SessionScript.TargetLayer.OBJECT).is_empty(), "layers: Object query must not include spawn entries")
+	_expect(not session.get_placeables("spawn", SessionScript.TargetLayer.SPAWNER).is_empty(), "layers: filtered search should find spawn entries inside Spawner")
+	_expect(session.get_placeables("formal", SessionScript.TargetLayer.TRAVERSAL).size() == 1, "layers: query should run after the Traversal filter")
+	_expect(session.get_placeables("", -1).size() == entries.size(), "layers: -1 filter must preserve all-placeables compatibility")
+
+	if spawn_index >= 0 and traversal_index >= 0 and patrol_index >= 0:
+		session.select_placeable(spawn_index)
+		_expect(session.target_layer == SessionScript.TargetLayer.SPAWNER and session._paint_effective_layer() == SessionScript.TargetLayer.SPAWNER, "layers: selecting spawn must route to Spawner")
+		session.begin_stroke("formal spawn route")
+		_expect(session.apply_at(Vector3i(0, 0, 0)), "layers: spawn paint should use Spawns root")
+		session.finish_stroke(null)
+		_expect(author.get_node_or_null("Spawns") != null and author.get_node("Spawns").get_child_count() == 1, "layers: spawn paint must create a Spawns marker")
+		_expect((author.get_node("FloorGrid") as GridMap).get_cell_item(Vector3i(0, 0, 0)) == 0, "layers: spawn paint must not write FloorGrid")
+		_expect((author.get_node("StructureGrid") as GridMap).get_cell_item(Vector3i(0, 0, 0)) < 0, "layers: spawn paint must not write StructureGrid")
+
+		session.set_tool(SessionScript.Tool.ERASE)
+		session.set_target_layer(SessionScript.TargetLayer.FLOOR)
+		session.begin_stroke("formal erase target layer")
+		_expect(session.apply_at(Vector3i(0, 0, 0)), "layers: erase should follow the manually selected Floor target")
+		session.finish_stroke(null)
+		_expect(author.get_node("Spawns").get_child_count() == 1, "layers: Floor erase must not remove a Spawner marker")
+
+		session.set_target_layer(SessionScript.TargetLayer.SPAWNER)
+		session.begin_stroke("formal erase spawn")
+		_expect(session.apply_at(Vector3i(0, 0, 0)), "layers: Spawner erase should target the Spawns root")
+		session.finish_stroke(null)
+		_expect(author.get_node("Spawns").get_child_count() == 0, "layers: Spawner erase must remove the spawn marker")
+
+		session.set_tool(SessionScript.Tool.PAINT)
+		session.select_placeable(traversal_index)
+		_expect(session.target_layer == SessionScript.TargetLayer.TRAVERSAL and session._paint_effective_layer() == SessionScript.TargetLayer.TRAVERSAL, "layers: traversal selection must never route to a GridMap")
+		session.select_placeable(patrol_index)
+		_expect(session.target_layer == SessionScript.TargetLayer.AI and session._paint_effective_layer() == SessionScript.TargetLayer.AI, "layers: patrol selection must never route to a GridMap")
+	author.free()
+
+
+func _test_default_library_object_entries() -> void:
+	var library := load("res://resources/map_tiles/libraries/default_placeable_library.tres") as TacticalPlaceableLibrary
+	_expect(library != null, "default objects: default placeable library should load")
+	if library == null:
+		return
+	var validation := TacticalMapValidator.validate_library(library)
+	_expect(bool(validation.get(&"valid", false)), "default objects: default placeable library should validate")
+	var author := _make_author()
+	author.placeable_library = library
+	var session = SessionScript.new()
+	session.begin_for_author(author, author)
+	var object_entries: Array = session.get_placeables("", SessionScript.TargetLayer.OBJECT)
+	for required_id in ["prototype_loot_crate", "prototype_extraction_marker", "prototype_explosive_barrel"]:
+		var index := _find_placeable(object_entries, required_id)
+		_expect(index >= 0, "default objects: Object palette should contain %s" % required_id)
+	if _find_placeable(object_entries, "prototype_loot_crate") >= 0:
+		var loot_entry: Dictionary = object_entries[_find_placeable(object_entries, "prototype_loot_crate")]
+		var loot_table := loot_entry.get("loot_table", null) as LootTableDefinition
+		_expect(loot_table != null and loot_table.is_valid(), "default objects: loot crate entry should retain a valid loot table")
+	author.free()
+
+
+func _test_library_decoration_aliases() -> void:
+	var author := _make_author()
+	var library := TacticalPlaceableLibrary.new()
+	var floor_definition := TacticalCellTileDefinition.new()
+	floor_definition.placeable_id = &"library.alias_floor"
+	floor_definition.display_name = "Alias Floor"
+	floor_definition.placement_kind = 0
+	floor_definition.target_layer = 0
+	floor_definition.mesh_item_id = 0
+	var structure_definition := TacticalCellTileDefinition.new()
+	structure_definition.placeable_id = &"library.alias_structure"
+	structure_definition.display_name = "Alias Structure"
+	structure_definition.placement_kind = 0
+	structure_definition.target_layer = 1
+	structure_definition.mesh_item_id = 1
+	library.definitions = [floor_definition, structure_definition]
+	author.placeable_library = library
+
+	var session = SessionScript.new()
+	session.begin_for_author(author, author)
+	var entries: Array = session.get_placeables()
+	var floor_id := "library.alias_floor"
+	var structure_id := "library.alias_structure"
+	var floor_alias_index := _find_placeable(entries, "%s:decoration" % floor_id)
+	var structure_alias_index := _find_placeable(entries, "%s:decoration" % structure_id)
+	_expect(_find_placeable(entries, floor_id) >= 0, "aliases: non-empty Library must retain the Floor source entry")
+	_expect(_find_placeable(entries, structure_id) >= 0, "aliases: non-empty Library must retain the Structure source entry")
+	_expect(floor_alias_index >= 0 and structure_alias_index >= 0, "aliases: migrated/non-empty Library must expose Decoration aliases for every Cell source")
+	if floor_alias_index >= 0 and structure_alias_index >= 0:
+		_expect(int(entries[floor_alias_index].get("layer", -1)) == SessionScript.TargetLayer.DECORATION, "aliases: Floor alias must target Decoration")
+		_expect(int(entries[structure_alias_index].get("layer", -1)) == SessionScript.TargetLayer.DECORATION, "aliases: Structure alias must target Decoration")
+	var seen_ids: Dictionary = {}
+	for entry in entries:
+		var entry_id := String(entry.get("id", ""))
+		_expect(not seen_ids.has(entry_id), "aliases: palette IDs must remain unique")
+		seen_ids[entry_id] = true
 	author.free()
 
 
@@ -219,6 +395,9 @@ func _test_object_snapshot_includes_facing() -> void:
 
 	var session = SessionScript.new()
 	session.begin_for_author(author, author)
+	var object_template_index := _find_placeable(session.get_placeables(), "marker:0")
+	if object_template_index >= 0:
+		session.select_placeable(object_template_index)
 	session.target_layer = SessionScript.TargetLayer.OBJECT
 	var before: Dictionary = session._capture_snapshot(Vector3i(0, 0, 0))
 	marker.facing = Vector2i.RIGHT
@@ -477,6 +656,117 @@ func _test_default_property_service_undo_and_null_restore() -> void:
 	_expect(definition.rule_contribution != null and definition.rule_contribution.move_cost == 4, "default: undoing restore should recover the edited contribution")
 	undo_redo.free()
 	restore_undo.free()
+	author.free()
+
+
+func _test_special_spawn_configuration_and_state() -> void:
+	var author := _make_author()
+	var session = SessionScript.new()
+	session.begin_for_author(author, author)
+	var enemy_index := _find_placeable(session.get_placeables(), "marker:enemy_spawn")
+	var traversal_index := _find_placeable(session.get_placeables(), "marker:traversal_link")
+	var patrol_index := _find_placeable(session.get_placeables(), "marker:patrol_route")
+	_expect(enemy_index >= 0 and traversal_index >= 0 and patrol_index >= 0, "special: builtin spawn, traversal, and patrol entries must be available")
+	if enemy_index < 0 or traversal_index < 0 or patrol_index < 0:
+		author.free()
+		return
+	session.select_placeable(enemy_index)
+	var archetype := UnitArchetype.new()
+	archetype.archetype_id = &"synthetic_assault"
+	var weapon := WeaponDefinition.new()
+	weapon.weapon_id = &"synthetic_carbine"
+	var configuration := {
+		&"archetype": archetype,
+		&"weapon": weapon,
+		&"encounter_id": &"encounter_alpha",
+		&"patrol_route_id": &"route_alpha",
+		&"faction": "enemy",
+		&"visual_color": Color("ff8844"),
+	}
+	_expect(session.set_selected_spawn_configuration(configuration), "special: selected enemy spawn must accept its configurable fields")
+	var selected_configuration: Dictionary = session.get_selected_spawn_configuration()
+	_expect(selected_configuration.get("archetype", null) == archetype and selected_configuration.get("weapon", null) == weapon, "special: spawn getter must return configured archetype and weapon")
+	_expect(selected_configuration.get("encounter_id", &"") == &"encounter_alpha" and selected_configuration.get("patrol_route_id", &"") == &"route_alpha", "special: spawn getter must return encounter and patrol route IDs")
+	_expect(selected_configuration.get("faction", "") == "enemy" and selected_configuration.get("visual_color", Color.WHITE) == Color("ff8844"), "special: spawn getter must return faction and visual color")
+
+	session.select_placeable(patrol_index)
+	session.begin_stroke("patrol state")
+	_expect(session.apply_at(Vector3i(0, 0, 0)), "special: patrol first point should apply")
+	var patrol_state: Dictionary = session.get_special_edit_state()
+	_expect(patrol_state.get("kind", "") == "patrol" and patrol_state.get("active", false) and patrol_state.get("can_finish", false), "special: active patrol state must be exposed to the UI")
+	# Selecting another material cancels the uncommitted special stroke rather
+	# than leaving a hidden route that can be appended after reselection.
+	session.select_placeable(enemy_index)
+	var switched_state: Dictionary = session.get_special_edit_state()
+	_expect(not switched_state.get("active", false) and not switched_state.get("pending", false) and not switched_state.get("can_finish", false), "special: changing placeable must deterministically clear the prior patrol state")
+	_expect(author.get_node_or_null("PatrolRoutes") == null, "special: canceled patrol stroke must not leave an uncommitted route root")
+
+	session.select_placeable(traversal_index)
+	session.begin_stroke("traversal state")
+	_expect(session.apply_at(Vector3i(0, 0, 0)), "special: traversal start should apply")
+	var traversal_state: Dictionary = session.get_special_edit_state()
+	_expect(traversal_state.get("kind", "") == "traversal" and traversal_state.get("pending", false) and traversal_state.get("can_finish", false), "special: pending traversal state must be exposed to the UI")
+	_expect(session.finish_special_edit(), "special: finish_special_edit must cancel a pending traversal")
+	_expect(not session.get_special_edit_state().get("can_finish", false), "special: canceled traversal must no longer be finishable")
+	author.free()
+
+
+func _test_special_undo_redo_roundtrips() -> void:
+	var author := _make_author()
+	var session = SessionScript.new()
+	session.begin_for_author(author, author)
+	var spawn_index := _find_placeable(session.get_placeables(), "marker:enemy_spawn")
+	var traversal_index := _find_placeable(session.get_placeables(), "marker:traversal_link")
+	var patrol_index := _find_placeable(session.get_placeables(), "marker:patrol_route")
+	if spawn_index < 0 or traversal_index < 0 or patrol_index < 0:
+		_expect(false, "special undo: required builtin placeables must be available")
+		author.free()
+		return
+
+	# Spawn root creation and restoration.
+	session.select_placeable(spawn_index)
+	var spawn_undo := UndoRedo.new()
+	session.begin_stroke("spawn undo")
+	_expect(session.apply_at(Vector3i(0, 0, 0)), "special undo: spawn should apply")
+	_expect(session.finish_stroke(spawn_undo), "special undo: spawn should commit")
+	_expect(author.get_node_or_null("Spawns") != null and author.get_node("Spawns").get_child_count() == 1, "special undo: spawn do state should contain one marker")
+	spawn_undo.undo()
+	_expect(author.get_node_or_null("Spawns") == null, "special undo: spawn undo should remove a newly created root")
+	spawn_undo.redo()
+	_expect(author.get_node_or_null("Spawns") != null and author.get_node("Spawns").get_child_count() == 1, "special undo: spawn redo should recreate the marker")
+	spawn_undo.free()
+
+	# Traversal is a two-endpoint placement and must be a single stroke action.
+	session.select_placeable(traversal_index)
+	var traversal_undo := UndoRedo.new()
+	session.begin_stroke("traversal undo")
+	_expect(session.apply_at(Vector3i(0, 0, 0)) and session.apply_at(Vector3i(1, 0, 0)), "special undo: traversal should accept two endpoints")
+	_expect(session.finish_stroke(traversal_undo), "special undo: traversal should commit as one action")
+	var link := author.get_node("TraversalLinks").get_child(0) as TraversalLink3D
+	_expect(link != null and link.from_cell == Vector3i(0, 0, 0) and link.to_cell == Vector3i(1, 0, 0), "special undo: traversal do state should preserve endpoint order")
+	traversal_undo.undo()
+	_expect(author.get_node_or_null("TraversalLinks") == null, "special undo: traversal undo should remove a newly created root")
+	traversal_undo.redo()
+	link = author.get_node("TraversalLinks").get_child(0) as TraversalLink3D
+	_expect(link != null and link.from_cell == Vector3i(0, 0, 0) and link.to_cell == Vector3i(1, 0, 0), "special undo: traversal redo should restore both endpoints")
+	traversal_undo.free()
+
+	# Patrol A -> B -> A must remain exactly ordered through Undo/Redo.
+	session.select_placeable(patrol_index)
+	var patrol_undo := UndoRedo.new()
+	session.begin_stroke("patrol undo")
+	var point_a := Vector3i(0, 0, 0)
+	var point_b := Vector3i(1, 0, 0)
+	_expect(session.apply_at(point_a) and session.apply_at(point_b) and session.apply_at(point_a), "special undo: patrol should accept a repeated non-consecutive point")
+	_expect(session.finish_special_edit(patrol_undo), "special undo: finish_special_edit should commit patrol")
+	var route := author.get_node("PatrolRoutes").get_child(0) as PatrolRoute3D
+	_expect(route != null and route.points == [point_a, point_b, point_a], "special undo: patrol do state must preserve A->B->A order")
+	patrol_undo.undo()
+	_expect(author.get_node_or_null("PatrolRoutes") == null, "special undo: patrol undo should remove a newly created root")
+	patrol_undo.redo()
+	route = author.get_node("PatrolRoutes").get_child(0) as PatrolRoute3D
+	_expect(route != null and route.points == [point_a, point_b, point_a], "special undo: patrol redo must preserve repeated route points")
+	patrol_undo.free()
 	author.free()
 
 

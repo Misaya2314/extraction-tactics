@@ -5,10 +5,13 @@ extends SceneTree
 
 const DockScript = preload("res://addons/tactical_map_editor/ui/tactical_map_dock.gd")
 const SessionScript = preload("res://addons/tactical_map_editor/editing/map_edit_session.gd")
+const FormalSpecialStateSessionScript = preload("res://tests/editor/formal_special_state_session_stub.gd")
 
 var _failures: Array[String] = []
 var _play_signal_count: int = 0
+var _add_signal_count: int = 0
 var _location_signal_count: int = 0
+var _special_finish_signal_count: int = 0
 
 
 func _init() -> void:
@@ -31,13 +34,123 @@ func _run() -> void:
 		dock.play_requested.connect(_on_play_requested)
 		play_button.pressed.emit()
 		_expect(_play_signal_count == 1, "dock: button should emit play_requested once")
+	var add_button := dock.find_child("AddPlaceableButton", true, false) as Button
+	_expect(add_button != null and add_button.text == "添加素材", "dock: Add Placeable button should be visible")
+	if add_button != null:
+		dock.add_placeable_requested.connect(_on_add_placeable_requested)
+		add_button.pressed.emit()
+		_expect(_add_signal_count == 1, "dock: Add Placeable button should emit once")
+	var edit_toggle := dock.find_child("EditModeToggle", true, false) as CheckButton
+	_expect(edit_toggle != null and edit_toggle.text.contains("M"), "dock: edit toggle should expose the M shortcut")
+	_expect(edit_toggle != null and edit_toggle.tooltip_text.contains("M") and edit_toggle.tooltip_text.contains("3D"), "dock: edit toggle tooltip should scope M to the 3D viewport")
+	var navigation_hint := dock.find_child("NavigationHint", true, false) as Label
+	_expect(navigation_hint != null, "dock: narrow-width navigation hint should be present")
+	if navigation_hint != null:
+		_expect(navigation_hint.autowrap_mode != TextServer.AUTOWRAP_OFF, "dock: navigation hint should wrap in a narrow Dock")
+		_expect(navigation_hint.text.contains("RMB") and navigation_hint.text.contains("WASD") and navigation_hint.text.contains("MMB"), "dock: navigation hint should describe Godot viewport controls")
+		_expect(navigation_hint.text.contains("擦除工具") and navigation_hint.text.contains("Ctrl"), "dock: navigation hint should describe both erase gestures")
+	_expect(dock.custom_minimum_size.x <= 0.0, "dock: layout should not impose a hard minimum width")
 
 	_expect(play_button == null or play_button.disabled, "dock: no Author should disable Bake & Play")
+	var target_option := dock.find_child("TargetLayerOption", true, false) as OptionButton
+	var expected_layers := ["Floor", "Structure", "Decoration", "Traversal", "Spawner", "Object", "AI"]
+	_expect(target_option != null and target_option.item_count == expected_layers.size(), "dock: target layer selector should expose all seven ordered layers")
+	if target_option != null:
+		for layer_index in range(expected_layers.size()):
+			_expect(target_option.get_item_id(layer_index) == layer_index and target_option.get_item_text(layer_index) == expected_layers[layer_index], "dock: target layer %d should keep stable ID and label" % layer_index)
+
+	# Exercise palette filtering without a map scene. This mirrors both the
+	# legacy one-argument Session API and the future layer-filtered API through
+	# the same Dock path.
+	var palette_fixture := [
+		{&"id": "fixture.floor", &"label": "Fixture Floor", &"category": "Floor", &"kind": "cell", &"layer": 0},
+		{&"id": "fixture.structure", &"label": "Fixture Structure", &"category": "Structure", &"kind": "cell", &"layer": 1},
+		{&"id": "fixture.traversal", &"label": "Fixture Traversal", &"category": "Traversal", &"kind": "traversal", &"layer": 3},
+		{&"id": "fixture.spawner", &"label": "Fixture Spawner", &"category": "Spawner", &"kind": "spawn", &"layer": 4},
+		{&"id": "fixture.object", &"label": "Fixture Object", &"category": "Object", &"kind": "object", &"layer": 5},
+		{&"id": "fixture.ai", &"label": "Fixture AI", &"category": "AI", &"kind": "ai", &"layer": 6},
+	]
+	session.placeables = palette_fixture
+	session.selected_placeable = {&"id": "fixture.structure", &"layer": 1}
+	session.target_layer = 0
+	dock.set_session(session)
+	var palette := dock.find_child("Palette", true, false) as ItemList
+	_expect(palette != null and palette.item_count == 1 and palette.get_item_text(0) == "Fixture Floor", "dock: Floor palette should hide non-Floor entities")
+	_expect(palette == null or palette.get_selected_items().is_empty(), "dock: selection from another layer must not be highlighted")
+	session.target_layer = 4
+	dock.call("_refresh")
+	_expect(palette != null and palette.item_count == 1 and palette.get_item_text(0) == "Fixture Spawner", "dock: Spawner palette should show only spawner entries")
+	if palette != null:
+		var search := dock.find_child("PlaceableSearch", true, false) as LineEdit
+		if search != null:
+			search.text = "fixture"
+			_expect(palette.item_count == 1 and palette.get_item_text(0) == "Fixture Spawner", "dock: palette search must remain scoped to the active layer")
+			search.text = ""
+	session.placeables = []
+	session.selected_placeable.clear()
+	session.target_layer = 0
+	dock.set_session(session)
 	var scroll := dock.find_child("TacticalMapDockScroll", true, false) as ScrollContainer
 	var content := dock.find_child("TacticalMapDockContent", true, false) as VBoxContainer
 	_expect(scroll != null, "dock: main content should be hosted in a ScrollContainer")
+	_expect(scroll == null or scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "dock: main content must not require horizontal scrolling")
 	_expect(content != null and content.get_parent() == scroll, "dock: scroll container should own the complete content stack")
 	_expect(dock.find_child("ToolOption", true, false) != null and dock.find_child("DebugViewOption", true, false) != null and dock.find_child("ValidationList", true, false) != null, "dock: key controls should remain reachable inside the scroll content")
+	var special_panel := dock.find_child("SpecialEditPanel", true, false) as VBoxContainer
+	var finish_special := dock.find_child("FinishSpecialEditButton", true, false) as Button
+	_expect(special_panel != null and finish_special != null and finish_special.disabled, "dock: special-edit state area should be visible and safely disabled without the new Session API")
+	# The production Session uses the formal kind/pending/active/... contract.
+	# Drive it through a map-free subclass so stale legacy-key handling cannot
+	# hide a real pending traversal or patrol route in the Dock.
+	var formal_special_session = FormalSpecialStateSessionScript.new()
+	formal_special_session.formal_state = {
+		&"kind": &"traversal",
+		&"pending": true,
+		&"active": false,
+		&"active_route_id": &"",
+		&"pending_from": Vector3i(2, 0, 3),
+		&"can_finish": true,
+		&"label": "正式连接等待",
+	}
+	dock.special_edit_finish_requested.connect(_on_special_finish_requested)
+	dock.set_session(formal_special_session)
+	await process_frame
+	var formal_state_label := dock.find_child("SpecialEditStateLabel", true, false) as Label
+	_expect(formal_state_label != null and formal_state_label.text == "正式连接等待", "dock: formal pending traversal label should be shown")
+	_expect(finish_special != null and not finish_special.disabled and finish_special.text == "取消连接等待", "dock: formal pending traversal should enable the cancel action")
+	if finish_special != null:
+		finish_special.pressed.emit()
+		_expect(_special_finish_signal_count == 1, "dock: formal traversal action should emit the finish signal once")
+	formal_special_session.formal_state = {
+		&"kind": &"patrol",
+		&"pending": false,
+		&"active": true,
+		&"active_route_id": &"route.formal",
+		&"pending_from": Vector3i(-1, -1, -1),
+		&"can_finish": true,
+		&"label": "正式巡逻路线",
+	}
+	formal_special_session.changed.emit()
+	await process_frame
+	_expect(formal_state_label != null and formal_state_label.text == "正式巡逻路线", "dock: formal active patrol label should be shown")
+	_expect(finish_special != null and not finish_special.disabled and finish_special.text == "结束当前巡逻路线", "dock: formal active patrol should enable the finish action")
+	if finish_special != null:
+		finish_special.pressed.emit()
+		_expect(_special_finish_signal_count == 2, "dock: formal patrol action should emit the finish signal once")
+	dock.set_session(session)
+	_expect(dock.find_child("SpawnConfigurationPanel", true, false) != null and dock.find_child("ApplySpawnConfigurationButton", true, false) != null, "dock: spawn configuration controls should remain reachable")
+	session.placeables = [{&"id": "spawn.synthetic", &"label": "Synthetic Spawn", &"kind": "spawn", &"faction": "enemy", &"archetype": null, &"weapon": null, &"encounter_id": &"", &"patrol_route_id": &""}]
+	session.select_placeable(0)
+	dock.set_session(session)
+	await process_frame
+	var spawn_panel := dock.find_child("SpawnConfigurationPanel", true, false) as VBoxContainer
+	var encounter_edit := dock.find_child("SpawnEncounterIdEdit", true, false) as LineEdit
+	var apply_spawn := dock.find_child("ApplySpawnConfigurationButton", true, false) as Button
+	_expect(spawn_panel != null and spawn_panel.visible and encounter_edit != null and apply_spawn != null, "dock: selecting a spawn should reveal template configuration controls")
+	if encounter_edit != null and apply_spawn != null:
+		encounter_edit.text = "encounter.synthetic"
+		apply_spawn.pressed.emit()
+		_expect(String(session.get_selected_placeable().get("encounter_id", "")) == "encounter.synthetic", "dock: spawn template Apply should call Session configuration API")
 	var tool_option := dock.find_child("ToolOption", true, false) as OptionButton
 	var has_select_tool := false
 	var select_index := -1
@@ -164,8 +277,16 @@ func _on_play_requested() -> void:
 	_play_signal_count += 1
 
 
+func _on_add_placeable_requested() -> void:
+	_add_signal_count += 1
+
+
 func _on_validation_location_requested(_diagnostic: Dictionary) -> void:
 	_location_signal_count += 1
+
+
+func _on_special_finish_requested() -> void:
+	_special_finish_signal_count += 1
 
 
 func _expect(condition: bool, message: String) -> void:

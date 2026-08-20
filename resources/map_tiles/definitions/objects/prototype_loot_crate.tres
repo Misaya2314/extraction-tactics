@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TacticalObjectDefinition" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/map/tactical_object_definition.gd" id="1_object"]
+[ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_loot_crate.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://resources/loot/loot_table_supply.tres" id="3_loot"]
+
+[resource]
+script = ExtResource("1_object")
+placeable_id = &"prototype_loot_crate"
+display_name = "补给战利品箱"
+object_kind = &"loot"
+category = &"对象 / 战利品"
+description = "可交互的补给箱；打开后生成固定与随机战利品。"
+scene = ExtResource("2_scene")
+blocks_movement = true
+blocks_los = false
+loot_table = ExtResource("3_loot")
+loot_seed = -1

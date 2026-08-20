@@ -3,7 +3,11 @@ extends EditorPlugin
 
 const SESSION_SCRIPT := preload("res://addons/tactical_map_editor/editing/map_edit_session.gd")
 const TARGET_SCRIPT := preload("res://addons/tactical_map_editor/editing/placement_target.gd")
+const INPUT_STRATEGY := preload("res://addons/tactical_map_editor/editing/tactical_map_input_strategy.gd")
 const DOCK_SCRIPT := preload("res://addons/tactical_map_editor/ui/tactical_map_dock.gd")
+const WIZARD_SCRIPT := preload("res://addons/tactical_map_editor/ui/tactical_placeable_wizard.gd")
+const NEW_MAP_DIALOG_SCRIPT := preload("res://addons/tactical_map_editor/ui/tactical_new_map_dialog.gd")
+const PREVIEW_BUILDER := preload("res://addons/tactical_map_editor/preview/tactical_preview_builder.gd")
 const AUTHOR_SCRIPT_PATH := "res://scripts/map_authoring/tactical_map_author.gd"
 
 var _dock: TacticalMapDock
@@ -15,8 +19,13 @@ var _selection_overlay_root: Node3D
 var _selection_overlay: MultiMeshInstance3D
 var _debug_overlay_root: Node3D
 var _debug_overlay: MultiMeshInstance3D
+var _special_overlay_root: Node3D
+var _wizard: TacticalPlaceableWizard
+var _new_map_dialog: TacticalNewMapDialog
+var _last_preview_target: TacticalPlacementTarget
 var _drag_button: int = 0
-var _saved_tool_for_right_drag: int = -1
+var _temporary_erase_restore_tool: int = -1
+var _temporary_erase_active: bool = false
 var _bake_and_play_in_progress: bool = false
 
 
@@ -36,6 +45,9 @@ func _enter_tree() -> void:
 	_dock.bake_requested.connect(_bake_author)
 	_dock.save_requested.connect(_save_scene)
 	_dock.play_requested.connect(_bake_and_play)
+	_dock.add_placeable_requested.connect(_open_placeable_wizard)
+	_dock.new_map_requested.connect(_open_new_map_dialog)
+	_dock.special_edit_finish_requested.connect(_finish_special_edit)
 	_dock.debug_view_changed.connect(_on_debug_view_changed)
 	_dock.validation_location_requested.connect(_on_validation_location_requested)
 	_dock.property_override_requested.connect(_on_property_override_requested)
@@ -50,9 +62,17 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
+	_cancel_active_edit_input()
 	_clear_preview()
 	_clear_selection_overlay()
 	_clear_debug_overlay()
+	_clear_special_overlay()
+	if _wizard != null and is_instance_valid(_wizard):
+		_wizard.queue_free()
+	_wizard = null
+	if _new_map_dialog != null and is_instance_valid(_new_map_dialog):
+		_new_map_dialog.queue_free()
+	_new_map_dialog = null
 	if _selection != null and _selection.selection_changed.is_connected(_on_selection_changed):
 		_selection.selection_changed.disconnect(_on_selection_changed)
 	if _session != null:
@@ -78,27 +98,47 @@ func _edit(object: Object) -> void:
 
 
 func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
-	if _session == null or not _session.has_author() or not _session.edit_mode:
-		return AFTER_GUI_INPUT_PASS
-	if viewport_camera == null:
+	if _session == null or not _session.has_author():
 		return AFTER_GUI_INPUT_PASS
 
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key_event := event as InputEventKey
-		if key_event.keycode == KEY_R:
+		var key_action := INPUT_STRATEGY.classify_key(key_event, true, _session.edit_mode)
+		if key_action == INPUT_STRATEGY.Action.TOGGLE_EDIT_MODE:
+			var next_edit_mode := not _session.edit_mode
+			if not next_edit_mode:
+				_cancel_active_edit_input()
+			_session.set_edit_mode(next_edit_mode)
+			if not next_edit_mode:
+				_clear_preview()
+			return AFTER_GUI_INPUT_STOP
+		if not _session.edit_mode:
+			return AFTER_GUI_INPUT_PASS
+		if key_action == INPUT_STRATEGY.Action.ROTATE:
 			_session.rotate_selection()
 			return AFTER_GUI_INPUT_STOP
-		if key_event.keycode == KEY_ESCAPE:
-			_drag_button = 0
-			_saved_tool_for_right_drag = -1
+		if key_action == INPUT_STRATEGY.Action.CANCEL:
+			_cancel_active_edit_input()
 			_session.cancel_stroke()
 			_session.clear_selection()
 			_clear_preview()
 			_update_selection_overlay()
 			return AFTER_GUI_INPUT_STOP
+		return AFTER_GUI_INPUT_PASS
+
+	if not _session.edit_mode:
+		return AFTER_GUI_INPUT_PASS
+	if viewport_camera == null:
+		return AFTER_GUI_INPUT_PASS
 
 	if event is InputEventMouseMotion:
 		var motion := event as InputEventMouseMotion
+		if INPUT_STRATEGY.is_native_navigation_event(motion):
+			# Let Godot's 3D editor consume RMB/MMB navigation and all native
+			# modifiers.  A ghost under the moving camera is misleading, so pause
+			# it until the next ordinary cursor motion.
+			_clear_preview()
+			return AFTER_GUI_INPUT_PASS
 		var target := _target_from_screen(viewport_camera, motion.position)
 		_update_preview(target)
 		if _drag_button != 0:
@@ -109,18 +149,24 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
+		var mouse_action := INPUT_STRATEGY.classify_mouse_button(mouse, true, _session.tool, TacticalMapEditSession.Tool.SELECT, TacticalMapEditSession.Tool.PICK)
+		if mouse_action == INPUT_STRATEGY.Action.NATIVE_NAVIGATION:
+			_clear_preview()
+			return AFTER_GUI_INPUT_PASS
 		if mouse.button_index == MOUSE_BUTTON_LEFT:
 			if mouse.pressed:
+				if mouse_action == INPUT_STRATEGY.Action.LEFT_TEMP_ERASE:
+					return _begin_temporary_erase(viewport_camera, mouse)
 				var left_target := _target_from_screen(viewport_camera, mouse.position)
 				_update_preview(left_target)
 				if not left_target.valid:
 					_session.set_status_message(left_target.reason, false)
 					return AFTER_GUI_INPUT_STOP
-				if _session.tool == TacticalMapEditSession.Tool.SELECT:
+				if mouse_action == INPUT_STRATEGY.Action.LEFT_SELECT:
 					_session.select_cell(left_target.cell, mouse.shift_pressed, mouse.shift_pressed)
 					_update_selection_overlay()
 					return AFTER_GUI_INPUT_STOP
-				if _session.tool == TacticalMapEditSession.Tool.PICK:
+				if mouse_action == INPUT_STRATEGY.Action.LEFT_PICK:
 					_session.pick_at(left_target.cell)
 					return AFTER_GUI_INPUT_STOP
 				_drag_button = MOUSE_BUTTON_LEFT
@@ -130,33 +176,48 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 			if _drag_button == MOUSE_BUTTON_LEFT:
 				_drag_button = 0
 				_session.finish_stroke(get_undo_redo())
-				return AFTER_GUI_INPUT_STOP
-
-		if mouse.button_index == MOUSE_BUTTON_RIGHT:
-			if mouse.pressed:
-				# Erase is intentionally validated independently of the current
-				# Paint selection: a blank palette or invalid paint target must not
-				# prevent removing existing content from the active layer.
-				var right_target := _target_from_screen(viewport_camera, mouse.position, TacticalMapEditSession.Tool.ERASE)
-				_update_preview(right_target)
-				if not right_target.valid:
-					_session.set_status_message(right_target.reason, false)
-					return AFTER_GUI_INPUT_STOP
-				_saved_tool_for_right_drag = _session.tool
-				_session.set_tool(TacticalMapEditSession.Tool.ERASE)
-				_drag_button = MOUSE_BUTTON_RIGHT
-				_session.begin_stroke("擦除")
-				_session.apply_at(right_target.cell)
-				return AFTER_GUI_INPUT_STOP
-			if _drag_button == MOUSE_BUTTON_RIGHT:
-				_drag_button = 0
-				_session.finish_stroke(get_undo_redo())
-				if _saved_tool_for_right_drag >= 0:
-					_session.set_tool(_saved_tool_for_right_drag)
-				_saved_tool_for_right_drag = -1
+				_restore_temporary_erase_tool()
 				return AFTER_GUI_INPUT_STOP
 
 	return AFTER_GUI_INPUT_PASS
+
+
+func _begin_temporary_erase(viewport_camera: Camera3D, mouse: InputEventMouseButton) -> int:
+	var erase_target := _target_from_screen(viewport_camera, mouse.position, TacticalMapEditSession.Tool.ERASE)
+	_update_preview(erase_target)
+	if not erase_target.valid:
+		_session.set_status_message(erase_target.reason, false)
+		return AFTER_GUI_INPUT_STOP
+	_temporary_erase_restore_tool = _session.tool
+	_temporary_erase_active = true
+	_session.set_tool(TacticalMapEditSession.Tool.ERASE)
+	_drag_button = MOUSE_BUTTON_LEFT
+	_session.begin_stroke("擦除")
+	_session.apply_at(erase_target.cell)
+	return AFTER_GUI_INPUT_STOP
+
+
+func _restore_temporary_erase_tool() -> void:
+	if not _temporary_erase_active:
+		_temporary_erase_restore_tool = -1
+		return
+	var previous_tool := _temporary_erase_restore_tool
+	_temporary_erase_active = false
+	_temporary_erase_restore_tool = -1
+	if _session != null and _session.has_author() and previous_tool >= 0:
+		_session.set_tool(previous_tool)
+
+
+func _cancel_active_edit_input() -> void:
+	if _session == null:
+		_drag_button = 0
+		_temporary_erase_active = false
+		_temporary_erase_restore_tool = -1
+		return
+	if _drag_button == MOUSE_BUTTON_LEFT or _temporary_erase_active:
+		_session.cancel_stroke()
+	_drag_button = 0
+	_restore_temporary_erase_tool()
 
 
 func _on_selection_changed() -> void:
@@ -172,6 +233,7 @@ func _on_selection_changed() -> void:
 		_clear_preview()
 		_clear_selection_overlay()
 		_clear_debug_overlay()
+		_clear_special_overlay()
 		_session.clear_author()
 		_dock.set_session(_session)
 		return
@@ -186,6 +248,7 @@ func _activate_author(next_author: Node) -> void:
 	_clear_preview()
 	_clear_selection_overlay()
 	_clear_debug_overlay()
+	_clear_special_overlay()
 	var scene_root := get_editor_interface().get_edited_scene_root()
 	_session.begin_for_author(next_author, scene_root)
 	_dock.set_session(_session)
@@ -202,6 +265,7 @@ func _on_floor_changed(level: int) -> void:
 	_clear_preview()
 	_update_selection_overlay()
 	_update_debug_overlay()
+	_update_special_overlay()
 
 
 func _on_target_layer_changed(layer: int) -> void:
@@ -225,6 +289,142 @@ func _on_session_changed() -> void:
 		_dock.set_validation_diagnostics(_session.get_validation_diagnostics())
 	_update_selection_overlay()
 	_update_debug_overlay()
+	_update_special_overlay()
+	if _last_preview_target != null:
+		_update_preview(_last_preview_target)
+
+
+func _open_placeable_wizard() -> void:
+	if _session == null or not _session.has_author():
+		if _dock != null:
+			_dock.set_status_message("没有活动的 TacticalMapAuthor，无法添加素材。", false)
+		return
+	if _wizard == null or not is_instance_valid(_wizard):
+		_wizard = WIZARD_SCRIPT.new()
+		_wizard.name = "TacticalPlaceableWizard"
+		_wizard.saved.connect(_on_placeable_wizard_saved)
+		var base_control := get_editor_interface().get_base_control()
+		if base_control == null:
+			_wizard.free()
+			_wizard = null
+			_dock.set_status_message("无法打开素材向导：编辑器基座不可用。", false)
+			return
+		base_control.add_child(_wizard)
+	var paths := _default_placeable_paths()
+	_wizard.configure(_session.author, String(paths.get(&"definition", "")), String(paths.get(&"library", "")))
+	_wizard.popup_centered()
+	_dock.set_status_message("请在素材向导中完成配置。", true)
+
+
+func _open_new_map_dialog() -> void:
+	if _new_map_dialog == null or not is_instance_valid(_new_map_dialog):
+		_new_map_dialog = NEW_MAP_DIALOG_SCRIPT.new()
+		_new_map_dialog.name = "TacticalNewMapDialog"
+		_new_map_dialog.map_created.connect(_on_new_map_created)
+		_new_map_dialog.canceled.connect(_on_new_map_dialog_canceled)
+		var base_control := get_editor_interface().get_base_control()
+		if base_control == null:
+			_new_map_dialog.free()
+			_new_map_dialog = null
+			if _dock != null:
+				_dock.set_status_message("无法打开新建地图对话框：编辑器基座不可用。", false)
+			return
+		base_control.add_child(_new_map_dialog)
+	_new_map_dialog.open_for_default()
+	if _dock != null:
+		_dock.set_status_message("请配置新地图请求；创建服务校验通过后才可创建。", true)
+
+
+func _on_new_map_dialog_canceled() -> void:
+	if _dock != null:
+		_dock.set_status_message("已取消新建地图。", true)
+
+
+func _on_new_map_created(result: Dictionary) -> void:
+	var scene_path := String(result.get(&"scene_path", "")).strip_edges()
+	if scene_path.is_empty() or not FileAccess.file_exists(scene_path):
+		if _new_map_dialog != null and is_instance_valid(_new_map_dialog):
+			_new_map_dialog.call("_show_validation", ["创建服务未返回有效的作者场景路径。"], [])
+		if _dock != null:
+			_dock.set_status_message("新建地图失败：作者场景路径无效。", false)
+		return
+	if _new_map_dialog != null and is_instance_valid(_new_map_dialog):
+		_new_map_dialog.hide()
+	get_editor_interface().open_scene_from_path(scene_path)
+	if _dock != null:
+		_dock.set_status_message("地图已创建，正在打开作者场景…", true)
+	call_deferred("_activate_new_map_scene", scene_path)
+
+
+func _activate_new_map_scene(scene_path: String) -> void:
+	var root := get_editor_interface().get_edited_scene_root()
+	var author := _find_author(root)
+	if author != null:
+		_activate_author(author)
+		if _dock != null:
+			_dock.set_status_message("已打开新地图：%s。可继续配置素材、绘制结构和添加玩法标记。" % scene_path, true)
+		return
+	if _dock != null:
+		_dock.set_status_message("地图场景已打开，但未找到 TacticalMapAuthor；请检查创建服务输出。", false)
+
+
+func _default_placeable_paths() -> Dictionary:
+	var map_token := "map"
+	if _session != null and _session.has_author():
+		var author_id := String(_session.author.get("map_id"))
+		if not author_id.is_empty():
+			map_token = _safe_path_token(author_id)
+	var library_path := ""
+	if _session != null and _session.has_author():
+		var current_library = _session.author.get("placeable_library")
+		if current_library is TacticalPlaceableLibrary and not String(current_library.resource_path).is_empty():
+			library_path = String(current_library.resource_path)
+	if library_path.is_empty():
+		library_path = "res://resources/map_tiles/libraries/%s_placeable_library.tres" % map_token
+	var definition_path := "res://resources/map_tiles/definitions/generated/%s_terrain_new_cell.tres" % map_token
+	return {&"definition": definition_path, &"library": library_path}
+
+
+func _safe_path_token(value: String) -> String:
+	var result := value.strip_edges()
+	for character in ["/", "\\", " ", ":"]:
+		result = result.replace(character, "_")
+	return result if not result.is_empty() else "map"
+
+
+func _on_placeable_wizard_saved(result: Dictionary) -> void:
+	if _session == null:
+		return
+	var new_id := StringName(String(result.get(&"placeable_id", "")))
+	var reloaded := false
+	if _session.has_method("reload_placeables"):
+		_session.call("reload_placeables", true)
+		reloaded = true
+	elif _session.has_method("_load_placeables"):
+		# Current Session exposes the loader privately; use it only as a
+		# compatibility fallback until the public reload API is available.
+		_session.call("_load_placeables")
+		reloaded = true
+	if reloaded:
+		var entries: Array = _session.get_placeables()
+		for index in range(entries.size()):
+			if String(entries[index].get("id", "")) == String(new_id):
+				_session.select_placeable(index)
+				break
+	if _dock != null:
+		_dock.set_session(_session)
+		var warning_count := Array(result.get(&"warnings", [])).size()
+		_dock.set_status_message("素材已加入%s，请保存作者场景。" % ("（警告 %d 条）" % warning_count if warning_count > 0 else ""), true)
+
+
+func _finish_special_edit() -> void:
+	if _session == null or not _session.has_method("finish_special_edit"):
+		if _session != null:
+			_session.set_status_message("当前 Session 未提供 finish_special_edit 接口。", false)
+		return
+	var finished := bool(_session.call("finish_special_edit", get_undo_redo()))
+	if not finished:
+		_session.set_status_message("当前没有可结束的特殊编辑。", false)
 
 
 func _on_debug_view_changed(view: int) -> void:
@@ -411,22 +611,25 @@ func _target_from_screen(camera: Camera3D, screen_position: Vector2, requested_t
 
 
 func _update_preview(target: TacticalPlacementTarget) -> void:
-	if not _session.edit_mode or not _session.has_author() or not target.valid:
+	if _session == null or not _session.edit_mode or not _session.has_author() or target == null:
 		_clear_preview()
 		return
+	# Invalid targets returned from the ray cast may still have a canonical cell
+	# centre. Keep them visible in red so a user can understand why painting is
+	# rejected; targets without a position (parallel ray/out-of-view) are simply
+	# cleared.
+	if not target.valid and target.world_position == Vector3.ZERO:
+		_clear_preview()
+		return
+	_last_preview_target = target
 	_ensure_preview()
-	if _preview_mesh == null:
+	if _preview_root == null:
 		return
 	var author: Node3D = _session.author as Node3D
-	_preview_mesh.global_position = target.world_position
-	var dimensions: Vector3 = author.get("cell_dimensions")
-	var box := _preview_mesh.mesh as BoxMesh
-	if box != null:
-		box.size = Vector3(dimensions.x * 0.92, maxf(dimensions.y * 0.12, 0.06), dimensions.z * 0.92)
-	var material := _preview_mesh.material_override as StandardMaterial3D
-	if material != null:
-		material.albedo_color = Color(0.25, 0.95, 0.4, 0.28) if target.valid else Color(0.95, 0.2, 0.2, 0.28)
-	_preview_mesh.visible = true
+	_preview_root.global_position = target.world_position
+	_rebuild_preview_content(author)
+	_apply_preview_tint(Color(0.25, 0.95, 0.4, 0.28) if target.valid else Color(0.95, 0.2, 0.2, 0.28))
+	_preview_root.visible = true
 
 
 func _update_selection_overlay() -> void:
@@ -643,6 +846,152 @@ func _best_effort_focus_validation_cell(cell: Vector3i) -> void:
 	_session.set_status_message("已定位并高亮地格 %s。" % cell, true)
 
 
+func _update_special_overlay() -> void:
+	if _session == null or not _session.has_author():
+		_clear_special_overlay()
+		return
+	var author := _session.author as Node3D
+	if author == null or not author.has_method("cell_to_local"):
+		_clear_special_overlay()
+		return
+	var dimensions: Vector3 = author.get("cell_dimensions")
+	if dimensions.x <= 0.0 or dimensions.y <= 0.0 or dimensions.z <= 0.0:
+		_clear_special_overlay()
+		return
+	var spawn_points: Array[Dictionary] = []
+	var traversal_points: Array[Dictionary] = []
+	var patrol_points: Array[Dictionary] = []
+	var traversal_segments: Array[Dictionary] = []
+	var patrol_segments: Array[Dictionary] = []
+	for node in _editor_descendants(author):
+		if node is UnitSpawnMarker3D:
+			var marker := node as UnitSpawnMarker3D
+			if marker.cell.y == _session.floor_level:
+				spawn_points.append({&"position": author.call("cell_to_local", marker.cell), &"color": marker.visual_color})
+		elif node is TraversalLink3D:
+			var link := node as TraversalLink3D
+			if link.from_cell.y == _session.floor_level:
+				traversal_points.append({&"position": author.call("cell_to_local", link.from_cell), &"color": Color("d58cff")})
+			if link.to_cell.y == _session.floor_level:
+				traversal_points.append({&"position": author.call("cell_to_local", link.to_cell), &"color": Color("d58cff")})
+			if link.from_cell.y == _session.floor_level and link.to_cell.y == _session.floor_level:
+				traversal_segments.append({&"from": author.call("cell_to_local", link.from_cell), &"to": author.call("cell_to_local", link.to_cell)})
+		elif node is PatrolRoute3D:
+			var route := node as PatrolRoute3D
+			var previous: Variant = null
+			for point in route.points:
+				if not point is Vector3i or point.y != _session.floor_level:
+					previous = null
+					continue
+				var local_point: Vector3 = author.call("cell_to_local", point)
+				patrol_points.append({&"position": local_point, &"color": Color("ffbf63")})
+				if previous is Vector3:
+					patrol_segments.append({&"from": previous, &"to": local_point})
+				previous = local_point
+	if spawn_points.is_empty() and traversal_points.is_empty() and patrol_points.is_empty() and traversal_segments.is_empty() and patrol_segments.is_empty():
+		_clear_special_overlay()
+		return
+	_ensure_special_overlay(author)
+	if _special_overlay_root == null:
+		return
+	for child in _special_overlay_root.get_children():
+		child.free()
+	_add_special_points(spawn_points, "SpawnMarkers", dimensions, 0.24)
+	_add_special_points(traversal_points, "TraversalEndpoints", dimensions, 0.18)
+	_add_special_points(patrol_points, "PatrolPoints", dimensions, 0.16)
+	_add_special_lines(traversal_segments, "TraversalLines", Color("d58cff"))
+	_add_special_lines(patrol_segments, "PatrolLines", Color("ffbf63"))
+
+
+func _ensure_special_overlay(author: Node3D) -> void:
+	if _special_overlay_root != null and is_instance_valid(_special_overlay_root):
+		return
+	_special_overlay_root = Node3D.new()
+	_special_overlay_root.name = "__TacticalMapEditorSpecialOverlay"
+	_special_overlay_root.set_meta("tactical_map_editor_preview", true)
+	author.add_child(_special_overlay_root)
+	_special_overlay_root.owner = null
+
+
+func _add_special_points(points: Array[Dictionary], node_name: String, dimensions: Vector3, radius: float) -> void:
+	if _special_overlay_root == null or points.is_empty():
+		return
+	var multi_mesh := MultiMesh.new()
+	multi_mesh.transform_format = MultiMesh.TRANSFORM_3D
+	multi_mesh.use_colors = true
+	var sphere := SphereMesh.new()
+	sphere.radius = radius
+	sphere.height = radius * 2.0
+	multi_mesh.mesh = sphere
+	multi_mesh.instance_count = points.size()
+	for index in range(points.size()):
+		var point: Dictionary = points[index]
+		var local_position: Vector3 = point.get(&"position", Vector3.ZERO)
+		local_position.y += dimensions.y * 0.55
+		multi_mesh.set_instance_transform(index, Transform3D(Basis.IDENTITY, local_position))
+		multi_mesh.set_instance_color(index, point.get(&"color", Color.WHITE))
+	var instance := MultiMeshInstance3D.new()
+	instance.name = node_name
+	instance.multimesh = multi_mesh
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.albedo_color = Color.WHITE
+	instance.material_override = material
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_special_overlay_root.add_child(instance)
+	instance.owner = null
+
+
+func _add_special_lines(segments: Array[Dictionary], node_name: String, color: Color) -> void:
+	if _special_overlay_root == null or segments.is_empty():
+		return
+	var immediate := ImmediateMesh.new()
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = color
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	immediate.surface_begin(Mesh.PRIMITIVE_LINES, material)
+	for segment in segments:
+		var from_position: Vector3 = segment.get(&"from", Vector3.ZERO)
+		var to_position: Vector3 = segment.get(&"to", Vector3.ZERO)
+		from_position.y += 0.18
+		to_position.y += 0.18
+		immediate.surface_add_vertex(from_position)
+		immediate.surface_add_vertex(to_position)
+	immediate.surface_end()
+	var instance := MeshInstance3D.new()
+	instance.name = node_name
+	instance.mesh = immediate
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_special_overlay_root.add_child(instance)
+	instance.owner = null
+
+
+func _clear_special_overlay() -> void:
+	if _special_overlay_root != null and is_instance_valid(_special_overlay_root):
+		if _special_overlay_root.get_parent() != null:
+			_special_overlay_root.get_parent().remove_child(_special_overlay_root)
+		_special_overlay_root.free()
+	_special_overlay_root = null
+
+
+func _editor_descendants(root: Node) -> Array[Node]:
+	var result: Array[Node] = []
+	if root == null:
+		return result
+	var pending: Array[Node] = []
+	for child in root.get_children():
+		pending.append(child)
+	while not pending.is_empty():
+		var node: Node = pending.pop_front()
+		result.append(node)
+		for child in node.get_children():
+			pending.append(child)
+	return result
+
+
 func _ensure_preview() -> void:
 	if _preview_root != null and is_instance_valid(_preview_root):
 		return
@@ -653,20 +1002,102 @@ func _ensure_preview() -> void:
 	_preview_root.name = "__TacticalMapEditorPreview"
 	_preview_root.set_meta("tactical_map_editor_preview", true)
 	author.add_child(_preview_root)
-	_preview_mesh = MeshInstance3D.new()
-	_preview_mesh.name = "CellGhost"
-	var box := BoxMesh.new()
-	box.size = Vector3(1.8, 0.12, 1.8)
-	_preview_mesh.mesh = box
-	var material := StandardMaterial3D.new()
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = Color(0.25, 0.95, 0.4, 0.28)
-	_preview_mesh.material_override = material
-	_preview_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_preview_root.add_child(_preview_mesh)
 	_preview_root.owner = null
-	_preview_mesh.owner = null
+
+
+func _rebuild_preview_content(author: Node3D) -> void:
+	if _preview_root == null or author == null or _session == null:
+		return
+	for child in _preview_root.get_children():
+		child.free()
+	_preview_mesh = null
+	var selected := _session.get_selected_placeable()
+	var selected_kind := String(selected.get("kind", "cell"))
+	var tintable: Array[Node] = []
+	if selected_kind == "cell":
+		var mesh_instance := _build_cell_preview(selected, author)
+		if mesh_instance != null:
+			_preview_mesh = mesh_instance
+			tintable.append(mesh_instance)
+	else:
+		var scene := selected.get("scene", null) as PackedScene
+		if scene == null:
+			var definition := selected.get("definition", null) as Resource
+			if definition != null:
+				scene = definition.get("scene") as PackedScene if definition.get("scene") is PackedScene else null
+		if scene != null:
+			var instance := PREVIEW_BUILDER.instantiate_scene_preview(_preview_root, scene, _session.rotation_quarters)
+			if instance != null:
+				_collect_preview_visuals(instance, tintable)
+				if instance is MeshInstance3D:
+					_preview_mesh = instance as MeshInstance3D
+		if _preview_mesh == null and tintable.size() > 0:
+			_preview_mesh = tintable[0] as MeshInstance3D
+	if _preview_mesh == null:
+		_preview_mesh = _build_fallback_preview(author)
+		if _preview_mesh != null:
+			tintable.append(_preview_mesh)
+	for visual_node in tintable:
+		if visual_node != null and is_instance_valid(visual_node):
+			_apply_preview_visual_defaults(visual_node)
+
+
+func _build_cell_preview(selected: Dictionary, author: Node3D) -> MeshInstance3D:
+	if String(selected.get("kind", "cell")) != "cell":
+		return null
+	var definition := selected.get("definition", null) as Resource
+	var mesh_library := definition.get("mesh_library") as MeshLibrary if definition != null and definition.get("mesh_library") is MeshLibrary else null
+	var layer := int(selected.get("layer", 0))
+	var grid_name := _cell_preview_grid_name(layer)
+	if grid_name.is_empty():
+		return null
+	if mesh_library == null:
+		var grid := author.get_node_or_null(NodePath(grid_name)) as GridMap
+		mesh_library = grid.mesh_library if grid != null else null
+	var default_item_id := -1
+	if definition != null:
+		var definition_item_id = definition.get("mesh_item_id")
+		if definition_item_id != null:
+			default_item_id = int(definition_item_id)
+	var item_id := int(selected.get("item_id", default_item_id))
+	return PREVIEW_BUILDER.build_cell_mesh(_preview_root, mesh_library, item_id, _session.rotation_quarters)
+
+
+static func _cell_preview_grid_name(layer: int) -> String:
+	match layer:
+		0:
+			return "FloorGrid"
+		1:
+			return "StructureGrid"
+		2:
+			return "DecorationGrid"
+	return ""
+
+
+func _build_fallback_preview(author: Node3D) -> MeshInstance3D:
+	var dimensions: Vector3 = author.get("cell_dimensions")
+	return PREVIEW_BUILDER.build_fallback(_preview_root, dimensions)
+
+
+func _collect_preview_visuals(node: Node, output: Array[Node]) -> void:
+	if node is GeometryInstance3D:
+		output.append(node)
+	for child in node.get_children():
+		_collect_preview_visuals(child, output)
+
+
+func _apply_preview_visual_defaults(node: Node) -> void:
+	PREVIEW_BUILDER.apply_preview_visual_defaults(node)
+
+
+func _apply_preview_tint(color: Color) -> void:
+	if _preview_root == null:
+		return
+	PREVIEW_BUILDER.tint_preview(_preview_root, color)
+
+
+func _disable_preview_collisions(node: Node) -> void:
+	PREVIEW_BUILDER.disable_collisions(node)
 
 
 func _clear_preview() -> void:
@@ -676,6 +1107,7 @@ func _clear_preview() -> void:
 		_preview_root.free()
 	_preview_root = null
 	_preview_mesh = null
+	_last_preview_target = null
 
 
 func _find_author(object: Object) -> Node:

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="TacticalObjectDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/map/tactical_object_definition.gd" id="1_object"]
+[ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_explosive_barrel.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_object")
+placeable_id = &"prototype_explosive_barrel"
+display_name = "爆炸桶"
+object_kind = &"explosive"
+category = &"对象 / 爆炸物"
+description = "可被攻击触发的爆炸掩体对象。"
+scene = ExtResource("2_scene")
+blocks_movement = true
+blocks_los = false
+loot_seed = -1

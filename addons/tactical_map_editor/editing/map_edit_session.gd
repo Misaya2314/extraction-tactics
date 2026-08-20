@@ -36,7 +36,10 @@ enum TargetLayer {
 	FLOOR,
 	STRUCTURE,
 	DECORATION,
+	TRAVERSAL,
+	SPAWNER,
 	OBJECT,
+	AI,
 }
 
 const MARKER_SCRIPT_PATH := "res://scripts/map_authoring/map_object_marker_3d.gd"
@@ -45,6 +48,9 @@ const FLOOR_GRID_NAME := "FloorGrid"
 const STRUCTURE_GRID_NAME := "StructureGrid"
 const DECORATION_GRID_NAME := "DecorationGrid"
 const OBJECTS_NODE_NAME := "Objects"
+const SPAWNS_NODE_NAME := "Spawns"
+const TRAVERSAL_LINKS_NODE_NAME := "TraversalLinks"
+const PATROL_ROUTES_NODE_NAME := "PatrolRoutes"
 const PROPERTY_FIELDS: Array[StringName] = [
 	&"WALKABLE",
 	&"MOVE_COST",
@@ -72,7 +78,12 @@ var stroke_active: bool = false
 var stroke_label: String = ""
 var _stroke_before: Dictionary = {}
 var _stroke_after: Dictionary = {}
+var _stroke_global_before: Dictionary = {}
+var _stroke_global_after: Dictionary = {}
 var _object_serial: int = 1
+var _marker_serial: int = 1
+var _pending_traversal_from: Vector3i = Vector3i(-1, -1, -1)
+var _active_patrol_route_id: StringName = &""
 var _last_status: String = "选择一个 TacticalMapAuthor 开始编辑。"
 var _last_status_valid: bool = true
 
@@ -108,6 +119,8 @@ func clear_author() -> void:
 	edited_scene_root = null
 	placeables.clear()
 	selected_placeable.clear()
+	_pending_traversal_from = Vector3i(-1, -1, -1)
+	_active_patrol_route_id = &""
 	debug_view = DebugView.NORMAL
 	debug_focus_cell = Vector3i(-1, -1, -1)
 	_default_baselines.clear()
@@ -143,7 +156,7 @@ func set_floor_level(value: int) -> void:
 
 
 func set_target_layer(value: int) -> void:
-	var next_layer := clampi(value, TargetLayer.FLOOR, TargetLayer.OBJECT)
+	var next_layer := clampi(value, TargetLayer.FLOOR, TargetLayer.AI)
 	if target_layer == next_layer:
 		return
 	cancel_stroke()
@@ -171,24 +184,164 @@ func rotate_selection() -> void:
 func select_placeable(index: int) -> void:
 	if index < 0 or index >= placeables.size():
 		return
+	var next_id := String(placeables[index].get("id", ""))
+	var current_id := String(selected_placeable.get("id", ""))
+	if not current_id.is_empty() and current_id != next_id and _has_special_edit_in_progress():
+		# A special stroke has no implicit editor UndoRedo argument here.  Cancel
+		# it instead of silently committing a route/connection without history;
+		# the explicit finish_special_edit() API is the commit boundary.
+		cancel_stroke()
 	selected_placeable = placeables[index].duplicate(true)
 	var entry_layer: int = int(selected_placeable.get("layer", TargetLayer.FLOOR))
-	if entry_layer >= TargetLayer.FLOOR and entry_layer <= TargetLayer.OBJECT:
+	if _is_target_layer(entry_layer):
 		target_layer = entry_layer
 	rotation_quarters = 0
 	_set_status("已选择：%s。目标层：%s。" % [selected_placeable.get("label", "素材"), target_layer_name(target_layer)], true)
 	_emit_changed()
 
 
-func get_placeables(query: String = "") -> Array:
-	if query.strip_edges().is_empty():
-		return placeables.duplicate(true)
+## Re-read the author/library palette after another editor task adds or edits
+## placeable definitions. Selection is restored by stable entry ID whenever
+## possible so previews do not silently switch material.
+func reload_placeables(preserve_selection: bool = true) -> void:
+	var previous_id := String(selected_placeable.get("id", "")) if preserve_selection else ""
+	var previous_rotation := rotation_quarters if preserve_selection else 0
+	_load_placeables()
+	var restored_index := -1
+	for index in range(placeables.size()):
+		if String(placeables[index].get("id", "")) == previous_id:
+			restored_index = index
+			break
+	if restored_index >= 0:
+		selected_placeable = placeables[restored_index].duplicate(true)
+		rotation_quarters = previous_rotation
+	elif not placeables.is_empty():
+		selected_placeable = placeables[0].duplicate(true)
+		rotation_quarters = 0
+	else:
+		selected_placeable.clear()
+		rotation_quarters = 0
+	_set_status("素材列表已刷新%s。" % ("并保留当前选择" if restored_index >= 0 else "。"), true)
+	_emit_changed()
+
+
+## Configure the template used by the selected player/enemy spawn entry.
+## Values are copied into the new marker; this does not mutate definitions.
+func set_selected_spawn_configuration(configuration: Dictionary) -> bool:
+	if String(selected_placeable.get("kind", "")) != "spawn":
+		_set_status("当前素材不是出生点。", false)
+		return false
+	for key in [&"faction", &"archetype", &"weapon", &"encounter_id", &"patrol_route_id", &"visual_color", &"unit_name_prefix"]:
+		if configuration.has(key):
+			selected_placeable[key] = configuration[key]
+	_set_status("已更新出生点模板配置。", true)
+	_emit_changed()
+	return true
+
+
+## Return the configuration currently attached to the selected spawn template.
+## The returned dictionary is a copy so a Dock/editor form cannot mutate the
+## palette entry without going through set_selected_spawn_configuration().
+func get_selected_spawn_configuration() -> Dictionary:
+	if String(selected_placeable.get("kind", "")) != "spawn":
+		return {}
+	return {
+		&"archetype": selected_placeable.get("archetype", null),
+		&"weapon": selected_placeable.get("weapon", null),
+		&"encounter_id": StringName(selected_placeable.get("encounter_id", &"")),
+		&"patrol_route_id": StringName(selected_placeable.get("patrol_route_id", &"")),
+		&"faction": String(selected_placeable.get("faction", "enemy")),
+		&"visual_color": selected_placeable.get("visual_color", Color.WHITE),
+		&"unit_name_prefix": String(selected_placeable.get("unit_name_prefix", "EnemySpawn")),
+	}
+
+
+## Stable state contract for the Dock's special placement controls.
+## "pending" describes a traversal waiting for its second endpoint;
+## "active" describes a patrol route that is still receiving points.
+func get_special_edit_state() -> Dictionary:
+	var pending := _pending_traversal_from != Vector3i(-1, -1, -1)
+	var active_route := _active_patrol_route_id != &""
+	var kind := ""
+	var label := ""
+	if pending:
+		kind = "traversal"
+		label = "连接已选择起点 %s，请选择终点或取消连接。" % _pending_traversal_from
+	elif active_route:
+		kind = "patrol"
+		label = "巡逻路线 %s 正在绘制，可结束路线。" % _active_patrol_route_id
+	else:
+		kind = String(selected_placeable.get("kind", "")) if _is_special_placeable() else ""
+		if kind == "spawn":
+			label = "出生点素材已选中。"
+	return {
+		&"kind": kind,
+		&"pending": pending,
+		&"active": active_route,
+		&"active_route_id": _active_patrol_route_id,
+		&"pending_from": _pending_traversal_from if pending else Vector3i(-1, -1, -1),
+		&"can_finish": pending or active_route,
+		&"label": label,
+	}
+
+
+## Finish a patrol stroke or cancel a pending traversal.  This is the single
+## UI-facing special edit command; the legacy named methods remain available.
+func finish_special_edit(undo_redo: Object = null) -> bool:
+	if _pending_traversal_from != Vector3i(-1, -1, -1):
+		return finish_traversal(undo_redo)
+	if _active_patrol_route_id != &"":
+		return finish_patrol_route(undo_redo)
+	return false
+
+
+func _has_special_edit_in_progress() -> bool:
+	return _pending_traversal_from != Vector3i(-1, -1, -1) or _active_patrol_route_id != &"" or (stroke_active and _is_special_placeable())
+
+
+func finish_traversal(_undo_redo: Object = null) -> bool:
+	if _pending_traversal_from == Vector3i(-1, -1, -1):
+		return false
+	# The first endpoint starts a stroke and may have created a content root.
+	# Cancel the whole uncommitted stroke so the command is a true cancel, not
+	# a half-open Undo-less edit.
+	if stroke_active and String(selected_placeable.get("kind", "")) == "traversal":
+		cancel_stroke()
+	else:
+		_pending_traversal_from = Vector3i(-1, -1, -1)
+	_set_status("已取消待放置的连接起点。", true)
+	_emit_changed()
+	return true
+
+
+func finish_patrol_route(undo_redo: Object = null) -> bool:
+	if _active_patrol_route_id == &"":
+		return false
+	var route_id := _active_patrol_route_id
+	if stroke_active:
+		finish_stroke(undo_redo)
+	_active_patrol_route_id = &""
+	_set_status("已结束巡逻路线：%s。" % route_id, true)
+	_emit_changed()
+	return true
+
+
+func get_placeables(query: String = "", layer_filter: int = -1) -> Array:
+	# -1 deliberately means "all layers" for the Dock and older callers.  A
+	# concrete layer is an exact semantic filter; searching happens after this
+	# filter so a query cannot bring a different author layer back into view.
+	if layer_filter != -1 and not _is_target_layer(layer_filter):
+		return []
 	var needle := query.strip_edges().to_lower()
 	var filtered: Array = []
 	for entry in placeables:
-		var haystack := "%s %s %s" % [entry.get("label", ""), entry.get("category", ""), entry.get("id", "")]
-		if haystack.to_lower().contains(needle):
-			filtered.append(entry.duplicate(true))
+		if layer_filter != -1 and int(entry.get("layer", -1)) != layer_filter:
+			continue
+		if not needle.is_empty():
+			var haystack := "%s %s %s" % [entry.get("label", ""), entry.get("category", ""), entry.get("id", "")]
+			if not haystack.to_lower().contains(needle):
+				continue
+		filtered.append(entry.duplicate(true))
 	return filtered
 
 
@@ -208,7 +361,10 @@ func get_default_property_context() -> Dictionary:
 			&"reasons": {},
 			&"descriptors": {},
 		}
-	var source := selected_placeable.get("definition", selected_placeable.get("rule", null)) as Resource
+	var source_value := selected_placeable.get("definition", null)
+	if source_value == null:
+		source_value = selected_placeable.get("rule", null)
+	var source := source_value as Resource
 	var inspection: Dictionary = _property_service.inspect_default_source(source)
 	var supported: Dictionary = {}
 	var values: Dictionary = {}
@@ -395,14 +551,14 @@ func set_debug_focus(cell: Vector3i, allow_missing_floor: bool = false) -> bool:
 		_set_status("无法定位：没有活动的 TacticalMapAuthor。", false)
 		return false
 	if not allow_missing_floor and not _inside_volume(cell):
-		_set_status("无法定位：坐标超出当前地图体积。", false)
+		_set_status("无法定位：楼层坐标超出可编辑范围。", false)
 		return false
 	if not allow_missing_floor and not _has_floor_cell(cell):
 		_set_status("无法定位：该坐标没有可编译 Floor 地格。", false)
 		return false
 	debug_focus_cell = cell
 	if not _inside_volume(cell):
-		_set_status("已记录范围外诊断坐标 %s，使用最佳努力高亮。" % cell, true)
+		_set_status("已记录非法楼层诊断坐标 %s，使用最佳努力高亮。" % cell, true)
 	elif not _has_floor_cell(cell):
 		_set_status("已定位到缺少 Floor 的诊断坐标 %s。" % cell, true)
 	else:
@@ -423,7 +579,7 @@ func focus_validation_cell(cell: Vector3i) -> bool:
 		_set_status("无法定位：没有活动的 TacticalMapAuthor。", false)
 		return false
 	var inside_volume := _inside_volume(cell)
-	var legal_floor := cell.y >= 0 and cell.y < _level_count()
+	var legal_floor := _inside_volume(cell)
 	if legal_floor and cell.y != floor_level:
 		set_floor_level(cell.y)
 	# Ordinary selection remains Floor-only.  Validation focus is deliberately
@@ -512,7 +668,7 @@ func select_cell(cell: Vector3i, additive: bool = false, toggle: bool = false) -
 		_set_status("没有活动的 TacticalMapAuthor。", false)
 		return false
 	if not _inside_volume(cell):
-		_set_status("坐标超出地图体积。", false)
+		_set_status("楼层坐标超出可编辑范围。", false)
 		return false
 	var selection_check := can_edit_cell(cell, Tool.SELECT)
 	if not bool(selection_check.get("valid", false)):
@@ -680,8 +836,14 @@ func target_layer_name(value: int = target_layer) -> String:
 			return "Structure"
 		TargetLayer.DECORATION:
 			return "Decoration"
+		TargetLayer.TRAVERSAL:
+			return "Traversal"
+		TargetLayer.SPAWNER:
+			return "Spawner"
 		TargetLayer.OBJECT:
 			return "Object"
+		TargetLayer.AI:
+			return "AI"
 	return "Unknown"
 
 
@@ -704,7 +866,7 @@ func can_edit_cell(cell: Vector3i, for_tool: int = tool) -> Dictionary:
 	if not has_author():
 		return {"valid": false, "reason": "没有活动的 TacticalMapAuthor。"}
 	if not _inside_volume(cell):
-		return {"valid": false, "reason": "坐标超出地图体积。"}
+		return {"valid": false, "reason": "楼层坐标超出可编辑范围。"}
 	if for_tool == Tool.PICK:
 		return {"valid": true, "reason": "可吸取。"}
 	if for_tool == Tool.ERASE:
@@ -716,11 +878,21 @@ func can_edit_cell(cell: Vector3i, for_tool: int = tool) -> Dictionary:
 	if for_tool == Tool.ROTATE:
 		if target_layer == TargetLayer.OBJECT:
 			return {"valid": not _markers_at(cell).is_empty(), "reason": "目标格没有对象。" if _markers_at(cell).is_empty() else "可旋转对象。"}
+		if target_layer == TargetLayer.SPAWNER:
+			var spawn_markers := _spawn_markers_at(cell)
+			return {"valid": not spawn_markers.is_empty(), "reason": "目标格没有出生点。" if spawn_markers.is_empty() else "可旋转出生点。"}
+		if not _is_grid_layer(target_layer):
+			return {"valid": false, "reason": "%s 层没有可旋转的地格内容。" % target_layer_name(target_layer)}
 		var rotate_grid := _grid_for_layer(target_layer)
 		var rotate_item := -1 if rotate_grid == null else rotate_grid.get_cell_item(cell)
 		return {"valid": rotate_item >= 0, "reason": "目标格没有地格。" if rotate_item < 0 else "可旋转地格。"}
 	if selected_placeable.is_empty():
 		return {"valid": false, "reason": "素材栏中没有选中素材。"}
+	var selected_kind := String(selected_placeable.get("kind", "cell"))
+	if selected_kind == "spawn" or selected_kind == "traversal" or selected_kind == "patrol":
+		if not _has_floor_cell(cell):
+			return {"valid": false, "reason": "出生点、连接和巡逻点必须位于有效 Floor 上。"}
+		return {"valid": true, "reason": "可放置 %s。" % selected_kind}
 	var effective_layer := _paint_effective_layer()
 	if effective_layer == TargetLayer.OBJECT:
 		if _objects_root() == null:
@@ -728,6 +900,8 @@ func can_edit_cell(cell: Vector3i, for_tool: int = tool) -> Dictionary:
 		if _grid_for_layer(TargetLayer.FLOOR) == null or _grid_for_layer(TargetLayer.FLOOR).get_cell_item(cell) < 0:
 			return {"valid": false, "reason": "对象需要放在有效 Floor 上。"}
 		return {"valid": true, "reason": "可放置对象。"}
+	if not _is_grid_layer(effective_layer):
+		return {"valid": false, "reason": "当前素材未路由到可绘制的 GridMap 层。"}
 	var grid := _grid_for_layer(effective_layer)
 	if grid == null:
 		return {"valid": false, "reason": "%s GridMap 不存在。" % target_layer_name(effective_layer)}
@@ -747,6 +921,8 @@ func begin_stroke(label: String = "地图编辑") -> void:
 	stroke_label = label
 	_stroke_before.clear()
 	_stroke_after.clear()
+	_stroke_global_before.clear()
+	_stroke_global_after.clear()
 
 
 func apply_at(cell: Vector3i) -> bool:
@@ -761,7 +937,10 @@ func apply_at(cell: Vector3i) -> bool:
 		_set_status(String(check.get("reason", "无法编辑。")), false)
 		return false
 	if not _stroke_before.has(cell):
-		_stroke_before[cell] = _capture_snapshot(cell)
+		var before_snapshot := _capture_snapshot(cell)
+		_stroke_before[cell] = before_snapshot
+		if _uses_content_root_snapshot() and _stroke_global_before.is_empty():
+			_stroke_global_before = before_snapshot
 	var changed_now := false
 	match tool:
 		Tool.PAINT:
@@ -771,7 +950,10 @@ func apply_at(cell: Vector3i) -> bool:
 		Tool.ROTATE:
 			changed_now = _rotate_at(cell)
 	if changed_now:
-		_stroke_after[cell] = _capture_snapshot(cell)
+		var after_snapshot := _capture_snapshot(cell)
+		_stroke_after[cell] = after_snapshot
+		if _uses_content_root_snapshot():
+			_stroke_global_after = after_snapshot
 		_set_status("%s：%s" % [tool_name(), cell], true)
 		_emit_changed()
 	return changed_now
@@ -784,6 +966,9 @@ func finish_stroke(undo_redo: Object) -> bool:
 	var committed_label := stroke_label if not stroke_label.is_empty() else "地图编辑"
 	var before := _sorted_snapshots(_stroke_before)
 	var after := _sorted_snapshots(_stroke_after)
+	if _uses_content_root_snapshot():
+		before = [_stroke_global_before.duplicate(true)] if not _stroke_global_before.is_empty() else []
+		after = [_stroke_global_after.duplicate(true)] if not _stroke_global_after.is_empty() else []
 	var changed_any := false
 	# Only cells with a real mutation are recorded in _stroke_after.  An
 	# invalid/no-op stroke therefore cannot manufacture an Undo Action, and a
@@ -814,6 +999,8 @@ func finish_stroke(undo_redo: Object) -> bool:
 			generic_undo_redo.commit_action()
 	_stroke_before.clear()
 	_stroke_after.clear()
+	_stroke_global_before.clear()
+	_stroke_global_after.clear()
 	stroke_label = ""
 	if changed_any:
 		_set_status("已提交一个 %s Undo Action。" % committed_label, true)
@@ -823,18 +1010,27 @@ func finish_stroke(undo_redo: Object) -> bool:
 
 func cancel_stroke() -> void:
 	if not stroke_active:
+		_pending_traversal_from = Vector3i(-1, -1, -1)
+		_active_patrol_route_id = &""
 		return
-	_apply_snapshot_set(_sorted_snapshots(_stroke_before))
+	var before := _sorted_snapshots(_stroke_before)
+	if _uses_content_root_snapshot() and not _stroke_global_before.is_empty():
+		before = [_stroke_global_before]
+	_apply_snapshot_set(before)
 	stroke_active = false
 	_stroke_before.clear()
 	_stroke_after.clear()
+	_stroke_global_before.clear()
+	_stroke_global_after.clear()
 	stroke_label = ""
+	_pending_traversal_from = Vector3i(-1, -1, -1)
+	_active_patrol_route_id = &""
 	_emit_changed()
 
 
 func pick_at(cell: Vector3i) -> bool:
 	if not _inside_volume(cell):
-		_set_status("坐标超出地图体积。", false)
+		_set_status("楼层坐标超出可编辑范围。", false)
 		return false
 	if target_layer == TargetLayer.OBJECT:
 		var markers := _markers_at(cell)
@@ -850,6 +1046,9 @@ func pick_at(cell: Vector3i) -> bool:
 		select_placeable(placeables.size() - 1)
 		_set_status("已吸取对象：%s。" % picked.get("label", marker.name), true)
 		return true
+	if not _is_grid_layer(target_layer):
+		_set_status("%s 层的内容不能通过 GridMap 吸取。" % target_layer_name(target_layer), false)
+		return false
 	var grid := _grid_for_layer(target_layer)
 	if grid == null:
 		_set_status("目标 GridMap 不存在。", false)
@@ -872,9 +1071,18 @@ func pick_at(cell: Vector3i) -> bool:
 
 func _paint_at(cell: Vector3i) -> bool:
 	var selected_kind := String(selected_placeable.get("kind", "cell"))
+	match selected_kind:
+		"spawn":
+			return _place_spawn_at(cell)
+		"traversal":
+			return _place_traversal_at(cell)
+		"patrol":
+			return _place_patrol_point_at(cell)
 	var effective_layer := _paint_effective_layer()
 	if selected_kind == "object" or effective_layer == TargetLayer.OBJECT:
 		return _replace_object_at(cell)
+	if not _is_grid_layer(effective_layer):
+		return false
 	var grid := _grid_for_layer(effective_layer)
 	if grid == null:
 		return false
@@ -887,16 +1095,31 @@ func _paint_at(cell: Vector3i) -> bool:
 
 
 func _erase_at(cell: Vector3i) -> bool:
-	if target_layer == TargetLayer.OBJECT:
-		var markers := _markers_at(cell)
-		if markers.is_empty():
-			return false
-		for marker in markers:
-			var node: Node = marker
-			if node.get_parent() != null:
-				node.get_parent().remove_child(node)
-			node.free()
-		return true
+	# Erase is controlled by the current author layer, not by whichever
+	# palette entry happens to be selected.  This prevents a manually changed
+	# target layer from deleting a different content root or falling through to
+	# a GridMap with the old four-layer numeric assumptions.
+	match target_layer:
+		TargetLayer.SPAWNER:
+			return _erase_spawn_at(cell)
+		TargetLayer.TRAVERSAL:
+			return _erase_traversal_at(cell)
+		TargetLayer.AI:
+			return _erase_patrol_at(cell)
+		TargetLayer.OBJECT:
+			var markers := _markers_at(cell)
+			if markers.is_empty():
+				return false
+			for marker in markers:
+				var node: Node = marker
+				if node.get_parent() != null:
+					node.get_parent().remove_child(node)
+				node.free()
+			return true
+		_:
+			pass
+	if not _is_grid_layer(target_layer):
+		return false
 	var grid := _grid_for_layer(target_layer)
 	if grid == null or grid.get_cell_item(cell) < 0:
 		return false
@@ -913,6 +1136,16 @@ func _rotate_at(cell: Vector3i) -> bool:
 			var facing: Vector2i = marker.get("facing")
 			marker.set("facing", _rotate_facing(facing))
 		return true
+	if target_layer == TargetLayer.SPAWNER:
+		var spawn_markers := _spawn_markers_at(cell)
+		if spawn_markers.is_empty():
+			return false
+		for marker in spawn_markers:
+			var spawn := marker as UnitSpawnMarker3D
+			spawn.facing = _rotate_facing(spawn.facing)
+		return true
+	if not _is_grid_layer(target_layer):
+		return false
 	var grid := _grid_for_layer(target_layer)
 	if grid == null or grid.get_cell_item(cell) < 0:
 		return false
@@ -947,7 +1180,146 @@ func _replace_object_at(cell: Vector3i) -> bool:
 	return true
 
 
+func _place_spawn_at(cell: Vector3i) -> bool:
+	var root := _ensure_content_root(SPAWNS_NODE_NAME)
+	if root == null:
+		return false
+	var entry := selected_placeable
+	var faction := String(entry.get("faction", "enemy"))
+	var prefix := String(entry.get("unit_name_prefix", "PlayerSpawn" if faction == "player" else "EnemySpawn"))
+	var unit_name := StringName(_next_content_id(prefix, root, &"unit_name"))
+	var record := {
+		&"name": unit_name,
+		&"unit_name": unit_name,
+		&"faction": faction,
+		&"cell": cell,
+		&"facing": _facing_for_quarters(),
+		&"visual_color": entry.get("visual_color", Color("4f9dff") if faction == "player" else Color("ff5b5b")),
+		&"patrol_route_id": StringName(entry.get("patrol_route_id", &"")),
+		&"archetype": entry.get("archetype", null),
+		&"weapon": entry.get("weapon", null),
+		&"encounter_id": StringName(entry.get("encounter_id", &"")),
+	}
+	_create_spawn_marker(record, root)
+	return true
+
+
+func _place_traversal_at(cell: Vector3i) -> bool:
+	if _pending_traversal_from == Vector3i(-1, -1, -1):
+		_pending_traversal_from = cell
+		_set_status("已选择连接起点 %s，请继续选择终点。" % cell, true)
+		_emit_changed()
+		return true
+	if cell == _pending_traversal_from:
+		_set_status("连接终点不能与起点相同。", false)
+		return false
+	var root := _ensure_content_root(TRAVERSAL_LINKS_NODE_NAME)
+	if root == null:
+		return false
+	var from_cell := _pending_traversal_from
+	var record := {
+		&"name": _next_content_id("TraversalLink", root, &"name"),
+		&"from_cell": from_cell,
+		&"to_cell": cell,
+		&"move_cost": int(selected_placeable.get("move_cost", 1)),
+		&"bidirectional": bool(selected_placeable.get("bidirectional", true)),
+		&"enabled": true,
+		&"kind": int(selected_placeable.get("traversal_kind", MapTransitionData.Kind.STAIRS)),
+	}
+	_create_traversal_marker(record, root)
+	_pending_traversal_from = Vector3i(-1, -1, -1)
+	_set_status("已创建连接：%s → %s。" % [from_cell, cell], true)
+	return true
+
+
+func _place_patrol_point_at(cell: Vector3i) -> bool:
+	var root := _ensure_content_root(PATROL_ROUTES_NODE_NAME)
+	if root == null:
+		return false
+	var route: PatrolRoute3D = _find_patrol_route(_active_patrol_route_id) if _active_patrol_route_id != &"" else null
+	if route == null:
+		var route_id := _next_content_id("PatrolRoute", root, &"route_id")
+		route = PatrolRoute3D.new()
+		route.name = route_id
+		route.route_id = StringName(route_id)
+		route.loop = bool(selected_placeable.get("loop", true))
+		root.add_child(route)
+		route.owner = edited_scene_root if edited_scene_root != null else author
+		_active_patrol_route_id = route.route_id
+	if route.points.is_empty() or route.points[route.points.size() - 1] != cell:
+		route.points.append(cell)
+		_set_status("巡逻路线 %s 已添加点 %s。继续绘制或调用 finish_patrol_route() 结束。" % [route.route_id, cell], true)
+		return true
+	return false
+
+
+func _erase_spawn_at(cell: Vector3i) -> bool:
+	var removed := false
+	var root := _content_root(SPAWNS_NODE_NAME)
+	if root == null:
+		return false
+	for node in _descendants(root):
+		if node is UnitSpawnMarker3D and (node as UnitSpawnMarker3D).cell == cell:
+			var spawn_node: Node = node
+			if spawn_node.get_parent() != null:
+				spawn_node.get_parent().remove_child(spawn_node)
+			spawn_node.free()
+			removed = true
+	return removed
+
+
+func _erase_traversal_at(cell: Vector3i) -> bool:
+	var root := _content_root(TRAVERSAL_LINKS_NODE_NAME)
+	if root == null:
+		return false
+	var removed := false
+	for node in _descendants(root):
+		if not node is TraversalLink3D:
+			continue
+		var link := node as TraversalLink3D
+		if link.from_cell == cell or link.to_cell == cell:
+			link.get_parent().remove_child(link)
+			link.free()
+			removed = true
+	return removed
+
+
+func _erase_patrol_at(cell: Vector3i) -> bool:
+	var root := _content_root(PATROL_ROUTES_NODE_NAME)
+	if root == null:
+		return false
+	var removed := false
+	for node in _descendants(root):
+		if not node is PatrolRoute3D:
+			continue
+		var route := node as PatrolRoute3D
+		if route.points.has(cell):
+			route.get_parent().remove_child(route)
+			route.free()
+			if route.route_id == _active_patrol_route_id:
+				_active_patrol_route_id = &""
+			removed = true
+	return removed
+
+
 func _capture_snapshot(cell: Vector3i) -> Dictionary:
+	var selected_kind := String(selected_placeable.get("kind", ""))
+	# Painting is routed by the selected entry kind, while Erase/Rotate are
+	# routed by target_layer.  Capture the corresponding content root so the
+	# Undo snapshot follows the same semantic route as the mutation.
+	var snapshot_content_layer := _paint_effective_layer() if tool == Tool.PAINT else target_layer
+	if selected_kind == "spawn" and tool == Tool.PAINT:
+		return {"kind": "spawn_root", "layer": TargetLayer.SPAWNER, "cell": cell, "root_exists": _content_root(SPAWNS_NODE_NAME) != null, "records": _capture_spawn_records()}
+	if selected_kind == "traversal" and tool == Tool.PAINT:
+		return {"kind": "traversal_root", "layer": TargetLayer.TRAVERSAL, "cell": cell, "root_exists": _content_root(TRAVERSAL_LINKS_NODE_NAME) != null, "records": _capture_traversal_records()}
+	if selected_kind == "patrol" and tool == Tool.PAINT:
+		return {"kind": "patrol_root", "layer": TargetLayer.AI, "cell": cell, "root_exists": _content_root(PATROL_ROUTES_NODE_NAME) != null, "records": _capture_patrol_records()}
+	if snapshot_content_layer == TargetLayer.SPAWNER:
+		return {"kind": "spawn_root", "layer": TargetLayer.SPAWNER, "cell": cell, "root_exists": _content_root(SPAWNS_NODE_NAME) != null, "records": _capture_spawn_records()}
+	if snapshot_content_layer == TargetLayer.TRAVERSAL:
+		return {"kind": "traversal_root", "layer": TargetLayer.TRAVERSAL, "cell": cell, "root_exists": _content_root(TRAVERSAL_LINKS_NODE_NAME) != null, "records": _capture_traversal_records()}
+	if snapshot_content_layer == TargetLayer.AI:
+		return {"kind": "patrol_root", "layer": TargetLayer.AI, "cell": cell, "root_exists": _content_root(PATROL_ROUTES_NODE_NAME) != null, "records": _capture_patrol_records()}
 	var snapshot_layer := _paint_effective_layer() if tool == Tool.PAINT else target_layer
 	if snapshot_layer == TargetLayer.OBJECT:
 		return {"kind": "object", "layer": TargetLayer.OBJECT, "cell": cell, "records": _capture_marker_records(cell)}
@@ -975,6 +1347,15 @@ func _apply_snapshot_set(snapshots: Array) -> void:
 func _apply_snapshot(snapshot: Dictionary) -> void:
 	var kind := String(snapshot.get("kind", "grid"))
 	var cell: Vector3i = snapshot.get("cell", Vector3i.ZERO)
+	if kind == "spawn_root":
+		_restore_spawn_records(snapshot.get("records", []), bool(snapshot.get("root_exists", true)))
+		return
+	if kind == "traversal_root":
+		_restore_traversal_records(snapshot.get("records", []), bool(snapshot.get("root_exists", true)))
+		return
+	if kind == "patrol_root":
+		_restore_patrol_records(snapshot.get("records", []), bool(snapshot.get("root_exists", true)))
+		return
 	if kind == "object":
 		var objects_root := _objects_root()
 		if objects_root == null:
@@ -1037,6 +1418,179 @@ func _create_marker(record: Dictionary, objects_root: Node) -> Node:
 	return marker
 
 
+func _create_spawn_marker(record: Dictionary, spawns_root: Node) -> UnitSpawnMarker3D:
+	var marker := UnitSpawnMarker3D.new()
+	marker.name = String(record.get(&"name", record.get(&"unit_name", "Spawn")))
+	marker.unit_name = StringName(record.get(&"unit_name", marker.name))
+	marker.faction = String(record.get(&"faction", "enemy"))
+	marker.facing = record.get(&"facing", Vector2i.DOWN)
+	marker.visual_color = record.get(&"visual_color", Color.WHITE)
+	marker.patrol_route_id = StringName(record.get(&"patrol_route_id", &""))
+	marker.archetype = record.get(&"archetype", null) as UnitArchetype
+	marker.weapon = record.get(&"weapon", null) as WeaponDefinition
+	marker.encounter_id = StringName(record.get(&"encounter_id", &""))
+	spawns_root.add_child(marker)
+	marker.owner = edited_scene_root if edited_scene_root != null else author
+	marker.cell = record.get(&"cell", Vector3i.ZERO)
+	return marker
+
+
+func _create_traversal_marker(record: Dictionary, links_root: Node) -> TraversalLink3D:
+	var link := TraversalLink3D.new()
+	link.name = String(record.get(&"name", "TraversalLink"))
+	link.from_cell = record.get(&"from_cell", Vector3i.ZERO)
+	link.to_cell = record.get(&"to_cell", Vector3i.ZERO)
+	link.move_cost = int(record.get(&"move_cost", 1))
+	link.bidirectional = bool(record.get(&"bidirectional", true))
+	link.enabled = bool(record.get(&"enabled", true))
+	link.kind = int(record.get(&"kind", MapTransitionData.Kind.STAIRS))
+	links_root.add_child(link)
+	link.owner = edited_scene_root if edited_scene_root != null else author
+	if author != null and author.has_method("cell_to_local"):
+		link.position = author.cell_to_local(link.from_cell)
+	return link
+
+
+func _create_patrol_route(record: Dictionary, routes_root: Node) -> PatrolRoute3D:
+	var route := PatrolRoute3D.new()
+	route.name = String(record.get(&"name", record.get(&"route_id", "PatrolRoute")))
+	route.route_id = StringName(record.get(&"route_id", route.name))
+	route.loop = bool(record.get(&"loop", true))
+	var points: Array[Vector3i] = []
+	for point in record.get(&"points", []):
+		# Route order is gameplay data: A -> B -> A is a valid loop.  Do not
+		# globally deduplicate while restoring an Undo/Redo snapshot.
+		if point is Vector3i:
+			points.append(point)
+	route.points = points
+	routes_root.add_child(route)
+	route.owner = edited_scene_root if edited_scene_root != null else author
+	return route
+
+
+func _capture_spawn_records() -> Array:
+	var records: Array = []
+	var root := _content_root(SPAWNS_NODE_NAME)
+	if root == null:
+		return records
+	for node in _descendants(root):
+		if not node is UnitSpawnMarker3D:
+			continue
+		var marker := node as UnitSpawnMarker3D
+		records.append({
+			&"name": marker.name,
+			&"unit_name": marker.unit_name,
+			&"faction": marker.faction,
+			&"cell": marker.cell,
+			&"facing": marker.facing,
+			&"visual_color": marker.visual_color,
+			&"patrol_route_id": marker.patrol_route_id,
+			&"archetype": marker.archetype,
+			&"weapon": marker.weapon,
+			&"encounter_id": marker.encounter_id,
+		})
+	records.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return String(a.get(&"unit_name", "")) < String(b.get(&"unit_name", ""))
+	)
+	return records
+
+
+func _capture_traversal_records() -> Array:
+	var records: Array = []
+	var root := _content_root(TRAVERSAL_LINKS_NODE_NAME)
+	if root == null:
+		return records
+	for node in _descendants(root):
+		if not node is TraversalLink3D:
+			continue
+		var link := node as TraversalLink3D
+		records.append({
+			&"name": link.name,
+			&"from_cell": link.from_cell,
+			&"to_cell": link.to_cell,
+			&"move_cost": link.move_cost,
+			&"bidirectional": link.bidirectional,
+			&"enabled": link.enabled,
+			&"kind": link.kind,
+		})
+	records.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return String(a.get(&"name", "")) < String(b.get(&"name", ""))
+	)
+	return records
+
+
+func _capture_patrol_records() -> Array:
+	var records: Array = []
+	var root := _content_root(PATROL_ROUTES_NODE_NAME)
+	if root == null:
+		return records
+	for node in _descendants(root):
+		if not node is PatrolRoute3D:
+			continue
+		var route := node as PatrolRoute3D
+		records.append({
+			&"name": route.name,
+			&"route_id": route.route_id,
+			&"points": route.points.duplicate(),
+			&"loop": route.loop,
+		})
+	records.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return String(a.get(&"route_id", "")) < String(b.get(&"route_id", ""))
+	)
+	return records
+
+
+func _restore_spawn_records(records: Array, root_should_exist: bool = true) -> void:
+	var root := _content_root(SPAWNS_NODE_NAME)
+	if root == null and root_should_exist:
+		root = _ensure_content_root(SPAWNS_NODE_NAME)
+	if root == null:
+		return
+	if not root_should_exist and records.is_empty():
+		_remove_content_root(root)
+		return
+	if root == null:
+		return
+	_clear_content_root(root)
+	for record in records:
+		if record is Dictionary:
+			_create_spawn_marker(record, root)
+
+
+func _restore_traversal_records(records: Array, root_should_exist: bool = true) -> void:
+	var root := _content_root(TRAVERSAL_LINKS_NODE_NAME)
+	if root == null and root_should_exist:
+		root = _ensure_content_root(TRAVERSAL_LINKS_NODE_NAME)
+	if root == null:
+		return
+	if not root_should_exist and records.is_empty():
+		_remove_content_root(root)
+		return
+	if root == null:
+		return
+	_clear_content_root(root)
+	for record in records:
+		if record is Dictionary:
+			_create_traversal_marker(record, root)
+
+
+func _restore_patrol_records(records: Array, root_should_exist: bool = true) -> void:
+	var root := _content_root(PATROL_ROUTES_NODE_NAME)
+	if root == null and root_should_exist:
+		root = _ensure_content_root(PATROL_ROUTES_NODE_NAME)
+	if root == null:
+		return
+	if not root_should_exist and records.is_empty():
+		_remove_content_root(root)
+		return
+	if root == null:
+		return
+	_clear_content_root(root)
+	for record in records:
+		if record is Dictionary:
+			_create_patrol_route(record, root)
+
+
 func _entry_from_marker(marker: Node) -> Dictionary:
 	var object_id = _property(marker, "object_id", marker.name)
 	return {
@@ -1045,6 +1599,8 @@ func _entry_from_marker(marker: Node) -> Dictionary:
 		"category": "对象",
 		"kind": "object",
 		"layer": TargetLayer.OBJECT,
+		"definition": null,
+		"item_id": -1,
 		"object_kind": int(_property(marker, "kind", 4)),
 		"scene": _property(marker, "scene", null),
 		"blocks_movement": bool(_property(marker, "blocks_movement", false)),
@@ -1066,7 +1622,9 @@ func _load_placeables() -> void:
 					placeables.append(entry)
 	if placeables.is_empty():
 		_load_catalog_fallback()
+	_append_decoration_aliases()
 	_load_object_templates()
+	_append_builtin_marker_placeables()
 	placeables.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var a_layer := int(a.get("layer", 0))
 		var b_layer := int(b.get("layer", 0))
@@ -1081,6 +1639,20 @@ func _entry_from_definition(definition: Object) -> Dictionary:
 		return {}
 	var placement_kind := _placement_kind_from_value(_property(definition, "placement_kind", _property(definition, "kind", "cell")))
 	if placement_kind == "object":
+		var object_kind_value := _property(definition, "object_kind", 4)
+		var special_kind := _special_content_kind(object_kind_value)
+		if special_kind != "":
+			var special_entry := _marker_entry_from_definition(definition, special_kind)
+			if special_kind == "spawn":
+				var faction := String(_property(definition, "faction", "enemy"))
+				special_entry["faction"] = faction
+				special_entry["unit_name_prefix"] = String(_property(definition, "unit_name_prefix", "PlayerSpawn" if faction == "player" else "EnemySpawn"))
+				special_entry["archetype"] = _property(definition, "archetype", null)
+				special_entry["weapon"] = _property(definition, "weapon", null)
+				special_entry["encounter_id"] = StringName(_property(definition, "encounter_id", &""))
+				special_entry["patrol_route_id"] = StringName(_property(definition, "patrol_route_id", &""))
+				special_entry["visual_color"] = _property(definition, "visual_color", Color("4f9dff") if faction == "player" else Color("ff5b5b"))
+			return special_entry
 		return {
 			"id": String(_property(definition, "placeable_id", "object")),
 			"label": String(_property(definition, "display_name", _property(definition, "placeable_id", "对象"))),
@@ -1088,6 +1660,7 @@ func _entry_from_definition(definition: Object) -> Dictionary:
 			"kind": "object",
 			"layer": TargetLayer.OBJECT,
 			"definition": definition,
+			"item_id": -1,
 			"object_kind": _object_kind_from_value(_property(definition, "object_kind", 4)),
 			"scene": _property(definition, "scene", _property(definition, "preview_scene", null)),
 			"blocks_movement": bool(_property(definition, "blocks_movement", false)),
@@ -1103,6 +1676,11 @@ func _entry_from_definition(definition: Object) -> Dictionary:
 	if item_id < 0:
 		return {}
 	var layer := _layer_from_value(_property(definition, "target_layer", _property(definition, "layer", 0)))
+	if not _is_grid_layer(layer):
+		# Cell definitions may only be routed to one of the three GridMaps.  A
+		# malformed entry using a special/content layer must not silently become
+		# an Object or an accidental Floor entry.
+		return {}
 	return {
 		"id": String(_property(definition, "placeable_id", "grid:%d:%d" % [layer, item_id])),
 		"label": String(_property(definition, "display_name", _property(definition, "placeable_id", "item %d" % item_id))),
@@ -1111,6 +1689,7 @@ func _entry_from_definition(definition: Object) -> Dictionary:
 		"layer": layer,
 		"item_id": item_id,
 		"definition": definition,
+		"scene": null,
 	}
 
 
@@ -1121,6 +1700,8 @@ func _load_catalog_fallback() -> void:
 		return
 	for rule in rules:
 		var layer := _layer_from_value(_property(rule, "layer", 0))
+		if not _is_grid_layer(layer):
+			continue
 		var item_id := int(_property(rule, "item_id", -1))
 		if item_id < 0:
 			continue
@@ -1132,28 +1713,36 @@ func _load_catalog_fallback() -> void:
 			"kind": "cell",
 			"layer": layer,
 			"item_id": item_id,
+			"definition": null,
+			"scene": null,
 			"rule": rule,
 		})
-	# The legacy catalog has no Decoration enum.  Reuse its visual binding in
-	# the DecorationGrid as a presentation-only fallback without changing the
-	# catalog or Baker rules.
-	var has_decoration := false
+
+
+func _append_decoration_aliases() -> void:
+	# Library migration keeps a non-empty Library, so the old catalog fallback
+	# is not entered.  Generate the same visual-only Decoration aliases for
+	# every source Cell entry regardless of whether it came from Catalog or
+	# Library.  Existing real Decoration entries and aliases are never cloned.
+	var existing_ids: Dictionary = {}
 	for entry in placeables:
+		existing_ids[String(entry.get("id", ""))] = true
+	var source_entries: Array = placeables.duplicate(true)
+	for entry in source_entries:
+		if String(entry.get("kind", "")) != "cell":
+			continue
 		if int(entry.get("layer", -1)) == TargetLayer.DECORATION:
-			has_decoration = true
-			break
-	if not has_decoration:
-		var aliases: Array = []
-		for entry in placeables:
-			if String(entry.get("kind", "")) != "cell":
-				continue
-			var alias: Dictionary = entry.duplicate(true)
-			alias["id"] = "%s:decoration" % entry.get("id", "grid")
-			alias["label"] = "Decoration / %s" % String(entry.get("label", "素材"))
-			alias["category"] = "Decoration"
-			alias["layer"] = TargetLayer.DECORATION
-			aliases.append(alias)
-		placeables.append_array(aliases)
+			continue
+		var alias_id := "%s:decoration" % String(entry.get("id", "grid"))
+		if existing_ids.has(alias_id):
+			continue
+		var alias: Dictionary = entry.duplicate(true)
+		alias["id"] = alias_id
+		alias["label"] = "Decoration / %s" % String(entry.get("label", "素材"))
+		alias["category"] = "Decoration"
+		alias["layer"] = TargetLayer.DECORATION
+		placeables.append(alias)
+		existing_ids[alias_id] = true
 
 
 func _load_object_templates() -> void:
@@ -1171,6 +1760,8 @@ func _load_object_templates() -> void:
 			"category": "对象",
 			"kind": "object",
 			"layer": TargetLayer.OBJECT,
+			"definition": null,
+			"item_id": -1,
 			"object_kind": kind,
 			"scene": _property(node, "scene", null),
 			"blocks_movement": bool(_property(node, "blocks_movement", false)),
@@ -1189,9 +1780,15 @@ func _layer_from_value(value: Variant) -> int:
 				return TargetLayer.STRUCTURE
 			TargetLayer.DECORATION:
 				return TargetLayer.DECORATION
+			TargetLayer.TRAVERSAL:
+				return TargetLayer.TRAVERSAL
+			TargetLayer.SPAWNER:
+				return TargetLayer.SPAWNER
 			TargetLayer.OBJECT:
 				return TargetLayer.OBJECT
-		return TargetLayer.FLOOR
+			TargetLayer.AI:
+				return TargetLayer.AI
+		return -1
 	if value is String or value is StringName:
 		var text_value := String(value).to_lower()
 		if text_value == "0":
@@ -1201,14 +1798,26 @@ func _layer_from_value(value: Variant) -> int:
 		if text_value == "2":
 			return TargetLayer.DECORATION
 		if text_value == "3":
+			return TargetLayer.TRAVERSAL
+		if text_value == "4":
+			return TargetLayer.SPAWNER
+		if text_value == "5":
 			return TargetLayer.OBJECT
+		if text_value == "6":
+			return TargetLayer.AI
 		if text_value.contains("structure"):
 			return TargetLayer.STRUCTURE
 		if text_value.contains("decoration") or text_value.contains("decor"):
 			return TargetLayer.DECORATION
+		if text_value.contains("traversal") or text_value.contains("transition") or text_value == "link":
+			return TargetLayer.TRAVERSAL
+		if text_value.contains("spawner") or text_value.contains("spawn") or text_value.contains("unit"):
+			return TargetLayer.SPAWNER
 		if text_value.contains("object"):
 			return TargetLayer.OBJECT
-	return TargetLayer.FLOOR
+		if text_value == "ai" or text_value.contains("patrol") or text_value.contains("route"):
+			return TargetLayer.AI
+	return -1
 
 
 func _placement_kind_from_value(value: Variant) -> String:
@@ -1278,6 +1887,14 @@ func _grid_for_layer(layer: int) -> GridMap:
 		TargetLayer.DECORATION:
 			node_name = DECORATION_GRID_NAME
 	return author.get_node_or_null(NodePath(node_name)) as GridMap
+
+
+func _is_grid_layer(layer: int) -> bool:
+	return layer == TargetLayer.FLOOR or layer == TargetLayer.STRUCTURE or layer == TargetLayer.DECORATION
+
+
+func _is_target_layer(layer: int) -> bool:
+	return layer >= TargetLayer.FLOOR and layer <= TargetLayer.AI
 
 
 func _has_floor_cell(cell: Vector3i) -> bool:
@@ -1350,6 +1967,112 @@ func _merge_validation_debug_cells(base: Dictionary, diagnostics: Array[Dictiona
 	return result
 
 
+func _marker_entry_from_definition(definition: Object, special_kind: String) -> Dictionary:
+	var placeable_id := String(_property(definition, "placeable_id", special_kind))
+	var layer := _special_layer_for_kind(special_kind)
+	if layer < 0:
+		return {}
+	return {
+		"id": placeable_id,
+		"label": String(_property(definition, "display_name", placeable_id)),
+		"category": String(_property(definition, "category", "地图标记")),
+		"kind": special_kind,
+		"layer": layer,
+		"definition": definition,
+		"item_id": -1,
+		"scene": _property(definition, "scene", _property(definition, "preview_scene", null)),
+		"move_cost": int(_property(definition, "move_cost", 1)),
+		"bidirectional": bool(_property(definition, "bidirectional", true)),
+		"enabled": bool(_property(definition, "enabled", true)),
+		"traversal_kind": int(_property(definition, "traversal_kind", MapTransitionData.Kind.STAIRS)),
+		"loop": bool(_property(definition, "loop", true)),
+	}
+
+
+func _append_builtin_marker_placeables() -> void:
+	var entries: Array[Dictionary] = [
+		{
+			"id": "marker:player_spawn",
+			"label": "出生点 / 玩家",
+			"category": "出生点",
+			"kind": "spawn",
+			"layer": TargetLayer.SPAWNER,
+			"definition": null,
+			"item_id": -1,
+			"scene": null,
+			"faction": "player",
+			"unit_name_prefix": "PlayerSpawn",
+			"visual_color": Color("4f9dff"),
+		},
+		{
+			"id": "marker:enemy_spawn",
+			"label": "出生点 / 敌人",
+			"category": "出生点",
+			"kind": "spawn",
+			"layer": TargetLayer.SPAWNER,
+			"definition": null,
+			"item_id": -1,
+			"scene": null,
+			"faction": "enemy",
+			"unit_name_prefix": "EnemySpawn",
+			"visual_color": Color("ff5b5b"),
+		},
+		{
+			"id": "marker:traversal_link",
+			"label": "连接 / 跨层",
+			"category": "连接",
+			"kind": "traversal",
+			"layer": TargetLayer.TRAVERSAL,
+			"definition": null,
+			"item_id": -1,
+			"scene": null,
+		},
+		{
+			"id": "marker:patrol_route",
+			"label": "路线 / 巡逻",
+			"category": "巡逻",
+			"kind": "patrol",
+			"layer": TargetLayer.AI,
+			"definition": null,
+			"item_id": -1,
+			"scene": null,
+			"loop": true,
+		},
+	]
+	for entry in entries:
+		var duplicate := false
+		for existing in placeables:
+			if String(existing.get("id", "")) == String(entry.get("id", "")):
+				duplicate = true
+				break
+		if not duplicate:
+			placeables.append(entry)
+
+
+func _special_content_kind(value: Variant) -> String:
+	var text_value := String(value).to_lower()
+	if text_value.contains("player_spawn") or text_value == "player":
+		return "spawn"
+	if text_value.contains("enemy_spawn") or text_value == "spawn" or text_value.contains("unit_spawn"):
+		return "spawn"
+	if text_value.contains("traversal") or text_value.contains("transition") or text_value == "link":
+		return "traversal"
+	if text_value.contains("patrol") or text_value.contains("route"):
+		return "patrol"
+	return ""
+
+
+func _special_layer_for_kind(special_kind: String) -> int:
+	match special_kind.to_lower():
+		"traversal":
+			return TargetLayer.TRAVERSAL
+		"spawn":
+			return TargetLayer.SPAWNER
+		"patrol":
+			return TargetLayer.AI
+	return -1
+
+
 func _contains_structured_diagnostic(items: Array[Dictionary], candidate: Dictionary) -> bool:
 	var candidate_key := "%s|%s|%s" % [candidate.get(&"code", ""), candidate.get(&"severity", ""), candidate.get(&"message", "")]
 	for item in items:
@@ -1394,14 +2117,57 @@ func _objects_root() -> Node:
 	return author.get_node_or_null(NodePath(OBJECTS_NODE_NAME)) if has_author() else null
 
 
+func _content_root(root_name: String) -> Node:
+	return author.get_node_or_null(NodePath(root_name)) if has_author() else null
+
+
+func _ensure_content_root(root_name: String) -> Node:
+	if not has_author():
+		return null
+	var root := _content_root(root_name)
+	if root != null:
+		return root
+	root = Node3D.new()
+	root.name = root_name
+	author.add_child(root)
+	root.owner = edited_scene_root if edited_scene_root != null else author
+	return root
+
+
+func _clear_content_root(root: Node) -> void:
+	if root == null:
+		return
+	for child in root.get_children():
+		root.remove_child(child)
+		child.free()
+
+
+func _remove_content_root(root: Node) -> void:
+	if root == null:
+		return
+	if root.get_parent() != null:
+		root.get_parent().remove_child(root)
+	root.free()
+
+
+func _find_patrol_route(route_id: StringName) -> PatrolRoute3D:
+	if route_id == &"":
+		return null
+	var root := _content_root(PATROL_ROUTES_NODE_NAME)
+	if root == null:
+		return null
+	for node in _descendants(root):
+		if node is PatrolRoute3D and (node as PatrolRoute3D).route_id == route_id:
+			return node as PatrolRoute3D
+	return null
+
+
 func _inside_volume(cell: Vector3i) -> bool:
-	var footprint: Vector2i = _property(author, "footprint_size", Vector2i.ZERO)
-	return cell.x >= 0 and cell.z >= 0 and cell.y >= 0 \
-		and cell.x < footprint.x and cell.z < footprint.y and cell.y < _level_count()
+	return has_author() and cell.y >= 0 and cell.y < _level_count()
 
 
 func _level_count() -> int:
-	return maxi(int(_property(author, "level_count", 1)), 1)
+	return TacticalMapDefinition.MAX_LEVEL_COUNT if has_author() else 1
 
 
 func _markers_at(cell: Vector3i) -> Array:
@@ -1410,6 +2176,17 @@ func _markers_at(cell: Vector3i) -> Array:
 		return result
 	for node in _descendants(_objects_root()):
 		if _is_marker(node) and _property(node, "cell", Vector3i(-999, -999, -999)) == cell:
+			result.append(node)
+	return result
+
+
+func _spawn_markers_at(cell: Vector3i) -> Array:
+	var result: Array = []
+	var root := _content_root(SPAWNS_NODE_NAME)
+	if root == null:
+		return result
+	for node in _descendants(root):
+		if node is UnitSpawnMarker3D and (node as UnitSpawnMarker3D).cell == cell:
 			result.append(node)
 	return result
 
@@ -1456,15 +2233,29 @@ func _orientation_from_basis(basis: Basis, layer: int = -1) -> int:
 
 func _paint_effective_layer() -> int:
 	if selected_placeable.is_empty():
-		return target_layer
+		return target_layer if _is_target_layer(target_layer) else -1
 	var selected_kind := String(selected_placeable.get("kind", "cell"))
 	if selected_kind == "object":
 		return TargetLayer.OBJECT
+	if selected_kind == "spawn" or selected_kind == "traversal" or selected_kind == "patrol":
+		return _special_layer_for_kind(selected_kind)
 	if selected_kind == "cell":
 		var selected_layer := int(selected_placeable.get("layer", target_layer))
-		if selected_layer >= TargetLayer.FLOOR and selected_layer <= TargetLayer.OBJECT:
+		if _is_grid_layer(selected_layer):
 			return selected_layer
-	return target_layer
+		return -1
+	return target_layer if _is_target_layer(target_layer) else -1
+
+
+func _is_special_placeable() -> bool:
+	var selected_kind := String(selected_placeable.get("kind", ""))
+	return selected_kind == "spawn" or selected_kind == "traversal" or selected_kind == "patrol"
+
+
+func _uses_content_root_snapshot() -> bool:
+	if tool == Tool.PAINT:
+		return _is_special_placeable()
+	return target_layer == TargetLayer.SPAWNER or target_layer == TargetLayer.TRAVERSAL or target_layer == TargetLayer.AI
 
 
 func _rotation_from_grid(grid: GridMap, cell: Vector3i) -> int:
@@ -1502,6 +2293,27 @@ func _next_object_id(prefix: String) -> StringName:
 	return StringName()
 
 
+func _next_content_id(prefix: String, root: Node, property_name: StringName) -> String:
+	var normalized := prefix.to_lower().replace("/", "_").replace(" ", "_")
+	var used: Dictionary = {}
+	if root != null:
+		for node in _descendants(root):
+			var value := _property(node, property_name, node.name)
+			used[String(value)] = true
+		var direct_children := root.get_children()
+		for child in direct_children:
+			var direct_value := _property(child, property_name, child.name)
+			used[String(direct_value)] = true
+	var serial := maxi(_marker_serial, 1)
+	while true:
+		var candidate := "%s_%03d" % [normalized, serial]
+		serial += 1
+		_marker_serial = serial
+		if not used.has(candidate):
+			return candidate
+	return "%s_%03d" % [normalized, serial]
+
+
 func _sorted_snapshots(source: Dictionary) -> Array:
 	var result: Array = []
 	for value in source.values():
@@ -1532,6 +2344,9 @@ func _snapshot_equal(a: Dictionary, b: Dictionary) -> bool:
 		return false
 	if String(a.get("kind", "")) == "grid":
 		return int(a.get("item", -1)) == int(b.get("item", -1)) and int(a.get("orientation", 0)) == int(b.get("orientation", 0))
+	var snapshot_kind := String(a.get("kind", ""))
+	if snapshot_kind == "spawn_root" or snapshot_kind == "traversal_root" or snapshot_kind == "patrol_root":
+		return bool(a.get("root_exists", true)) == bool(b.get("root_exists", true)) and a.get("records", []) == b.get("records", [])
 	var ar: Array = a.get("records", [])
 	var br: Array = b.get("records", [])
 	if ar.size() != br.size():
