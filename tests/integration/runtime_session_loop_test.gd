@@ -32,7 +32,11 @@ func _test_loot_and_extraction() -> void:
 	var prototype := await _spawn_prototype()
 	var player := prototype._unit_by_name(&"PlayerAlpha")
 	_expect(prototype.session_manager.get_state() == GameStateManagerScript.State.EXPLORATION, "loop: controller should start exploration")
-	_expect(prototype.loot_containers.size() == 4, "loot: all map loot placements should be indexed")
+	var configured_loot_ids := _configured_loot_ids(prototype)
+	_expect(not configured_loot_ids.is_empty(), "loot: map LOOT placements should expose valid configuration")
+	for loot_id in configured_loot_ids:
+		_expect(prototype.loot_containers.has(loot_id), "loot: every valid map LOOT placement should have a runtime container (%s)" % loot_id)
+		_expect(prototype.loot_nodes_by_id.has(loot_id), "loot: every valid map LOOT placement should have a visual index entry (%s)" % loot_id)
 	_expect(is_instance_valid(prototype.loot_panel) and is_instance_valid(prototype.extraction_panel) and is_instance_valid(prototype.result_panel), "ui: runtime panels should exist")
 	_expect(not prototype.hint_label.text.is_empty(), "ui: first-operation hint should be visible")
 	if not is_instance_valid(player):
@@ -166,6 +170,21 @@ func _place_unit(prototype: PrototypeController, unit: PrototypeUnit, cell: Vect
 	unit.grid_cell = cell
 	unit.global_position = prototype.grid.cell_to_world(cell)
 	prototype._select_unit(unit)
+
+
+func _configured_loot_ids(prototype: PrototypeController) -> Array[StringName]:
+	var ids: Array[StringName] = []
+	if prototype == null or prototype.map_definition == null:
+		return ids
+	for placement_value in prototype.map_definition.objects:
+		var placement := placement_value as MapObjectPlacement
+		if placement == null or placement.object_id == &"":
+			continue
+		if placement.kind != MapObjectPlacement.Kind.LOOT or not placement.is_loot_configuration_valid():
+			continue
+		ids.append(placement.object_id)
+	ids.sort()
+	return ids
 
 
 func _expect(condition: bool, message: String) -> void:

@@ -16,6 +16,20 @@ enum Tool {
 	ERASE,
 	PICK,
 	ROTATE,
+	SELECT,
+}
+
+## Stable debug-view IDs.  Keep these values append-only because Dock state can
+## survive a tool-script hot reload and because tests/other editor helpers may
+## persist the numeric selection.
+enum DebugView {
+	NORMAL = 0,
+	WALKABILITY = 1,
+	MOVE_COST = 2,
+	SIGHT_BLOCK = 3,
+	PROJECTILE_BLOCK = 4,
+	OCCLUDER_HEIGHT = 5,
+	VALIDATION = 6,
 }
 
 enum TargetLayer {
@@ -26,10 +40,18 @@ enum TargetLayer {
 }
 
 const MARKER_SCRIPT_PATH := "res://scripts/map_authoring/map_object_marker_3d.gd"
+const PROPERTY_SERVICE_SCRIPT := preload("res://scripts/map_authoring/tactical_map_property_service.gd")
 const FLOOR_GRID_NAME := "FloorGrid"
 const STRUCTURE_GRID_NAME := "StructureGrid"
 const DECORATION_GRID_NAME := "DecorationGrid"
 const OBJECTS_NODE_NAME := "Objects"
+const PROPERTY_FIELDS: Array[StringName] = [
+	&"WALKABLE",
+	&"MOVE_COST",
+	&"SIGHT_BLOCK",
+	&"PROJECTILE_BLOCK",
+	&"OCCLUDER_HEIGHT",
+]
 
 var author: Node
 var edited_scene_root: Node
@@ -40,6 +62,11 @@ var rotation_quarters: int = 0
 var edit_mode: bool = false
 var placeables: Array = []
 var selected_placeable: Dictionary = {}
+var selected_cells: Array[Vector3i] = []
+var debug_view: int = DebugView.NORMAL
+var debug_focus_cell: Vector3i = Vector3i(-1, -1, -1)
+var _property_service: TacticalMapPropertyService = PROPERTY_SERVICE_SCRIPT.new()
+var _default_baselines: Dictionary = {}
 
 var stroke_active: bool = false
 var stroke_label: String = ""
@@ -52,12 +79,16 @@ var _last_status_valid: bool = true
 
 func begin_for_author(new_author: Node, new_scene_root: Node = null) -> void:
 	cancel_stroke()
+	_clear_selection_internal()
 	author = new_author
 	edited_scene_root = new_scene_root
 	floor_level = 0
 	target_layer = TargetLayer.FLOOR
 	tool = Tool.PAINT
 	rotation_quarters = 0
+	debug_view = DebugView.NORMAL
+	debug_focus_cell = Vector3i(-1, -1, -1)
+	_default_baselines.clear()
 	edit_mode = false
 	placeables.clear()
 	selected_placeable.clear()
@@ -72,10 +103,14 @@ func begin_for_author(new_author: Node, new_scene_root: Node = null) -> void:
 
 func clear_author() -> void:
 	cancel_stroke()
+	_clear_selection_internal()
 	author = null
 	edited_scene_root = null
 	placeables.clear()
 	selected_placeable.clear()
+	debug_view = DebugView.NORMAL
+	debug_focus_cell = Vector3i(-1, -1, -1)
+	_default_baselines.clear()
 	edit_mode = false
 	_set_status("选择一个 TacticalMapAuthor 开始编辑。", true)
 	_emit_changed()
@@ -100,6 +135,8 @@ func set_floor_level(value: int) -> void:
 	if floor_level == next_level:
 		return
 	cancel_stroke()
+	_clear_selection_internal()
+	debug_focus_cell = Vector3i(-1, -1, -1)
 	floor_level = next_level
 	_set_status("当前编辑楼层：%d。" % floor_level, true)
 	_emit_changed()
@@ -116,7 +153,7 @@ func set_target_layer(value: int) -> void:
 
 
 func set_tool(value: int) -> void:
-	var next_tool := clampi(value, Tool.PAINT, Tool.ROTATE)
+	var next_tool := clampi(value, Tool.PAINT, Tool.SELECT)
 	if tool == next_tool:
 		return
 	cancel_stroke()
@@ -159,8 +196,472 @@ func get_selected_placeable() -> Dictionary:
 	return selected_placeable.duplicate(true)
 
 
+func get_default_property_context() -> Dictionary:
+	if selected_placeable.is_empty():
+		return {
+			&"available": false,
+			&"editable": false,
+			&"label": "",
+			&"source_id": "",
+			&"supported": {},
+			&"values": {},
+			&"reasons": {},
+			&"descriptors": {},
+		}
+	var source := selected_placeable.get("definition", selected_placeable.get("rule", null)) as Resource
+	var inspection: Dictionary = _property_service.inspect_default_source(source)
+	var supported: Dictionary = {}
+	var values: Dictionary = {}
+	var reasons: Dictionary = {}
+	var descriptors: Dictionary = {}
+	for field in PROPERTY_FIELDS:
+		supported[field] = false
+		reasons[field] = "该素材来源未提供此字段。"
+	for descriptor in inspection.get(&"fields", []):
+		if not descriptor is Dictionary:
+			continue
+		var descriptor_id := StringName(String((descriptor as Dictionary).get(&"id", "")).to_upper())
+		if not PROPERTY_FIELDS.has(descriptor_id):
+			continue
+		var descriptor_copy: Dictionary = (descriptor as Dictionary).duplicate(true)
+		var field_supported := bool(descriptor_copy.get(&"field_supported", descriptor_copy.get(&"supported", false)))
+		if inspection.get(&"source_kind", &"") == &"legacy" and descriptor_id == &"SIGHT_BLOCK":
+			# Prefer source-specific constraints from Task A.  Older formal
+			# descriptors do not expose them yet; the service still accepts only
+			# binary values, so make that constraint explicit in the editor copy.
+			if not descriptor_copy.has(&"allowed_values") and not descriptor_copy.has(&"choices") and not descriptor_copy.has(&"constraint") and not descriptor_copy.has(&"constraints"):
+				descriptor_copy[&"allowed_values"] = [0.0, 1.0]
+				descriptor_copy[&"step"] = 1.0
+				descriptor_copy[&"min"] = 0.0
+				descriptor_copy[&"max"] = 1.0
+		descriptors[descriptor_id] = descriptor_copy
+		supported[descriptor_id] = field_supported
+		if field_supported:
+			values[descriptor_id] = descriptor_copy.get(&"value", null)
+		else:
+			reasons[descriptor_id] = String(descriptor_copy.get(&"reason", "该素材来源未提供此字段。"))
+	var default_api_available := bool(inspection.get(&"valid", false))
+	if source == null:
+		default_api_available = false
+		for field in PROPERTY_FIELDS:
+			reasons[field] = "当前素材没有正式默认属性来源。"
+	var source_id = inspection.get(&"source_id", selected_placeable.get("id", ""))
+	if source != null and not _default_baselines.has(source_id) and default_api_available:
+		_default_baselines[source_id] = _property_service.capture_default_state(source)
+	return {
+		&"available": source != null and bool(inspection.get(&"valid", false)),
+		&"editable": has_author() and default_api_available,
+		&"label": selected_placeable.get("label", selected_placeable.get("id", "素材")),
+		&"source_id": source_id,
+		&"source": source,
+		&"legacy": selected_placeable.has("rule") and not selected_placeable.has("definition"),
+		&"supported": supported,
+		&"values": values,
+		&"reasons": reasons,
+		&"descriptors": descriptors,
+		&"formal_service": default_api_available,
+	}
+
+
+func write_default_property(field: StringName, value: Variant, undo_redo: Object = null) -> bool:
+	var normalized_field := _normalize_property_field(field)
+	var context := get_default_property_context()
+	var source := context.get(&"source", null) as Resource
+	var descriptor := _property_descriptor(normalized_field)
+	if source == null or descriptor.is_empty() or not bool(context.get(&"editable", false)) or not bool(context.get(&"supported", {}).get(normalized_field, false)):
+		_set_status("当前素材默认属性尚不可编辑。", false)
+		return false
+	var before: Dictionary = _property_service.capture_default_state(source)
+	if not _property_service.apply_default_field(source, int(descriptor.get(&"field", -1)), value):
+		_set_status("默认属性写入失败：正式属性服务拒绝该字段或值。", false)
+		return false
+	var after: Dictionary = _property_service.capture_default_state(source)
+	_property_service.restore_default_state(source, before)
+	_commit_default_snapshot(source, before, after, "写入素材默认属性", undo_redo)
+	return true
+
+
+func restore_default_property(field: StringName, undo_redo: Object = null) -> bool:
+	var normalized_field := _normalize_property_field(field)
+	var context := get_default_property_context()
+	var source := context.get(&"source", null) as Resource
+	if source == null or _property_descriptor(normalized_field).is_empty() or not bool(context.get(&"editable", false)) or not bool(context.get(&"supported", {}).get(normalized_field, false)):
+		_set_status("当前素材默认属性尚不可恢复。", false)
+		return false
+	var source_id = context.get(&"source_id", selected_placeable.get("id", ""))
+	var baseline = _default_baselines.get(source_id, null)
+	if not baseline is Dictionary:
+		_set_status("没有可恢复的默认属性快照。", false)
+		return false
+	var before: Dictionary = _property_service.capture_default_state(source)
+	var field_snapshot := _default_snapshot_for_field(source, before, baseline, normalized_field)
+	if not _property_service.restore_default_state(source, field_snapshot):
+		_set_status("默认属性恢复失败：当前值已经是基线或正式服务拒绝恢复。", false)
+		return false
+	var after: Dictionary = _property_service.capture_default_state(source)
+	_property_service.restore_default_state(source, before)
+	_commit_default_snapshot(source, before, after, "恢复素材默认属性", undo_redo)
+	return true
+
+
+func _default_snapshot_for_field(source: Resource, current: Dictionary, baseline: Dictionary, field: StringName) -> Dictionary:
+	if source is TacticalCellTileDefinition and baseline.get(&"source_kind", &"") == &"definition":
+		var current_rules := current.get(&"rules", null) as TacticalCellRules
+		var baseline_rules := baseline.get(&"rules", null) as TacticalCellRules
+		var target_rules := current_rules.duplicate_rules() if current_rules != null else TacticalCellRules.new()
+		var default_rules := baseline_rules if baseline_rules != null else TacticalCellRules.new()
+		var descriptor := _property_descriptor(field)
+		_write_default_rules_field(target_rules, int(descriptor.get(&"field", -1)), _read_rules_field(default_rules, int(descriptor.get(&"field", -1))))
+		var snapshot := baseline.duplicate(true)
+		if baseline_rules == null and _rules_match_builtin_defaults(target_rules):
+			snapshot[&"rule_contribution_present"] = false
+			snapshot[&"rules"] = null
+		else:
+			snapshot[&"rule_contribution_present"] = true
+			snapshot[&"rules"] = target_rules
+		return snapshot
+	if source is MapTileRule and baseline.get(&"source_kind", &"") == &"legacy":
+		var snapshot := current.duplicate(true)
+		match field:
+			&"WALKABLE":
+				snapshot[&"walkable"] = baseline.get(&"walkable", snapshot.get(&"walkable", true))
+			&"MOVE_COST":
+				snapshot[&"move_cost"] = baseline.get(&"move_cost", snapshot.get(&"move_cost", 1))
+			&"SIGHT_BLOCK":
+				snapshot[&"blocks_los"] = baseline.get(&"blocks_los", snapshot.get(&"blocks_los", false))
+			&"OCCLUDER_HEIGHT":
+				snapshot[&"occluder_height"] = baseline.get(&"occluder_height", snapshot.get(&"occluder_height", 0.0))
+		return snapshot
+	return baseline.duplicate(true)
+
+
 func get_last_status() -> Dictionary:
 	return {"message": _last_status, "valid": _last_status_valid}
+
+
+func set_debug_view(value: int) -> void:
+	var next_view := clampi(value, DebugView.NORMAL, DebugView.VALIDATION)
+	if debug_view == next_view:
+		return
+	debug_view = next_view
+	_set_status("调试视图：%s。" % debug_view_name(), true)
+	_emit_changed()
+
+
+func get_debug_view() -> int:
+	return debug_view
+
+
+func debug_view_name(value: int = debug_view) -> String:
+	match value:
+		DebugView.NORMAL:
+			return "Normal"
+		DebugView.WALKABILITY:
+			return "Walkability"
+		DebugView.MOVE_COST:
+			return "Move Cost"
+		DebugView.SIGHT_BLOCK:
+			return "Sight Block"
+		DebugView.PROJECTILE_BLOCK:
+			return "Projectile Block"
+		DebugView.OCCLUDER_HEIGHT:
+			return "Occluder Height"
+		DebugView.VALIDATION:
+			return "Validation"
+	return "Normal"
+
+
+func debug_view_legend(value: int = debug_view) -> String:
+	match value:
+		DebugView.NORMAL:
+			return "正常模型；调试覆盖已关闭。"
+		DebugView.WALKABILITY:
+			return "绿色=可走，红色=不可走。"
+		DebugView.MOVE_COST:
+			return "绿色=低消耗，红色=高消耗。"
+		DebugView.SIGHT_BLOCK:
+			return "蓝绿色=低阻挡，橙红色=高阻挡。"
+		DebugView.PROJECTILE_BLOCK:
+			return "蓝绿色=低阻挡，橙红色=高阻挡。"
+		DebugView.OCCLUDER_HEIGHT:
+			return "按遮挡高度由低到高渐变。"
+		DebugView.VALIDATION:
+			return "红色=错误，黄色=警告；点击列表可定位。"
+	return ""
+
+
+func set_debug_focus(cell: Vector3i, allow_missing_floor: bool = false) -> bool:
+	if not has_author():
+		_set_status("无法定位：没有活动的 TacticalMapAuthor。", false)
+		return false
+	if not allow_missing_floor and not _inside_volume(cell):
+		_set_status("无法定位：坐标超出当前地图体积。", false)
+		return false
+	if not allow_missing_floor and not _has_floor_cell(cell):
+		_set_status("无法定位：该坐标没有可编译 Floor 地格。", false)
+		return false
+	debug_focus_cell = cell
+	if not _inside_volume(cell):
+		_set_status("已记录范围外诊断坐标 %s，使用最佳努力高亮。" % cell, true)
+	elif not _has_floor_cell(cell):
+		_set_status("已定位到缺少 Floor 的诊断坐标 %s。" % cell, true)
+	else:
+		_set_status("已定位到地格 %s。" % cell, true)
+	_emit_changed()
+	return true
+
+
+func clear_debug_focus() -> void:
+	if debug_focus_cell == Vector3i(-1, -1, -1):
+		return
+	debug_focus_cell = Vector3i(-1, -1, -1)
+	_emit_changed()
+
+
+func focus_validation_cell(cell: Vector3i) -> bool:
+	if not has_author():
+		_set_status("无法定位：没有活动的 TacticalMapAuthor。", false)
+		return false
+	var inside_volume := _inside_volume(cell)
+	var legal_floor := cell.y >= 0 and cell.y < _level_count()
+	if legal_floor and cell.y != floor_level:
+		set_floor_level(cell.y)
+	# Ordinary selection remains Floor-only.  Validation focus is deliberately
+	# broader so missing-Floor and out-of-volume diagnostics can still be shown.
+	if inside_volume and _has_floor_cell(cell):
+		if not select_cell(cell) and not is_cell_selected(cell):
+			return false
+	return set_debug_focus(cell, true)
+
+
+func inspect_debug_cells() -> Dictionary:
+	var map_author := author as TacticalMapAuthor
+	if map_author == null:
+		return {&"cells": [], &"errors": [], &"warnings": [], &"diagnostics": []}
+	return _merge_validation_debug_cells(_property_service.inspect_all_cells(map_author), get_validation_diagnostics())
+
+
+func get_debug_cells() -> Array:
+	return get_debug_cells_for_view(debug_view)
+
+
+func get_debug_cells_for_view(view: int = debug_view) -> Array[Dictionary]:
+	## Return only records that are drawable for the requested debug view.
+	## Validation-only coordinates are diagnostic locations, not compiled Floor
+	## cells, so heatmap views must never render them as ordinary terrain.
+	var requested_view := clampi(view, DebugView.NORMAL, DebugView.VALIDATION)
+	var result: Array[Dictionary] = []
+	for value in inspect_debug_cells().get(&"cells", []):
+		if not value is Dictionary:
+			continue
+		var record: Dictionary = value as Dictionary
+		var validation_only := bool(record.get(&"validation_only", false))
+		if validation_only and requested_view != DebugView.VALIDATION:
+			continue
+		if not validation_only and record.has(&"has_floor") and not bool(record.get(&"has_floor", false)):
+			continue
+		result.append(record)
+	return result
+
+
+func get_validation_diagnostics() -> Array[Dictionary]:
+	var map_author := author as TacticalMapAuthor
+	if map_author == null:
+		return []
+	return _copy_structured_diagnostics(_property_service.validation_diagnostics(map_author))
+
+
+func get_debug_focus_cell() -> Vector3i:
+	return debug_focus_cell
+
+
+func get_debug_value(cell_inspection: Dictionary, field: StringName) -> Variant:
+	var normalized := String(field).to_lower()
+	var descriptor := _property_descriptor(StringName(normalized.to_upper()))
+	var field_bit := int(descriptor.get(&"field", -1))
+	var rules: Variant = cell_inspection.get(&"effective_rules", cell_inspection.get(&"effective", cell_inspection.get(&"rules", null)))
+	return _read_debug_rules_field(rules, field_bit, normalized)
+
+
+func get_selected_cells() -> Array[Vector3i]:
+	var result: Array[Vector3i] = []
+	for cell in selected_cells:
+		result.append(cell)
+	return result
+
+
+func selected_cell_count() -> int:
+	return selected_cells.size()
+
+
+func is_cell_selected(cell: Vector3i) -> bool:
+	return selected_cells.has(cell)
+
+
+func clear_selection() -> bool:
+	if selected_cells.is_empty():
+		return false
+	_clear_selection_internal()
+	_set_status("已清空地格选择。", true)
+	_emit_changed()
+	return true
+
+
+func select_cell(cell: Vector3i, additive: bool = false, toggle: bool = false) -> bool:
+	if not has_author():
+		_set_status("没有活动的 TacticalMapAuthor。", false)
+		return false
+	if not _inside_volume(cell):
+		_set_status("坐标超出地图体积。", false)
+		return false
+	var selection_check := can_edit_cell(cell, Tool.SELECT)
+	if not bool(selection_check.get("valid", false)):
+		_set_status(String(selection_check.get("reason", "该坐标没有可编译 Floor 地格。")), false)
+		return false
+
+	var next_selection: Array[Vector3i] = []
+	if additive:
+		next_selection = get_selected_cells()
+		if toggle and next_selection.has(cell):
+			next_selection.erase(cell)
+		else:
+			next_selection.append(cell)
+	else:
+		next_selection.append(cell)
+	_sort_cells(next_selection)
+	if next_selection == selected_cells:
+		return false
+	selected_cells = next_selection
+	_set_status("已选择 %d 格。" % selected_cells.size(), true)
+	_emit_changed()
+	return true
+
+
+func get_property_fields() -> Array[StringName]:
+	var result: Array[StringName] = []
+	for descriptor in get_property_descriptors():
+		var field := StringName(String(descriptor.get(&"id", "")).to_upper())
+		result.append(field)
+	return result
+
+
+func get_property_descriptors() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for descriptor in _property_service.field_descriptors():
+		var field := StringName(String(descriptor.get(&"id", "")).to_upper())
+		if PROPERTY_FIELDS.has(field):
+			result.append(descriptor.duplicate(true))
+	return result
+
+
+func get_cell_properties(cell: Vector3i) -> Dictionary:
+	var coordinates: Array[Vector3i] = [cell]
+	var inspected_result := _property_service.inspect_cells(author as TacticalMapAuthor, coordinates)
+	var inspected: Array = inspected_result.get(&"cells", [])
+	return _properties_from_inspection(inspected[0]) if not inspected.is_empty() else {}
+
+
+func get_selected_property_summary() -> Dictionary:
+	var result: Dictionary = {}
+	var cells := get_selected_cells()
+	var inspected_result := _property_service.inspect_cells(author as TacticalMapAuthor, cells) if not cells.is_empty() else {}
+	var properties_by_cell: Dictionary = {}
+	for inspection in inspected_result.get(&"cells", []):
+		var inspection_dictionary: Dictionary = inspection
+		properties_by_cell[inspection_dictionary.get(&"coordinate", Vector3i.ZERO)] = _properties_from_inspection(inspection_dictionary)
+	for field in PROPERTY_FIELDS:
+		if cells.is_empty():
+			result[field] = {"mixed": false, "value": null, "state": "未选择", "inherited": true}
+			continue
+		var first_value = null
+		var first_base = null
+		var first_override = null
+		var same_value := true
+		var same_base := true
+		var same_override := true
+		var inherited_count := 0
+		for index in range(cells.size()):
+			var cell_properties: Dictionary = properties_by_cell.get(cells[index], {})
+			var property_value: Dictionary = cell_properties.get(field, {"value": null, "inherited": true})
+			if index == 0:
+				first_value = property_value.get("value")
+				first_base = property_value.get("base")
+				first_override = property_value.get("override")
+			elif property_value.get("value") != first_value:
+				same_value = false
+			# Keep each comparison independent: a base difference must not hide
+			# an override/final difference in the same multi-cell selection.
+			if index > 0:
+				if property_value.get("base") != first_base:
+					same_base = false
+				if property_value.get("override") != first_override:
+					same_override = false
+			if bool(property_value.get("inherited", true)):
+				inherited_count += 1
+		var state := "继承"
+		if inherited_count == 0:
+			state = "覆盖"
+		elif inherited_count != cells.size():
+			state = "混合"
+		var base_display := _format_property_value(first_base) if same_base else "混合"
+		var override_display := "—" if inherited_count == cells.size() else (_format_property_value(first_override) if same_override else "混合")
+		result[field] = {
+			"mixed": not same_value,
+			"value": first_value if same_value else null,
+			"display": _format_property_value(first_value) if same_value else "混合",
+			"base": first_base if same_base else null,
+			"base_mixed": not same_base,
+			"base_display": base_display,
+			"override": first_override if same_override else null,
+			"override_mixed": not same_override,
+			"override_display": override_display,
+			"state": state,
+			"inherited": inherited_count == cells.size(),
+			"override_count": cells.size() - inherited_count,
+		}
+	return result
+
+
+func write_property_override(field: StringName, value: Variant, cells: Array = [], undo_redo: Object = null) -> bool:
+	var normalized_field := _normalize_property_field(field)
+	var descriptor := _property_descriptor(normalized_field)
+	var map_author := author as TacticalMapAuthor
+	if normalized_field == &"" or descriptor.is_empty() or map_author == null:
+		_set_status("未知地格属性：%s。" % field, false)
+		return false
+	var target_cells := _property_target_cells(cells)
+	if target_cells.is_empty():
+		_set_status("没有可写入覆盖的地格。", false)
+		return false
+	var before := _property_service.capture_override_state(map_author, target_cells)
+	if not _property_service.apply_override_field(map_author, target_cells, int(descriptor[&"field"]), value):
+		_set_status("属性覆盖写入失败：正式属性服务拒绝该字段、值或目标地格。", false)
+		return false
+	var after := _property_service.capture_override_state(map_author, target_cells)
+	_property_service.restore_override_state(map_author, before)
+	_commit_property_snapshot(map_author, target_cells, before, after, "写入地格属性覆盖", undo_redo)
+	return true
+
+
+func clear_property_override(field: StringName, cells: Array = [], undo_redo: Object = null) -> bool:
+	var normalized_field := _normalize_property_field(field)
+	var descriptor := _property_descriptor(normalized_field)
+	var map_author := author as TacticalMapAuthor
+	if normalized_field == &"" or descriptor.is_empty() or map_author == null:
+		_set_status("未知地格属性：%s。" % field, false)
+		return false
+	var target_cells := _property_target_cells(cells)
+	if target_cells.is_empty():
+		_set_status("没有可恢复继承的地格。", false)
+		return false
+	var before := _property_service.capture_override_state(map_author, target_cells)
+	if not _property_service.clear_override_field(map_author, target_cells, int(descriptor[&"field"])):
+		_set_status("恢复继承失败：正式属性服务拒绝该字段或目标地格。", false)
+		return false
+	var after := _property_service.capture_override_state(map_author, target_cells)
+	_property_service.restore_override_state(map_author, before)
+	_commit_property_snapshot(map_author, target_cells, before, after, "恢复地格属性继承", undo_redo)
+	return true
 
 
 func set_status_message(message: String, valid: bool = true) -> void:
@@ -194,6 +695,8 @@ func tool_name(value: int = tool) -> String:
 			return "Pick"
 		Tool.ROTATE:
 			return "Rotate"
+		Tool.SELECT:
+			return "Select"
 	return "Unknown"
 
 
@@ -206,6 +709,10 @@ func can_edit_cell(cell: Vector3i, for_tool: int = tool) -> Dictionary:
 		return {"valid": true, "reason": "可吸取。"}
 	if for_tool == Tool.ERASE:
 		return {"valid": true, "reason": "可擦除。"}
+	if for_tool == Tool.SELECT:
+		if not _has_floor_cell(cell):
+			return {"valid": false, "reason": "该坐标没有可编译 Floor 地格。"}
+		return {"valid": true, "reason": "可选择。"}
 	if for_tool == Tool.ROTATE:
 		if target_layer == TargetLayer.OBJECT:
 			return {"valid": not _markers_at(cell).is_empty(), "reason": "目标格没有对象。" if _markers_at(cell).is_empty() else "可旋转对象。"}
@@ -243,6 +750,8 @@ func begin_stroke(label: String = "地图编辑") -> void:
 
 
 func apply_at(cell: Vector3i) -> bool:
+	if tool == Tool.SELECT:
+		return select_cell(cell)
 	if not stroke_active:
 		begin_stroke()
 	if tool == Tool.PICK:
@@ -771,6 +1280,116 @@ func _grid_for_layer(layer: int) -> GridMap:
 	return author.get_node_or_null(NodePath(node_name)) as GridMap
 
 
+func _has_floor_cell(cell: Vector3i) -> bool:
+	var floor_grid := _grid_for_layer(TargetLayer.FLOOR)
+	return floor_grid != null and floor_grid.get_cell_item(cell) >= 0
+
+
+func _copy_structured_diagnostics(items: Array) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for item in items:
+		if item is Dictionary:
+			result.append((item as Dictionary).duplicate(true))
+	return result
+
+
+func _merge_validation_debug_cells(base: Dictionary, diagnostics: Array[Dictionary]) -> Dictionary:
+	var result := base.duplicate(true)
+	var records: Array[Dictionary] = []
+	var by_coordinate: Dictionary = {}
+	for value in base.get(&"cells", []):
+		if not value is Dictionary:
+			continue
+		var record: Dictionary = (value as Dictionary).duplicate(true)
+		var coordinate = record.get(&"coordinate", null)
+		if coordinate is Vector3i:
+			var attached := _copy_structured_diagnostics(record.get(&"diagnostics", []))
+			record[&"diagnostics"] = attached
+			record[&"validation_only"] = false
+			record[&"validation_severity"] = _diagnostic_severity(attached)
+			by_coordinate[coordinate] = records.size()
+		records.append(record)
+	for diagnostic in diagnostics:
+		var coordinate = diagnostic.get(&"coordinate", null)
+		if not coordinate is Vector3i:
+			continue
+		if by_coordinate.has(coordinate):
+			var existing_index: int = by_coordinate[coordinate]
+			var existing: Dictionary = records[existing_index]
+			var attached: Array[Dictionary] = _copy_structured_diagnostics(existing.get(&"diagnostics", []))
+			if not _contains_structured_diagnostic(attached, diagnostic):
+				attached.append(diagnostic.duplicate(true))
+			existing[&"diagnostics"] = attached
+			existing[&"validation_severity"] = _diagnostic_severity(attached)
+			records[existing_index] = existing
+			continue
+		var validation_record := {
+			&"coordinate": coordinate,
+			&"exists": false,
+			&"in_bounds": _inside_volume(coordinate),
+			&"has_floor": false,
+			&"has_structure": false,
+			&"effective_rules": null,
+			&"diagnostics": [diagnostic.duplicate(true)],
+			&"validation_only": true,
+			&"validation_severity": String(diagnostic.get(&"severity", &"warning")),
+		}
+		by_coordinate[coordinate] = records.size()
+		records.append(validation_record)
+	records.sort_custom(func(first: Dictionary, second: Dictionary) -> bool:
+		var first_coordinate: Vector3i = first.get(&"coordinate", Vector3i.ZERO)
+		var second_coordinate: Vector3i = second.get(&"coordinate", Vector3i.ZERO)
+		if first_coordinate.y != second_coordinate.y:
+			return first_coordinate.y < second_coordinate.y
+		if first_coordinate.z != second_coordinate.z:
+			return first_coordinate.z < second_coordinate.z
+		return first_coordinate.x < second_coordinate.x
+	)
+	result[&"cells"] = records
+	result[&"diagnostics"] = diagnostics.duplicate(true)
+	return result
+
+
+func _contains_structured_diagnostic(items: Array[Dictionary], candidate: Dictionary) -> bool:
+	var candidate_key := "%s|%s|%s" % [candidate.get(&"code", ""), candidate.get(&"severity", ""), candidate.get(&"message", "")]
+	for item in items:
+		var item_key := "%s|%s|%s" % [item.get(&"code", ""), item.get(&"severity", ""), item.get(&"message", "")]
+		if item_key == candidate_key:
+			return true
+	return false
+
+
+func _diagnostic_severity(items: Array[Dictionary]) -> StringName:
+	for item in items:
+		if _diagnostic_is_error(item):
+			return &"error"
+	for item in items:
+		if String(item.get(&"severity", &"")) == "warning":
+			return &"warning"
+	return &""
+
+
+func _diagnostic_is_error(diagnostic: Dictionary) -> bool:
+	var severity := String(diagnostic.get(&"severity", diagnostic.get(&"level", &""))).to_lower()
+	return severity == "error" or severity == "错误"
+
+
+func _read_debug_rules_field(rules: Variant, field: int, normalized: String) -> Variant:
+	if rules == null:
+		return null
+	if rules is Dictionary:
+		var values: Dictionary = rules
+		for key in [normalized, normalized.to_upper(), StringName(normalized), StringName(normalized.to_upper())]:
+			if values.has(key):
+				return values[key]
+		return null
+	if rules is TacticalCellRules:
+		return _read_rules_field(rules as TacticalCellRules, field)
+	if rules is Object:
+		return _property(rules as Object, StringName(normalized), null)
+	return null
+
+
 func _objects_root() -> Node:
 	return author.get_node_or_null(NodePath(OBJECTS_NODE_NAME)) if has_author() else null
 
@@ -939,6 +1558,192 @@ func _snapshot_equal(a: Dictionary, b: Dictionary) -> bool:
 		if int(left.get("loot_seed", -1)) != int(right.get("loot_seed", -1)):
 			return false
 	return true
+
+
+func _clear_selection_internal() -> void:
+	selected_cells.clear()
+
+
+func _sort_cells(cells: Array[Vector3i]) -> void:
+	cells.sort_custom(func(a: Vector3i, b: Vector3i) -> bool:
+		if a.y != b.y:
+			return a.y < b.y
+		if a.z != b.z:
+			return a.z < b.z
+		return a.x < b.x
+	)
+
+
+func _normalize_property_field(field: StringName) -> StringName:
+	var normalized := StringName(String(field).to_upper())
+	return normalized if PROPERTY_FIELDS.has(normalized) else &""
+
+
+func _property_target_cells(cells: Array) -> Array[Vector3i]:
+	var source: Array = get_selected_cells() if cells.is_empty() else cells
+	var result: Array[Vector3i] = []
+	for value in source:
+		if value is Vector3i and _inside_volume(value) and not result.has(value):
+			result.append(value)
+	_sort_cells(result)
+	return result
+
+
+func _property_descriptor(field: StringName) -> Dictionary:
+	for descriptor in _property_service.field_descriptors():
+		var descriptor_id := StringName(String(descriptor.get(&"id", "")).to_upper())
+		if descriptor_id == field:
+			return descriptor
+	return {}
+
+
+func _properties_from_inspection(inspection: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	var base_rules := inspection.get(&"base_rules") as TacticalCellRules
+	var override_values := inspection.get(&"override_values") as TacticalCellRules
+	var effective_rules := inspection.get(&"effective_rules") as TacticalCellRules
+	var override_mask := int(inspection.get(&"override_mask", 0))
+	for field in PROPERTY_FIELDS:
+		var descriptor := _property_descriptor(field)
+		var field_bit := int(descriptor.get(&"field", 0))
+		var has_override := (override_mask & field_bit) != 0
+		result[field] = {
+			"inherited": not has_override,
+			"base": _read_rules_field(base_rules, field_bit),
+			"override": _read_rules_field(override_values, field_bit) if has_override else null,
+			"value": _read_rules_field(effective_rules, field_bit),
+		}
+	return result
+
+
+func _read_rules_field(rules: TacticalCellRules, field: int) -> Variant:
+	if rules == null:
+		return null
+	match field:
+		TacticalCellOverride.Field.WALKABLE:
+			return rules.walkable
+		TacticalCellOverride.Field.MOVE_COST:
+			return rules.move_cost
+		TacticalCellOverride.Field.SIGHT_BLOCK:
+			return rules.sight_block
+		TacticalCellOverride.Field.PROJECTILE_BLOCK:
+			return rules.projectile_block
+		TacticalCellOverride.Field.OCCLUDER_HEIGHT:
+			return rules.occluder_height
+	return null
+
+
+func _write_default_rules_field(rules: TacticalCellRules, field: int, value: Variant) -> void:
+	if rules == null:
+		return
+	match field:
+		TacticalCellOverride.Field.WALKABLE:
+			rules.walkable = bool(value)
+		TacticalCellOverride.Field.MOVE_COST:
+			rules.move_cost = int(value)
+		TacticalCellOverride.Field.SIGHT_BLOCK:
+			rules.sight_block = float(value)
+		TacticalCellOverride.Field.PROJECTILE_BLOCK:
+			rules.projectile_block = float(value)
+		TacticalCellOverride.Field.OCCLUDER_HEIGHT:
+			rules.occluder_height = float(value)
+
+
+func _rules_match_builtin_defaults(rules: TacticalCellRules) -> bool:
+	if rules == null:
+		return true
+	var defaults := TacticalCellRules.new()
+	for field in PROPERTY_FIELDS:
+		var descriptor := _property_descriptor(field)
+		var field_bit := int(descriptor.get(&"field", -1))
+		if not _values_equal(_read_rules_field(rules, field_bit), _read_rules_field(defaults, field_bit)):
+			return false
+	return is_equal_approx(rules.sound_cost, defaults.sound_cost) \
+		and rules.terrain_tags == defaults.terrain_tags \
+		and rules.hazard_id == defaults.hazard_id
+
+
+func _format_property_value(value: Variant) -> String:
+	if value == null:
+		return "—"
+	if value is bool:
+		return "是" if bool(value) else "否"
+	if value is float:
+		return "%.2f" % float(value)
+	return str(value)
+
+
+func _values_equal(first: Variant, second: Variant) -> bool:
+	if (first is float or first is int) and (second is float or second is int):
+		return is_equal_approx(float(first), float(second))
+	return first == second
+
+
+func _commit_property_snapshot(map_author: TacticalMapAuthor, cells: Array[Vector3i], before: Array[Dictionary], after: Array[Dictionary], label: String, undo_redo: Object) -> void:
+	if undo_redo == null:
+		_restore_property_snapshot(map_author, cells, after)
+		_set_status("已应用 %s。" % label, true)
+		return
+	# The service mutation has already produced the after snapshot. Restore the
+	# captured before state so UndoRedo.commit_action() can execute the do step
+	# exactly once and the editor scene starts from a clean before state.
+	_restore_property_snapshot(map_author, cells, before)
+	var action_context: Object = edited_scene_root if edited_scene_root != null else author
+	if undo_redo is EditorUndoRedoManager:
+		var manager := undo_redo as EditorUndoRedoManager
+		manager.create_action(label, UndoRedo.MERGE_DISABLE, action_context)
+		manager.add_do_method(self, &"_restore_property_snapshot", map_author, cells, after)
+		manager.add_undo_method(self, &"_restore_property_snapshot", map_author, cells, before)
+		manager.commit_action()
+	elif undo_redo is UndoRedo:
+		var generic_undo_redo := undo_redo as UndoRedo
+		generic_undo_redo.create_action(label)
+		generic_undo_redo.add_do_method(Callable(self, &"_restore_property_snapshot").bind(map_author, cells, after))
+		generic_undo_redo.add_undo_method(Callable(self, &"_restore_property_snapshot").bind(map_author, cells, before))
+		generic_undo_redo.commit_action()
+	_set_status("已提交一个 %s Undo Action。" % label, true)
+
+
+func _commit_default_snapshot(source: Resource, before: Dictionary, after: Dictionary, label: String, undo_redo: Object) -> void:
+	if source == null:
+		return
+	if undo_redo == null:
+		_restore_default_snapshot(source, after)
+		_set_status("已应用 %s。" % label, true)
+		return
+	_restore_default_snapshot(source, before)
+	var action_context: Object = edited_scene_root if edited_scene_root != null else author
+	if undo_redo is EditorUndoRedoManager:
+		var manager := undo_redo as EditorUndoRedoManager
+		manager.create_action(label, UndoRedo.MERGE_DISABLE, action_context)
+		manager.add_do_method(self, &"_restore_default_snapshot", source, after)
+		manager.add_undo_method(self, &"_restore_default_snapshot", source, before)
+		manager.commit_action()
+	elif undo_redo is UndoRedo:
+		var generic_undo_redo := undo_redo as UndoRedo
+		generic_undo_redo.create_action(label)
+		generic_undo_redo.add_do_method(Callable(self, &"_restore_default_snapshot").bind(source, after))
+		generic_undo_redo.add_undo_method(Callable(self, &"_restore_default_snapshot").bind(source, before))
+		generic_undo_redo.commit_action()
+	_set_status("已提交一个 %s Undo Action。" % label, true)
+
+
+func _restore_default_snapshot(source: Resource, snapshot: Dictionary) -> bool:
+	if source == null:
+		return false
+	var changed := _property_service.restore_default_state(source, snapshot)
+	if changed:
+		_emit_changed()
+	return changed
+
+
+func _restore_property_snapshot(map_author: TacticalMapAuthor, cells: Array[Vector3i], snapshot: Array[Dictionary]) -> bool:
+	if map_author == null:
+		return false
+	var changed := _property_service.restore_override_state(map_author, snapshot)
+	if changed:
+		_emit_changed()
+	return changed
 
 
 func _set_status(message: String, valid: bool) -> void:

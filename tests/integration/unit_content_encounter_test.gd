@@ -37,7 +37,10 @@ func _run() -> void:
 	_expect(prototype.encounter_members.get(&"warehouse", []).size() == 3, "encounter: warehouse should contain three enemies")
 	_expect(prototype.encounter_members.get(&"outpost", []).size() == 3, "encounter: outpost should contain three enemies")
 	_expect(prototype.turn_manager.get_enemy_ids().is_empty(), "encounter: exploration should not preload enemy turn roster")
-	_expect(prototype.loot_nodes_by_id.size() == 4, "loot visibility: all loot placements should have visual nodes")
+	var configured_loot_ids := _configured_loot_ids(prototype)
+	_expect(not configured_loot_ids.is_empty(), "loot visibility: map should expose valid LOOT placements")
+	for loot_id in configured_loot_ids:
+		_expect(prototype.loot_nodes_by_id.has(loot_id), "loot visibility: every valid map LOOT placement should have a visual node (%s)" % loot_id)
 	_expect(not (prototype.loot_nodes_by_id[&"loot_3"] as Node3D).visible, "loot visibility: unseen loot should be hidden")
 	var hidden_loot_result := prototype.interact_with_loot(&"loot_3")
 	_expect(not hidden_loot_result.success and hidden_loot_result.reason == &"invalid_target", "loot visibility: unseen loot should reject interaction")
@@ -77,6 +80,21 @@ func _run() -> void:
 	prototype.queue_free()
 	await process_frame
 	_finish()
+
+
+func _configured_loot_ids(prototype: PrototypeController) -> Array[StringName]:
+	var ids: Array[StringName] = []
+	if prototype == null or prototype.map_definition == null:
+		return ids
+	for placement_value in prototype.map_definition.objects:
+		var placement := placement_value as MapObjectPlacement
+		if placement == null or placement.object_id == &"":
+			continue
+		if placement.kind != MapObjectPlacement.Kind.LOOT or not placement.is_loot_configuration_valid():
+			continue
+		ids.append(placement.object_id)
+	ids.sort()
+	return ids
 
 
 func _expect(condition: bool, message: String) -> void:
