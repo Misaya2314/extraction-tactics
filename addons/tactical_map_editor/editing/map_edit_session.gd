@@ -918,6 +918,8 @@ func can_edit_cell(cell: Vector3i, for_tool: int = tool) -> Dictionary:
 	if selected_kind == "spawn" or selected_kind == "traversal" or selected_kind == "patrol":
 		if not _has_floor_cell(cell):
 			return {"valid": false, "reason": "出生点、连接和巡逻点必须位于有效 Floor 上。"}
+		if selected_kind == "spawn" and not _spawn_markers_at(cell).is_empty():
+			return {"valid": true, "reason": "将替换并归一化该格已有出生点。"}
 		return {"valid": true, "reason": "可放置 %s。" % selected_kind}
 	var effective_layer := _paint_effective_layer()
 	if effective_layer == TargetLayer.OBJECT:
@@ -1238,20 +1240,44 @@ func _replace_object_at(cell: Vector3i) -> bool:
 
 
 func _place_spawn_at(cell: Vector3i) -> bool:
+	# A cell is a single spawn slot.  Inspect it before creating/ensuring any
+	# root so an equivalent single marker is a true no-op with no new name or
+	# scene mutation.  Multiple legacy markers are always normalized below.
+	var existing_markers := _spawn_markers_at(cell)
+	var equivalent_marker: UnitSpawnMarker3D = null
+	for node in existing_markers:
+		if node is UnitSpawnMarker3D and _spawn_configuration_equal(node as UnitSpawnMarker3D, selected_placeable):
+			equivalent_marker = node as UnitSpawnMarker3D
+			break
+	if existing_markers.size() == 1 and equivalent_marker != null:
+		return false
+
 	var root := _ensure_content_root(SPAWNS_NODE_NAME)
 	if root == null:
 		return false
 	var entry := selected_placeable
-	var faction := String(entry.get("faction", "enemy"))
+	var faction := _spawn_faction(entry)
 	var prefix := String(entry.get("unit_name_prefix", "PlayerSpawn" if faction == "player" else "EnemySpawn"))
-	var unit_name := StringName(_next_content_id(prefix, root, &"unit_name"))
+	var unit_name := StringName()
+	if equivalent_marker != null:
+		# Normalizing duplicate legacy markers should not consume another name.
+		unit_name = equivalent_marker.unit_name
+		if unit_name == &"":
+			unit_name = StringName(equivalent_marker.name)
+	for node in existing_markers:
+		var old_marker: Node = node
+		if old_marker.get_parent() != null:
+			old_marker.get_parent().remove_child(old_marker)
+		old_marker.free()
+	if unit_name == &"":
+		unit_name = StringName(_next_content_id(prefix, root, &"unit_name"))
 	var record := {
 		&"name": unit_name,
 		&"unit_name": unit_name,
 		&"faction": faction,
 		&"cell": cell,
 		&"facing": _facing_for_quarters(),
-		&"visual_color": entry.get("visual_color", Color("4f9dff") if faction == "player" else Color("ff5b5b")),
+		&"visual_color": _spawn_visual_color(entry, faction),
 		&"patrol_route_id": StringName(entry.get("patrol_route_id", &"")),
 		&"archetype": entry.get("archetype", null),
 		&"weapon": entry.get("weapon", null),
@@ -1259,6 +1285,39 @@ func _place_spawn_at(cell: Vector3i) -> bool:
 	}
 	_create_spawn_marker(record, root)
 	return true
+
+
+func _spawn_faction(entry: Dictionary) -> String:
+	return String(entry.get(&"faction", "enemy"))
+
+
+func _spawn_default_visual_color(faction: String) -> Color:
+	return Color("4f9dff") if faction == "player" else Color("ff5b5b")
+
+
+func _spawn_visual_color(entry: Dictionary, faction: String) -> Color:
+	var fallback := _spawn_default_visual_color(faction)
+	var configured = entry.get(&"visual_color", fallback)
+	return configured if configured is Color else fallback
+
+
+func _spawn_configuration_equal(marker: UnitSpawnMarker3D, entry: Dictionary) -> bool:
+	if marker == null:
+		return false
+	var expected_faction := _spawn_faction(entry)
+	var expected_facing: Vector2i = _facing_for_quarters()
+	var expected_color := _spawn_visual_color(entry, expected_faction)
+	var expected_patrol_route := StringName(entry.get(&"patrol_route_id", &""))
+	var expected_encounter := StringName(entry.get(&"encounter_id", &""))
+	return (
+		marker.faction == expected_faction
+		and marker.facing == expected_facing
+		and marker.visual_color.is_equal_approx(expected_color)
+		and marker.patrol_route_id == expected_patrol_route
+		and _resources_equivalent(marker.archetype, entry.get(&"archetype", null))
+		and _resources_equivalent(marker.weapon, entry.get(&"weapon", null))
+		and marker.encounter_id == expected_encounter
+	)
 
 
 func _place_traversal_at(cell: Vector3i) -> bool:
@@ -2275,6 +2334,59 @@ func _property(object: Object, property_name: StringName, fallback: Variant) -> 
 			var value = object.get(property_name)
 			return fallback if value == null and fallback != null else value
 	return fallback
+
+
+func _resources_equivalent(left: Variant, right: Variant) -> bool:
+	if left == right:
+		return true
+	if left == null or right == null:
+		return false
+	if not left is Resource or not right is Resource:
+		return left == right
+	var left_resource := left as Resource
+	var right_resource := right as Resource
+	var left_path := String(left_resource.resource_path)
+	var right_path := String(right_resource.resource_path)
+	if not left_path.is_empty() or not right_path.is_empty():
+		return not left_path.is_empty() and left_path == right_path
+	return _resource_signature(left_resource, {}) == _resource_signature(right_resource, {})
+
+
+func _resource_signature(resource: Resource, seen: Dictionary) -> Dictionary:
+	var signature: Dictionary = {&"class": resource.get_class()}
+	for property_info in resource.get_property_list():
+		var property_name := StringName(property_info.get("name", ""))
+		if property_name in [&"resource_path", &"resource_name", &"resource_local_to_scene", &"script"]:
+			continue
+		if (int(property_info.get("usage", 0)) & PROPERTY_USAGE_STORAGE) == 0:
+			continue
+		signature[property_name] = _stable_resource_value(resource.get(property_name), seen)
+	return signature
+
+
+func _stable_resource_value(value: Variant, seen: Dictionary) -> Variant:
+	if value is Resource:
+		var resource := value as Resource
+		var path := String(resource.resource_path)
+		if not path.is_empty():
+			return {&"resource_path": path}
+		var instance_id := resource.get_instance_id()
+		if seen.has(instance_id):
+			return {&"resource_class": resource.get_class(), &"cycle": true}
+		var nested_seen := seen.duplicate()
+		nested_seen[instance_id] = true
+		return _resource_signature(resource, nested_seen)
+	if value is Array:
+		var array_value: Array = []
+		for item in value:
+			array_value.append(_stable_resource_value(item, seen))
+		return array_value
+	if value is Dictionary:
+		var dictionary_value: Dictionary = {}
+		for key in value.keys():
+			dictionary_value[key] = _stable_resource_value(value[key], seen)
+		return dictionary_value
+	return value
 
 
 func _orientation_for_quarters(layer: int = -1) -> int:
