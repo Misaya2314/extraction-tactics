@@ -15,6 +15,7 @@ func _init() -> void:
 	_test_default_library_object_entries()
 	_test_library_decoration_aliases()
 	_test_paint_uses_selected_entry_layer()
+	_test_box_paint_writes_one_rectangle_as_one_stroke()
 	_test_noop_stroke_does_not_commit()
 	_test_undo_snapshot_call_signature()
 	_test_object_snapshot_includes_facing()
@@ -349,6 +350,35 @@ func _test_noop_stroke_does_not_commit() -> void:
 	var undo_redo := UndoRedo.new()
 	_expect(not session.finish_stroke(undo_redo), "stroke: no-op should not report a committed action")
 	_expect(not undo_redo.has_undo(), "stroke: no-op should not create an Undo Action")
+	undo_redo.free()
+	author.free()
+
+
+func _test_box_paint_writes_one_rectangle_as_one_stroke() -> void:
+	var author := _make_author()
+	var library := TacticalPlaceableLibrary.new()
+	var floor_definition := TacticalCellTileDefinition.new()
+	floor_definition.placeable_id = &"library.box_floor"
+	floor_definition.display_name = "Box Floor"
+	floor_definition.placement_kind = 0
+	floor_definition.target_layer = 0
+	floor_definition.mesh_item_id = 1
+	library.definitions = [floor_definition]
+	author.placeable_library = library
+
+	var session = SessionScript.new()
+	session.begin_for_author(author, author)
+	session.select_placeable(0)
+	session.set_tool(SessionScript.Tool.BOX_PAINT)
+	session.begin_stroke("框选绘制")
+	var undo_redo := UndoRedo.new()
+	_expect(session.apply_rectangle(Vector3i(1, 0, 0), Vector3i(0, 0, 0)), "box paint: reverse drag should apply")
+	_expect(session.finish_stroke(undo_redo), "box paint: changed rectangle should commit")
+	var floor_grid := author.get_node("FloorGrid") as GridMap
+	_expect(floor_grid.get_cell_item(Vector3i(0, 0, 0)) == 1 and floor_grid.get_cell_item(Vector3i(1, 0, 0)) == 1, "box paint: all cells in the rectangle should receive the item")
+	_expect(undo_redo.has_undo(), "box paint: rectangle should be one Undo Action")
+	undo_redo.undo()
+	_expect(floor_grid.get_cell_item(Vector3i(0, 0, 0)) == 0 and floor_grid.get_cell_item(Vector3i(1, 0, 0)) == 0, "box paint: undo should restore the complete rectangle")
 	undo_redo.free()
 	author.free()
 

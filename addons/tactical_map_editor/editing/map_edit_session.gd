@@ -17,6 +17,7 @@ enum Tool {
 	PICK,
 	ROTATE,
 	SELECT,
+	BOX_PAINT,
 }
 
 ## Stable debug-view IDs.  Keep these values append-only because Dock state can
@@ -166,7 +167,7 @@ func set_target_layer(value: int) -> void:
 
 
 func set_tool(value: int) -> void:
-	var next_tool := clampi(value, Tool.PAINT, Tool.SELECT)
+	var next_tool := clampi(value, Tool.PAINT, Tool.BOX_PAINT)
 	if tool == next_tool:
 		return
 	cancel_stroke()
@@ -859,6 +860,8 @@ func tool_name(value: int = tool) -> String:
 			return "Rotate"
 		Tool.SELECT:
 			return "Select"
+		Tool.BOX_PAINT:
+			return "Box Paint"
 	return "Unknown"
 
 
@@ -871,6 +874,10 @@ func can_edit_cell(cell: Vector3i, for_tool: int = tool) -> Dictionary:
 		return {"valid": true, "reason": "可吸取。"}
 	if for_tool == Tool.ERASE:
 		return {"valid": true, "reason": "可擦除。"}
+	if for_tool == Tool.BOX_PAINT:
+		if String(selected_placeable.get("kind", "")) != "cell":
+			return {"valid": false, "reason": "框选绘制只支持 Cell 地格素材。"}
+		for_tool = Tool.PAINT
 	if for_tool == Tool.SELECT:
 		if not _has_floor_cell(cell):
 			return {"valid": false, "reason": "该坐标没有可编译 Floor 地格。"}
@@ -932,6 +939,36 @@ func apply_at(cell: Vector3i) -> bool:
 		begin_stroke()
 	if tool == Tool.PICK:
 		return pick_at(cell)
+	return _apply_at_internal(cell, true)
+
+
+## Applies every cell in an X/Z rectangle as one stroke.  The editor uses this
+## for Box Paint so large areas do not emit a change signal for every cell.
+func apply_rectangle(from_cell: Vector3i, to_cell: Vector3i) -> bool:
+	if tool != Tool.BOX_PAINT:
+		_set_status("当前工具不是框选绘制。", false)
+		return false
+	if from_cell.y != to_cell.y:
+		_set_status("框选绘制必须位于同一楼层。", false)
+		return false
+	if not stroke_active:
+		begin_stroke("框选绘制")
+	var min_x := mini(from_cell.x, to_cell.x)
+	var max_x := maxi(from_cell.x, to_cell.x)
+	var min_z := mini(from_cell.z, to_cell.z)
+	var max_z := maxi(from_cell.z, to_cell.z)
+	var changed_count := 0
+	for z in range(min_z, max_z + 1):
+		for x in range(min_x, max_x + 1):
+			if _apply_at_internal(Vector3i(x, from_cell.y, z), false):
+				changed_count += 1
+	if changed_count > 0:
+		_set_status("框选绘制：已修改 %d 格。" % changed_count, true)
+		_emit_changed()
+	return changed_count > 0
+
+
+func _apply_at_internal(cell: Vector3i, emit_change: bool) -> bool:
 	var check := can_edit_cell(cell)
 	if not bool(check.get("valid", false)):
 		_set_status(String(check.get("reason", "无法编辑。")), false)
@@ -943,7 +980,7 @@ func apply_at(cell: Vector3i) -> bool:
 			_stroke_global_before = before_snapshot
 	var changed_now := false
 	match tool:
-		Tool.PAINT:
+		Tool.PAINT, Tool.BOX_PAINT:
 			changed_now = _paint_at(cell)
 		Tool.ERASE:
 			changed_now = _erase_at(cell)
@@ -954,8 +991,9 @@ func apply_at(cell: Vector3i) -> bool:
 		_stroke_after[cell] = after_snapshot
 		if _uses_content_root_snapshot():
 			_stroke_global_after = after_snapshot
-		_set_status("%s：%s" % [tool_name(), cell], true)
-		_emit_changed()
+		if emit_change:
+			_set_status("%s：%s" % [tool_name(), cell], true)
+			_emit_changed()
 	return changed_now
 
 
@@ -1307,12 +1345,12 @@ func _capture_snapshot(cell: Vector3i) -> Dictionary:
 	# Painting is routed by the selected entry kind, while Erase/Rotate are
 	# routed by target_layer.  Capture the corresponding content root so the
 	# Undo snapshot follows the same semantic route as the mutation.
-	var snapshot_content_layer := _paint_effective_layer() if tool == Tool.PAINT else target_layer
-	if selected_kind == "spawn" and tool == Tool.PAINT:
+	var snapshot_content_layer := _paint_effective_layer() if tool == Tool.PAINT or tool == Tool.BOX_PAINT else target_layer
+	if selected_kind == "spawn" and (tool == Tool.PAINT or tool == Tool.BOX_PAINT):
 		return {"kind": "spawn_root", "layer": TargetLayer.SPAWNER, "cell": cell, "root_exists": _content_root(SPAWNS_NODE_NAME) != null, "records": _capture_spawn_records()}
-	if selected_kind == "traversal" and tool == Tool.PAINT:
+	if selected_kind == "traversal" and (tool == Tool.PAINT or tool == Tool.BOX_PAINT):
 		return {"kind": "traversal_root", "layer": TargetLayer.TRAVERSAL, "cell": cell, "root_exists": _content_root(TRAVERSAL_LINKS_NODE_NAME) != null, "records": _capture_traversal_records()}
-	if selected_kind == "patrol" and tool == Tool.PAINT:
+	if selected_kind == "patrol" and (tool == Tool.PAINT or tool == Tool.BOX_PAINT):
 		return {"kind": "patrol_root", "layer": TargetLayer.AI, "cell": cell, "root_exists": _content_root(PATROL_ROUTES_NODE_NAME) != null, "records": _capture_patrol_records()}
 	if snapshot_content_layer == TargetLayer.SPAWNER:
 		return {"kind": "spawn_root", "layer": TargetLayer.SPAWNER, "cell": cell, "root_exists": _content_root(SPAWNS_NODE_NAME) != null, "records": _capture_spawn_records()}
@@ -1320,7 +1358,7 @@ func _capture_snapshot(cell: Vector3i) -> Dictionary:
 		return {"kind": "traversal_root", "layer": TargetLayer.TRAVERSAL, "cell": cell, "root_exists": _content_root(TRAVERSAL_LINKS_NODE_NAME) != null, "records": _capture_traversal_records()}
 	if snapshot_content_layer == TargetLayer.AI:
 		return {"kind": "patrol_root", "layer": TargetLayer.AI, "cell": cell, "root_exists": _content_root(PATROL_ROUTES_NODE_NAME) != null, "records": _capture_patrol_records()}
-	var snapshot_layer := _paint_effective_layer() if tool == Tool.PAINT else target_layer
+	var snapshot_layer := _paint_effective_layer() if tool == Tool.PAINT or tool == Tool.BOX_PAINT else target_layer
 	if snapshot_layer == TargetLayer.OBJECT:
 		return {"kind": "object", "layer": TargetLayer.OBJECT, "cell": cell, "records": _capture_marker_records(cell)}
 	var grid := _grid_for_layer(snapshot_layer)

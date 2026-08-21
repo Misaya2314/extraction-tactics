@@ -17,6 +17,8 @@ var _preview_root: Node3D
 var _preview_mesh: MeshInstance3D
 var _selection_overlay_root: Node3D
 var _selection_overlay: MultiMeshInstance3D
+var _box_overlay_root: Node3D
+var _box_overlay: MeshInstance3D
 var _debug_overlay_root: Node3D
 var _debug_overlay: MultiMeshInstance3D
 var _special_overlay_root: Node3D
@@ -24,6 +26,9 @@ var _wizard: TacticalPlaceableWizard
 var _new_map_dialog: TacticalNewMapDialog
 var _last_preview_target: TacticalPlacementTarget
 var _drag_button: int = 0
+var _box_drag_active: bool = false
+var _box_anchor_cell: Vector3i = Vector3i.ZERO
+var _box_current_cell: Vector3i = Vector3i.ZERO
 var _temporary_erase_restore_tool: int = -1
 var _temporary_erase_active: bool = false
 var _bake_and_play_in_progress: bool = false
@@ -65,6 +70,7 @@ func _exit_tree() -> void:
 	_cancel_active_edit_input()
 	_clear_preview()
 	_clear_selection_overlay()
+	_clear_box_overlay()
 	_clear_debug_overlay()
 	_clear_special_overlay()
 	if _wizard != null and is_instance_valid(_wizard):
@@ -141,6 +147,11 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 			return AFTER_GUI_INPUT_PASS
 		var target := _target_from_screen(viewport_camera, motion.position)
 		_update_preview(target)
+		if _box_drag_active:
+			if target.valid:
+				_box_current_cell = target.cell
+			_update_box_overlay(_box_anchor_cell, _box_current_cell, target.valid)
+			return AFTER_GUI_INPUT_STOP
 		if _drag_button != 0:
 			if target.valid:
 				_session.apply_at(target.cell)
@@ -154,6 +165,8 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 			_clear_preview()
 			return AFTER_GUI_INPUT_PASS
 		if mouse.button_index == MOUSE_BUTTON_LEFT:
+			if not mouse.pressed and _box_drag_active:
+				return _finish_box_paint(viewport_camera, mouse)
 			if mouse.pressed:
 				if mouse_action == INPUT_STRATEGY.Action.LEFT_TEMP_ERASE:
 					return _begin_temporary_erase(viewport_camera, mouse)
@@ -169,6 +182,8 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 				if mouse_action == INPUT_STRATEGY.Action.LEFT_PICK:
 					_session.pick_at(left_target.cell)
 					return AFTER_GUI_INPUT_STOP
+				if _session.tool == TacticalMapEditSession.Tool.BOX_PAINT:
+					return _begin_box_paint(left_target)
 				_drag_button = MOUSE_BUTTON_LEFT
 				_session.begin_stroke(_session.tool_name())
 				_session.apply_at(left_target.cell)
@@ -197,6 +212,28 @@ func _begin_temporary_erase(viewport_camera: Camera3D, mouse: InputEventMouseBut
 	return AFTER_GUI_INPUT_STOP
 
 
+func _begin_box_paint(target: TacticalPlacementTarget) -> int:
+	_box_drag_active = true
+	_box_anchor_cell = target.cell
+	_box_current_cell = target.cell
+	_session.begin_stroke("框选绘制")
+	_update_box_overlay(_box_anchor_cell, _box_current_cell, true)
+	return AFTER_GUI_INPUT_STOP
+
+
+func _finish_box_paint(viewport_camera: Camera3D, mouse: InputEventMouseButton) -> int:
+	var target := _target_from_screen(viewport_camera, mouse.position)
+	if target.valid:
+		_box_current_cell = target.cell
+	_update_box_overlay(_box_anchor_cell, _box_current_cell, target.valid)
+	_box_drag_active = false
+	_session.apply_rectangle(_box_anchor_cell, _box_current_cell)
+	_session.finish_stroke(get_undo_redo())
+	_clear_box_overlay()
+	_clear_preview()
+	return AFTER_GUI_INPUT_STOP
+
+
 func _restore_temporary_erase_tool() -> void:
 	if not _temporary_erase_active:
 		_temporary_erase_restore_tool = -1
@@ -216,6 +253,10 @@ func _cancel_active_edit_input() -> void:
 		return
 	if _drag_button == MOUSE_BUTTON_LEFT or _temporary_erase_active:
 		_session.cancel_stroke()
+	if _box_drag_active:
+		_session.cancel_stroke()
+		_box_drag_active = false
+		_clear_box_overlay()
 	_drag_button = 0
 	_restore_temporary_erase_tool()
 
@@ -232,6 +273,7 @@ func _on_selection_changed() -> void:
 	if next_author == null:
 		_clear_preview()
 		_clear_selection_overlay()
+		_clear_box_overlay()
 		_clear_debug_overlay()
 		_clear_special_overlay()
 		_session.clear_author()
@@ -247,6 +289,7 @@ func _activate_author(next_author: Node) -> void:
 		return
 	_clear_preview()
 	_clear_selection_overlay()
+	_clear_box_overlay()
 	_clear_debug_overlay()
 	_clear_special_overlay()
 	var scene_root := get_editor_interface().get_edited_scene_root()
@@ -263,6 +306,7 @@ func _on_edit_mode_changed(enabled: bool) -> void:
 func _on_floor_changed(level: int) -> void:
 	_session.set_floor_level(level)
 	_clear_preview()
+	_clear_box_overlay()
 	_update_selection_overlay()
 	_update_debug_overlay()
 	_update_special_overlay()
@@ -273,7 +317,9 @@ func _on_target_layer_changed(layer: int) -> void:
 
 
 func _on_tool_changed(tool: int) -> void:
+	_cancel_active_edit_input()
 	_session.set_tool(tool)
+	_clear_box_overlay()
 
 
 func _on_rotate_requested() -> void:
@@ -698,6 +744,77 @@ func _clear_selection_overlay() -> void:
 	_selection_overlay = null
 
 
+func _update_box_overlay(from_cell: Vector3i, to_cell: Vector3i, valid: bool) -> void:
+	if not _box_drag_active or _session == null or not _session.has_author():
+		_clear_box_overlay()
+		return
+	var author := _session.author as Node3D
+	if author == null or not author.has_method("cell_to_local"):
+		_clear_box_overlay()
+		return
+	var dimensions: Vector3 = author.get("cell_dimensions")
+	if dimensions.x <= 0.0 or dimensions.y <= 0.0 or dimensions.z <= 0.0:
+		_clear_box_overlay()
+		return
+	var min_x := mini(from_cell.x, to_cell.x)
+	var max_x := maxi(from_cell.x, to_cell.x)
+	var min_z := mini(from_cell.z, to_cell.z)
+	var max_z := maxi(from_cell.z, to_cell.z)
+	var first_center: Vector3 = author.call("cell_to_local", Vector3i(min_x, from_cell.y, min_z))
+	var last_center: Vector3 = author.call("cell_to_local", Vector3i(max_x, from_cell.y, max_z))
+	var local_center := (first_center + last_center) * 0.5
+	local_center.y += dimensions.y * 0.48
+	_ensure_box_overlay()
+	if _box_overlay == null:
+		return
+	var box_mesh := BoxMesh.new()
+	box_mesh.size = Vector3(
+		float(max_x - min_x + 1) * dimensions.x * 0.96,
+		maxf(dimensions.y * 0.06, 0.05),
+		float(max_z - min_z + 1) * dimensions.z * 0.96
+	)
+	_box_overlay.position = local_center
+	_box_overlay.mesh = box_mesh
+	var overlay_material := _box_overlay.material_override as StandardMaterial3D
+	if overlay_material != null:
+		overlay_material.albedo_color = Color(0.25, 0.95, 0.4, 0.24) if valid else Color(0.95, 0.2, 0.2, 0.24)
+	_box_overlay.visible = true
+
+
+func _ensure_box_overlay() -> void:
+	if _box_overlay != null and is_instance_valid(_box_overlay):
+		return
+	if _session == null or not _session.has_author():
+		return
+	var author := _session.author as Node3D
+	if author == null:
+		return
+	_box_overlay_root = Node3D.new()
+	_box_overlay_root.name = "__TacticalMapEditorBoxOverlay"
+	_box_overlay_root.set_meta("tactical_map_editor_preview", true)
+	author.add_child(_box_overlay_root)
+	_box_overlay = MeshInstance3D.new()
+	_box_overlay.name = "BoxPaintArea"
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color.WHITE
+	_box_overlay.material_override = material
+	_box_overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_box_overlay_root.add_child(_box_overlay)
+	_box_overlay_root.owner = null
+	_box_overlay.owner = null
+
+
+func _clear_box_overlay() -> void:
+	if _box_overlay_root != null and is_instance_valid(_box_overlay_root):
+		if _box_overlay_root.get_parent() != null:
+			_box_overlay_root.get_parent().remove_child(_box_overlay_root)
+		_box_overlay_root.free()
+	_box_overlay_root = null
+	_box_overlay = null
+
+
 func _update_debug_overlay() -> void:
 	if _session == null or not _session.has_author() or _session.get_debug_view() == TacticalMapEditSession.DebugView.NORMAL:
 		_clear_debug_overlay()
@@ -1101,6 +1218,7 @@ func _disable_preview_collisions(node: Node) -> void:
 
 
 func _clear_preview() -> void:
+	_clear_box_overlay()
 	if _preview_root != null and is_instance_valid(_preview_root):
 		if _preview_root.get_parent() != null:
 			_preview_root.get_parent().remove_child(_preview_root)

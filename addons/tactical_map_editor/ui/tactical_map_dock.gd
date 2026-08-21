@@ -240,6 +240,8 @@ func _build_ui() -> void:
 	_tool_option.add_item("Pick", TacticalMapEditSession.Tool.PICK)
 	_tool_option.add_item("Rotate", TacticalMapEditSession.Tool.ROTATE)
 	_tool_option.add_item("Select", TacticalMapEditSession.Tool.SELECT)
+	_tool_option.add_item("Box Paint", TacticalMapEditSession.Tool.BOX_PAINT)
+	_tool_option.set_item_tooltip(_tool_option.item_count - 1, "按住左键拖出矩形，松开后批量绘制 Cell 地格。")
 	_tool_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tool_option.item_selected.connect(func(index: int) -> void:
 		tool_changed.emit(int(_tool_option.get_item_id(index)))
@@ -1369,6 +1371,7 @@ func _ensure_phase_c_ui() -> bool:
 	if not _ensure_tool_option():
 		return false
 	_ensure_select_tool_item()
+	_ensure_box_paint_tool_item()
 	_ensure_add_placeable_button()
 	var property_ready := _ensure_property_panel()
 	var debug_ready := _ensure_debug_panel()
@@ -1613,6 +1616,16 @@ func _ensure_select_tool_item() -> void:
 		if _tool_option.get_item_id(index) == TacticalMapEditSession.Tool.SELECT:
 			return
 	_tool_option.add_item("Select", TacticalMapEditSession.Tool.SELECT)
+
+
+func _ensure_box_paint_tool_item() -> void:
+	if not _is_valid_control(_tool_option):
+		return
+	for index in range(_tool_option.item_count):
+		if _tool_option.get_item_id(index) == TacticalMapEditSession.Tool.BOX_PAINT:
+			return
+	_tool_option.add_item("Box Paint", TacticalMapEditSession.Tool.BOX_PAINT)
+	_tool_option.set_item_tooltip(_tool_option.item_count - 1, "按住左键拖出矩形，松开后批量绘制 Cell 地格。")
 
 
 func _ensure_property_panel() -> bool:
