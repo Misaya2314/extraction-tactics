@@ -9,6 +9,7 @@ var _failures: Array[String] = []
 
 
 func _init() -> void:
+	_test_author_root_qualification()
 	_test_catalog_integer_layer_routing()
 	_test_library_integer_placement_and_layer_routing()
 	_test_formal_target_layers_and_palette_filtering()
@@ -29,6 +30,55 @@ func _init() -> void:
 	_test_special_spawn_configuration_and_state()
 	_test_special_undo_redo_roundtrips()
 	_finish()
+
+
+func _test_author_root_qualification() -> void:
+	var session = SessionScript.new()
+
+	# An edited scene root may be parented below an editor-internal node.  The
+	# root identity, rather than parent == null, is the qualification contract.
+	var editor_internal_parent := Node3D.new()
+	var valid_author := _make_author()
+	valid_author.name = "PrototypeMapAuthoring"
+	editor_internal_parent.add_child(valid_author)
+	_expect(SessionScript.is_qualified_author(valid_author, valid_author), "author qualification: the selected author/root identity should qualify even with an internal parent")
+	_expect(session.begin_for_author(valid_author, valid_author), "author qualification: a valid edited scene root should bind")
+	_expect(session.has_author() and session.author == valid_author and session.edited_scene_root == valid_author, "author qualification: bound author and edited root should be the same instance")
+
+	# A normal child of the current scene root is never a map root, even if its
+	# display name resembles the author scene.
+	var scene_root := _make_author()
+	scene_root.name = "PrototypeMapAuthoring"
+	var ordinary_child := Node3D.new()
+	ordinary_child.name = "PrototypeMapAuthoring"
+	scene_root.add_child(ordinary_child)
+	_expect(not SessionScript.is_qualified_author(ordinary_child, scene_root), "author qualification: a normal child must not qualify")
+	_expect(not session.begin_for_author(ordinary_child, scene_root), "author qualification: a normal child must be rejected")
+
+	# A nested TacticalMapAuthor is also rejected when the edited scene root is
+	# the outer map author.
+	var nested_author := TacticalMapAuthor.new()
+	nested_author.name = "PrototypeMapAuthoring"
+	scene_root.add_child(nested_author)
+	_expect(not SessionScript.is_qualified_author(nested_author, scene_root), "author qualification: nested TacticalMapAuthor must not qualify against the outer root")
+	_expect(not session.begin_for_author(nested_author, scene_root), "author qualification: nested TacticalMapAuthor must be rejected")
+
+	var same_name_non_author := Node3D.new()
+	same_name_non_author.name = "PrototypeMapAuthoring"
+	_expect(not SessionScript.is_qualified_author(same_name_non_author, same_name_non_author), "author qualification: a same-name non-Author node must not qualify")
+	_expect(not session.begin_for_author(same_name_non_author, same_name_non_author), "author qualification: a same-name non-Author node must be rejected")
+
+	# Invalid rebinding must not cancel or replace the currently valid session.
+	var child_count_before := valid_author.get_child_count()
+	_expect(not session.begin_for_author(nested_author, scene_root), "author qualification: invalid rebinding should return false")
+	_expect(session.author == valid_author and session.edited_scene_root == valid_author, "author qualification: invalid rebinding must preserve the valid session")
+	_expect(valid_author.get_child_count() == child_count_before, "author qualification: invalid rebinding must not alter scene contents")
+
+	session.clear_author()
+	valid_author.free()
+	editor_internal_parent.free()
+	scene_root.free()
+	same_name_non_author.free()
 
 
 func _test_catalog_integer_layer_routing() -> void:

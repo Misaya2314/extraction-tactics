@@ -13,6 +13,7 @@ const AUTHOR_SCRIPT_PATH := "res://scripts/map_authoring/tactical_map_author.gd"
 var _dock: TacticalMapDock
 var _session: TacticalMapEditSession
 var _selection: EditorSelection
+var _active_author: Node
 var _preview_root: Node3D
 var _preview_mesh: MeshInstance3D
 var _selection_overlay_root: Node3D
@@ -32,6 +33,7 @@ var _box_current_cell: Vector3i = Vector3i.ZERO
 var _temporary_erase_restore_tool: int = -1
 var _temporary_erase_active: bool = false
 var _bake_and_play_in_progress: bool = false
+var _selection_clear_in_progress: bool = false
 
 
 func _enter_tree() -> void:
@@ -59,6 +61,8 @@ func _enter_tree() -> void:
 	_dock.property_inherit_requested.connect(_on_property_inherit_requested)
 	_dock.default_property_override_requested.connect(_on_default_property_override_requested)
 	_dock.default_property_restore_requested.connect(_on_default_property_restore_requested)
+	set_input_event_forwarding_always_enabled()
+	set_process(true)
 	add_control_to_dock(DOCK_SLOT_RIGHT_UL, _dock)
 	_selection = get_editor_interface().get_selection()
 	if _selection != null:
@@ -67,6 +71,7 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
+	set_process(false)
 	_cancel_active_edit_input()
 	_clear_preview()
 	_clear_selection_overlay()
@@ -91,6 +96,14 @@ func _exit_tree() -> void:
 		_dock.queue_free()
 	_dock = null
 	_session = null
+	_active_author = null
+
+
+func _process(_delta: float) -> void:
+	if _session == null or not _session.edit_mode:
+		return
+	if not _is_locked_edit_valid():
+		_exit_edit_mode("地图作者或编辑场景已改变，编辑模式已关闭。")
 
 
 func _handles(object: Object) -> bool:
@@ -104,19 +117,23 @@ func _edit(object: Object) -> void:
 
 
 func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
-	if _session == null or not _session.has_author():
+	if _session == null:
 		return AFTER_GUI_INPUT_PASS
+	if _session.edit_mode:
+		if not _is_locked_edit_valid():
+			_exit_edit_mode("地图作者或编辑场景已改变，编辑模式已关闭。")
+			return AFTER_GUI_INPUT_PASS
+	else:
+		# Before editing, only a selected scene root can start the mode.  This
+		# gate also lets M bind a root whose selection signal is still settling.
+		if _selected_scene_root_author() == null:
+			return AFTER_GUI_INPUT_PASS
 
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key_event := event as InputEventKey
 		var key_action := INPUT_STRATEGY.classify_key(key_event, true, _session.edit_mode)
 		if key_action == INPUT_STRATEGY.Action.TOGGLE_EDIT_MODE:
-			var next_edit_mode := not _session.edit_mode
-			if not next_edit_mode:
-				_cancel_active_edit_input()
-			_session.set_edit_mode(next_edit_mode)
-			if not next_edit_mode:
-				_clear_preview()
+			_request_edit_mode(not _session.edit_mode)
 			return AFTER_GUI_INPUT_STOP
 		if not _session.edit_mode:
 			return AFTER_GUI_INPUT_PASS
@@ -262,45 +279,151 @@ func _cancel_active_edit_input() -> void:
 
 
 func _on_selection_changed() -> void:
-	if _selection == null:
+	if _selection == null or _session == null:
 		return
 	var nodes := _selection.get_selected_nodes()
-	var next_author: Node = null
-	for node in nodes:
-		next_author = _find_author(node)
-		if next_author != null:
-			break
-	if next_author == null:
-		_clear_preview()
-		_clear_selection_overlay()
-		_clear_box_overlay()
-		_clear_debug_overlay()
-		_clear_special_overlay()
-		_session.clear_author()
-		_dock.set_session(_session)
+	if _session.edit_mode:
+		if not _is_locked_edit_valid():
+			_exit_edit_mode("地图作者或编辑场景已改变，编辑模式已关闭。")
+			return
+		if not selection_belongs_to_author(nodes, _active_author):
+			_exit_edit_mode("已离开当前地图，编辑模式已关闭；请重新选择地图根节点。")
+			return
+		if _selection_includes_author(nodes, _active_author):
+			_clear_editor_selection_for_lock()
 		return
-	_activate_author(next_author)
+
+	var next_author := _selected_scene_root_author()
+	if next_author == null:
+		_clear_author_binding("请在场景树中选择地图根节点后开启编辑。", false)
+		return
+	if not _bind_author(next_author):
+		_clear_author_binding("地图根节点绑定失败，请重新选择作者场景根节点。", false)
 
 
 func _activate_author(next_author: Node) -> void:
 	if next_author == null:
 		return
+	if not is_map_author_root_node(next_author) or next_author != get_editor_interface().get_edited_scene_root():
+		_clear_author_binding("请直接选择当前编辑场景的地图根节点。", false)
+		return
 	if _session.author == next_author:
 		return
+	if not _bind_author(next_author):
+		_clear_author_binding("地图根节点绑定失败，请重新选择作者场景根节点。", false)
+
+
+func _on_edit_mode_changed(enabled: bool) -> void:
+	_request_edit_mode(enabled)
+
+
+func _request_edit_mode(enabled: bool) -> void:
+	if _session == null:
+		return
+	if not enabled:
+		_exit_edit_mode("地图编辑模式已关闭，请重新选择地图根节点后再开启。")
+		return
+	var selected_author := _selected_scene_root_author()
+	if selected_author == null:
+		_session.set_edit_mode(false)
+		if _dock != null:
+			_dock.set_map_locked(false)
+			_dock.set_status_message("请在场景树中选择地图根节点后开启编辑。", false)
+		return
+	if not _bind_author(selected_author):
+		_clear_author_binding("地图根节点绑定失败，请重新选择作者场景根节点。", false)
+		return
+	_session.set_edit_mode(true)
+	if not _session.edit_mode or _session.author != selected_author:
+		_clear_author_binding("地图编辑模式未能成功开启。", false)
+		return
+	_active_author = selected_author
+	if _dock != null:
+		_dock.set_map_locked(true)
+		_dock.set_status_message("地图已锁定，已隐藏根节点选择框。", true)
+	_clear_editor_selection_for_lock()
+
+
+func _bind_author(next_author: Node) -> bool:
+	if _session == null or not is_map_author_root_node(next_author):
+		return false
+	var scene_root := get_editor_interface().get_edited_scene_root()
+	if next_author != scene_root:
+		return false
+	if _session.author == next_author:
+		return true
+	_cancel_active_edit_input()
 	_clear_preview()
 	_clear_selection_overlay()
 	_clear_box_overlay()
 	_clear_debug_overlay()
 	_clear_special_overlay()
-	var scene_root := get_editor_interface().get_edited_scene_root()
-	_session.begin_for_author(next_author, scene_root)
-	_dock.set_session(_session)
+	if not _session.has_method("begin_for_author"):
+		return false
+	# Consume the formal bool result. Dynamic call() keeps this compatible with
+	# older hot-reloaded Session scripts; false is always a failure, and the
+	# bound-author check below is a second guard.
+	var bind_result: Variant = _session.call("begin_for_author", next_author, scene_root)
+	if bind_result is bool and not bool(bind_result):
+		return false
+	return _session.author == next_author
 
 
-func _on_edit_mode_changed(enabled: bool) -> void:
-	_session.set_edit_mode(enabled)
-	if not enabled:
-		_clear_preview()
+func _clear_author_binding(reason: String, valid: bool = false) -> void:
+	_cancel_active_edit_input()
+	_clear_preview()
+	_clear_selection_overlay()
+	_clear_box_overlay()
+	_clear_debug_overlay()
+	_clear_special_overlay()
+	if _session != null:
+		if _session.edit_mode:
+			_session.set_edit_mode(false)
+		_session.clear_author()
+	_active_author = null
+	if _dock != null:
+		_dock.set_map_locked(false)
+		_dock.set_session(_session)
+		_dock.set_status_message(reason, valid)
+
+
+func _exit_edit_mode(reason: String) -> void:
+	_clear_author_binding(reason, false)
+
+
+func _is_locked_edit_valid() -> bool:
+	if _session == null or not _session.edit_mode:
+		return true
+	if _active_author == null or not is_instance_valid(_active_author):
+		return false
+	if _session.author != _active_author:
+		return false
+	return _active_author == get_editor_interface().get_edited_scene_root()
+
+
+func _selected_scene_root_author() -> Node:
+	if _selection == null:
+		return null
+	return selected_scene_root_author(_selection.get_selected_nodes(), get_editor_interface().get_edited_scene_root())
+
+
+func _selection_includes_author(nodes: Array, author: Node) -> bool:
+	if author == null:
+		return false
+	for node in nodes:
+		if node == author:
+			return true
+	return false
+
+
+func _clear_editor_selection_for_lock() -> void:
+	if _selection == null or _selection_clear_in_progress:
+		return
+	if _selection.get_selected_nodes().is_empty():
+		return
+	_selection_clear_in_progress = true
+	_selection.clear()
+	_selection_clear_in_progress = false
 
 
 func _on_floor_changed(level: int) -> void:
@@ -404,11 +527,17 @@ func _on_new_map_created(result: Dictionary) -> void:
 
 func _activate_new_map_scene(scene_path: String) -> void:
 	var root := get_editor_interface().get_edited_scene_root()
-	var author := _find_author(root)
+	var author: Node = root if is_map_author_root_node(root) else null
 	if author != null:
-		_activate_author(author)
+		# Opening a scene may leave the previous scene-tree selection in place.
+		# Select only the actual root to bind the idle Session; do not enter edit
+		# mode automatically.
+		if _selection != null:
+			_selection.clear()
+			_selection.add_node(author)
+			_on_selection_changed()
 		if _dock != null:
-			_dock.set_status_message("已打开新地图：%s。可继续配置素材、绘制结构和添加玩法标记。" % scene_path, true)
+			_dock.set_status_message("已打开新地图：%s。请选中地图根节点后手动开启编辑。" % scene_path, true)
 		return
 	if _dock != null:
 		_dock.set_status_message("地图场景已打开，但未找到 TacticalMapAuthor；请检查创建服务输出。", false)
@@ -1228,11 +1357,35 @@ func _clear_preview() -> void:
 	_last_preview_target = null
 
 
+static func is_map_author_root_node(object: Object) -> bool:
+	var node := object as Node
+	if node == null or not is_instance_valid(node):
+		return false
+	if node is TacticalMapAuthor:
+		return true
+	var script := node.get_script()
+	return script != null and script.resource_path == AUTHOR_SCRIPT_PATH
+
+
+static func selected_scene_root_author(nodes: Array, edited_scene_root: Node) -> Node:
+	if edited_scene_root == null or nodes.size() != 1:
+		return null
+	var candidate := nodes[0] as Node
+	if candidate != edited_scene_root:
+		return null
+	return candidate if is_map_author_root_node(candidate) else null
+
+
+static func selection_belongs_to_author(nodes: Array, author: Node) -> bool:
+	if author == null or not is_instance_valid(author):
+		return false
+	for node in nodes:
+		var selected := node as Node
+		if selected == null or (selected != author and not author.is_ancestor_of(selected)):
+			return false
+	return true
+
+
 func _find_author(object: Object) -> Node:
 	var node := object as Node
-	while node != null:
-		var script := node.get_script()
-		if script != null and script.resource_path == AUTHOR_SCRIPT_PATH:
-			return node
-		node = node.get_parent()
-	return null
+	return node if is_map_author_root_node(node) else null

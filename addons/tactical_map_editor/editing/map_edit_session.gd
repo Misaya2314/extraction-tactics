@@ -89,7 +89,25 @@ var _last_status: String = "选择一个 TacticalMapAuthor 开始编辑。"
 var _last_status_valid: bool = true
 
 
-func begin_for_author(new_author: Node, new_scene_root: Node = null) -> void:
+## A map author is qualified only when the selected object itself is the
+## edited scene root.  Do not infer the root by walking parents: the Godot
+## editor may place an edited scene below internal editor nodes.
+static func is_qualified_author(candidate: Node, edited_scene_root: Node) -> bool:
+	if candidate == null or edited_scene_root == null:
+		return false
+	if not is_instance_valid(candidate) or not is_instance_valid(edited_scene_root):
+		return false
+	if candidate != edited_scene_root:
+		return false
+	return candidate is TacticalMapAuthor
+
+
+## Bind only after validating the exact author/root identity.  Invalid input
+## returns before canceling strokes or changing the current scene binding.
+func begin_for_author(new_author: Node, new_scene_root: Node = null) -> bool:
+	if not is_qualified_author(new_author, new_scene_root):
+		_set_status("无法绑定地图：选中节点必须是当前编辑场景根节点且挂载 TacticalMapAuthor。", false)
+		return false
 	cancel_stroke()
 	_clear_selection_internal()
 	author = new_author
@@ -111,6 +129,7 @@ func begin_for_author(new_author: Node, new_scene_root: Node = null) -> void:
 			select_placeable(0)
 	_set_status("已连接地图作者：%s。打开编辑模式开始操作。" % author.name, true)
 	_emit_changed()
+	return true
 
 
 func clear_author() -> void:
@@ -131,7 +150,7 @@ func clear_author() -> void:
 
 
 func has_author() -> bool:
-	return is_instance_valid(author)
+	return is_qualified_author(author, edited_scene_root)
 
 
 func set_edit_mode(value: bool) -> void:

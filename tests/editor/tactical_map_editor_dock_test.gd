@@ -52,6 +52,9 @@ func _run() -> void:
 	_expect(dock.custom_minimum_size.x <= 0.0, "dock: layout should not impose a hard minimum width")
 
 	_expect(play_button == null or play_button.disabled, "dock: no Author should disable Bake & Play")
+	_expect(edit_toggle == null or edit_toggle.disabled, "dock: no selected root should disable edit mode")
+	var selection_label := dock.find_child("SelectionLabel", true, false) as Label
+	_expect(selection_label != null and selection_label.text.contains("地图根节点"), "dock: no selected root should show the scene-tree requirement")
 	var target_option := dock.find_child("TargetLayerOption", true, false) as OptionButton
 	var expected_layers := ["Floor", "Structure", "Decoration", "Traversal", "Spawner", "Object", "AI"]
 	_expect(target_option != null and target_option.item_count == expected_layers.size(), "dock: target layer selector should expose all seven ordered layers")

@@ -102,6 +102,7 @@ var _default_editors: Dictionary = {}
 var _default_write_buttons: Dictionary = {}
 var _default_restore_buttons: Dictionary = {}
 var _refreshing := false
+var _map_locked := false
 
 
 func _ready() -> void:
@@ -118,6 +119,11 @@ func set_session(next_session: TacticalMapEditSession) -> void:
 	if session != null:
 		session.changed.connect(_on_session_changed)
 		session.status_changed.connect(_on_session_status_changed)
+	_refresh()
+
+
+func set_map_locked(locked: bool) -> void:
+	_map_locked = locked
 	_refresh()
 
 
@@ -172,7 +178,8 @@ func _build_ui() -> void:
 	content.add_child(_title)
 
 	_selection_label = Label.new()
-	_selection_label.text = "未选择 TacticalMapAuthor"
+	_selection_label.name = "SelectionLabel"
+	_selection_label.text = "请在场景树中选择地图根节点后开启编辑。"
 	_selection_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_selection_label)
 
@@ -717,9 +724,13 @@ func _refresh() -> void:
 		_refreshing = false
 		return
 	var has_author := session.has_author()
-	_selection_label.text = "作者：%s" % session.author.name if has_author else "未选择 TacticalMapAuthor"
+	if has_author and _map_locked and session.edit_mode:
+		_selection_label.text = "地图已锁定，已隐藏根节点选择框：%s" % session.author.name
+	else:
+		_selection_label.text = "作者：%s" % session.author.name if has_author else "请在场景树中选择地图根节点后开启编辑。"
 	_edit_toggle.disabled = not has_author
 	_edit_toggle.button_pressed = session.edit_mode and has_author
+	_edit_toggle.tooltip_text = "地图已锁定，已隐藏根节点选择框；可选择地图内子节点查看，但不会改变编辑层。" if _map_locked and has_author and session.edit_mode else "M 只在 3D 视口中快速切换地图编辑模式；关闭时保留 Godot 原生选择和相机操作。"
 	_floor_spin.mouse_filter = Control.MOUSE_FILTER_STOP if has_author else Control.MOUSE_FILTER_IGNORE
 	var floor_line_edit := _floor_spin.get_line_edit()
 	if floor_line_edit != null:
