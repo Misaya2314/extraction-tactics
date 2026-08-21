@@ -46,7 +46,7 @@ func open_for_default() -> void:
 	_build_ui()
 	reset_form()
 	_validate_form()
-	popup_centered(Vector2i(580, 760))
+	popup_centered_clamped(Vector2i(580, 620), 0.8)
 
 
 func reset_form() -> void:
@@ -75,8 +75,8 @@ func _build_ui() -> void:
 		return
 	_ui_built = true
 	title = "新建 Tactical 地图"
-	min_size = Vector2i(520, 620)
-	size = Vector2i(580, 760)
+	min_size = Vector2i(460, 420)
+	size = Vector2i(580, 620)
 	transient = true
 	exclusive = true
 
@@ -104,16 +104,32 @@ func _build_ui() -> void:
 	intro.add_theme_color_override("font_color", Color("aab4c5"))
 	root.add_child(intro)
 
-	_display_name_edit = _add_line_field(root, "显示名", "例如：训练场")
+	var body_scroll := ScrollContainer.new()
+	body_scroll.name = "NewMapBodyScroll"
+	body_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body_scroll.custom_minimum_size = Vector2(0, 180)
+	body_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	body_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	body_scroll.follow_focus = true
+	root.add_child(body_scroll)
+	var form := VBoxContainer.new()
+	form.name = "NewMapFormContent"
+	form.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	form.size_flags_vertical = Control.SIZE_FILL
+	form.add_theme_constant_override("separation", 6)
+	body_scroll.add_child(form)
+
+	_display_name_edit = _add_line_field(form, "显示名", "例如：训练场")
 	_display_name_edit.name = "MapDisplayName"
 	_display_name_edit.text_changed.connect(_on_form_changed)
-	_map_id_edit = _add_line_field(root, "稳定 map_id", "只使用字母、数字、下划线、点或连字符")
+	_map_id_edit = _add_line_field(form, "稳定 map_id", "只使用字母、数字、下划线、点或连字符")
 	_map_id_edit.name = "MapId"
 	_map_id_edit.text_changed.connect(_on_map_id_changed)
-	_scene_path_edit = _add_line_field(root, "作者场景路径", "res://scenes/maps/<id>.tscn")
+	_scene_path_edit = _add_line_field(form, "作者场景路径", "res://scenes/maps/<id>.tscn")
 	_scene_path_edit.name = "MapScenePath"
 	_scene_path_edit.text_changed.connect(_on_scene_path_changed)
-	_output_path_edit = _add_line_field(root, "Bake 输出路径", "res://resources/maps/<id>.tres")
+	_output_path_edit = _add_line_field(form, "Bake 输出路径", "res://resources/maps/<id>.tres")
 	_output_path_edit.name = "MapOutputPath"
 	_output_path_edit.text_changed.connect(_on_output_path_changed)
 
@@ -125,10 +141,10 @@ func _build_ui() -> void:
 	_level_spin.value = 1
 	_level_spin.tooltip_text = "地图层数，至少为 1。"
 	_level_spin.value_changed.connect(_on_form_changed)
-	root.add_child(_captioned("层数", _level_spin))
+	form.add_child(_captioned("层数", _level_spin))
 
-	_dimension_spins = _add_vector_fields(root, "格子尺寸", "CellDimensions", Vector3(2.0, 2.0, 2.0), false)
-	_origin_spins = _add_vector_fields(root, "grid_origin", "GridOrigin", Vector3.ZERO, true)
+	_dimension_spins = _add_vector_fields(form, "格子尺寸", "CellDimensions", Vector3(2.0, 2.0, 2.0), false)
+	_origin_spins = _add_vector_fields(form, "grid_origin", "GridOrigin", Vector3.ZERO, true)
 
 	var library_box := HBoxContainer.new()
 	library_box.name = "PlaceableLibraryRow"
@@ -142,39 +158,42 @@ func _build_ui() -> void:
 	var browse := Button.new()
 	browse.name = "BrowsePlaceableLibrary"
 	browse.text = "选择…"
+	browse.custom_minimum_size = Vector2(64, 0)
 	browse.tooltip_text = "选择一个现有 TacticalPlaceableLibrary 资源。"
 	browse.pressed.connect(_open_library_dialog)
 	library_box.add_child(browse)
-	root.add_child(library_box)
+	form.add_child(library_box)
 
 	_library_summary_label = Label.new()
 	_library_summary_label.name = "PlaceableLibrarySummary"
 	_library_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_library_summary_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_library_summary_label.add_theme_color_override("font_color", Color("aab4c5"))
-	root.add_child(_library_summary_label)
+	form.add_child(_library_summary_label)
 
 	var workflow := Label.new()
 	workflow.name = "WorkflowHint"
 	workflow.text = "工作流：创建 → 素材库 → 绘制结构层 → 添加玩法标记 → 局部属性 → Validate / Save / Bake 或 Bake & Play"
 	workflow.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	workflow.add_theme_color_override("font_color", Color("aab4c5"))
-	root.add_child(workflow)
+	form.add_child(workflow)
 
 	_error_label = Label.new()
 	_error_label.name = "ValidationErrors"
 	_error_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_error_label.add_theme_color_override("font_color", Color("ff8c8c"))
-	root.add_child(_error_label)
+	form.add_child(_error_label)
 	_warning_label = Label.new()
 	_warning_label.name = "ValidationWarnings"
 	_warning_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_warning_label.add_theme_color_override("font_color", Color("ffd27d"))
-	root.add_child(_warning_label)
+	form.add_child(_warning_label)
 
 	var actions := HBoxContainer.new()
 	actions.name = "NewMapActions"
 	actions.alignment = BoxContainer.ALIGNMENT_END
+	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	actions.custom_minimum_size = Vector2(0, 36)
 	var cancel := Button.new()
 	cancel.name = "CancelNewMap"
 	cancel.text = "取消"
@@ -322,26 +341,6 @@ func _validate_form() -> Dictionary:
 	var request := _build_request()
 	var errors: Array[String] = []
 	var warnings: Array[String] = []
-	var map_id := String(request.get(&"map_id", "")).strip_edges()
-	if map_id.is_empty() or not _is_valid_id(map_id):
-		errors.append("map_id 不能为空，且只能包含字母、数字、下划线、点或连字符。")
-	if String(request.get(&"display_name", "")).strip_edges().is_empty():
-		errors.append("显示名不能为空。")
-	_check_path(String(request.get(&"scene_path", "")), ".tscn", "作者场景路径", errors)
-	_check_path(String(request.get(&"output_resource_path", "")), ".tres", "Bake 输出路径", errors)
-	if request.get(&"scene_path", "") == request.get(&"output_resource_path", ""):
-		errors.append("作者场景路径与 Bake 输出路径不能相同。")
-	if int(request.get(&"level_count", 0)) < 1:
-		errors.append("层数必须至少为 1。")
-	for index in 3:
-		if float(_dimension_spins[index].value) <= 0.0:
-			errors.append("格子尺寸必须为正数。")
-			break
-	var library_path := _library_path_edit.text.strip_edges()
-	if library_path.is_empty():
-		errors.append("必须提供有效的 TacticalPlaceableLibrary 素材库。")
-	elif _load_library_resource() == null:
-		errors.append("TacticalPlaceableLibrary 路径无效或资源无法加载。")
 	var service := _resolve_service()
 	if service == null:
 		errors.append("地图创建服务尚未加载，请先完成 Core 创建服务接入。")
@@ -354,32 +353,34 @@ func _validate_form() -> Dictionary:
 				errors.append("创建请求未通过地图创建服务校验。")
 		else:
 			errors.append("地图创建服务没有返回有效校验结果。")
-	_check_existing(String(request.get(&"scene_path", "")), "作者场景路径", errors)
-	_check_existing(String(request.get(&"output_resource_path", "")), "Bake 输出路径", errors)
+	errors = dedupe_messages(errors)
+	warnings = dedupe_messages(warnings)
 	_last_validation = {&"valid": errors.is_empty(), &"errors": errors, &"warnings": warnings, &"request": request}
 	_show_validation(errors, warnings)
 	return _last_validation
 
 
-func _check_path(path: String, suffix: String, label: String, errors: Array[String]) -> void:
-	if not path.begins_with("res://"):
-		errors.append("%s 必须使用 res:// 路径。" % label)
-	elif not path.to_lower().ends_with(suffix):
-		errors.append("%s 必须以 %s 结尾。" % [label, suffix])
-
-
-func _check_existing(path: String, label: String, errors: Array[String]) -> void:
-	if not path.is_empty() and FileAccess.file_exists(path):
-		errors.append("%s 已存在，为避免覆盖请更换路径：%s" % [label, path])
-
-
-func _show_validation(errors: Array[String], warnings: Array[String]) -> void:
+func _show_validation(errors: Array, warnings: Array) -> void:
+	var unique_errors := dedupe_messages(errors)
+	var unique_warnings := dedupe_messages(warnings)
 	if _error_label != null:
-		_error_label.text = "" if errors.is_empty() else "错误：\n" + "\n".join(errors)
+		_error_label.text = "" if unique_errors.is_empty() else "错误：\n" + "\n".join(unique_errors)
 	if _warning_label != null:
-		_warning_label.text = "" if warnings.is_empty() else "提示：\n" + "\n".join(warnings)
+		_warning_label.text = "" if unique_warnings.is_empty() else "提示：\n" + "\n".join(unique_warnings)
 	if _create_button != null:
-		_create_button.disabled = not errors.is_empty()
+		_create_button.disabled = not unique_errors.is_empty()
+
+
+static func dedupe_messages(messages: Array) -> Array[String]:
+	var result: Array[String] = []
+	var seen: Dictionary = {}
+	for value in messages:
+		var message := String(value)
+		if message.is_empty() or seen.has(message):
+			continue
+		seen[message] = true
+		result.append(message)
+	return result
 
 
 func _on_create_pressed() -> void:
@@ -395,7 +396,10 @@ func _on_create_pressed() -> void:
 		return
 	var result_dictionary: Dictionary = result
 	if not bool(result_dictionary.get(&"valid", false)):
-		_show_validation(_string_array(result_dictionary.get(&"errors", ["地图创建失败。"])), _string_array(result_dictionary.get(&"warnings", [])))
+		var result_errors := _string_array(result_dictionary.get(&"errors", []))
+		if result_errors.is_empty():
+			result_errors.append("地图创建失败。")
+		_show_validation(result_errors, _string_array(result_dictionary.get(&"warnings", [])))
 		return
 	map_created.emit(result_dictionary)
 

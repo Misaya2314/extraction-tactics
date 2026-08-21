@@ -95,6 +95,8 @@ static func validate_request(request: Dictionary) -> Dictionary:
 		if mesh_result.get(&"mesh_library", null) != null:
 			var mesh_library := mesh_result[&"mesh_library"] as MeshLibrary
 			errors.append_array(_validate_mesh_library_items(library, mesh_library))
+	errors = _unique_messages(errors)
+	warnings = _unique_messages(warnings)
 
 	return {
 		&"valid": errors.is_empty(),
@@ -106,8 +108,8 @@ static func validate_request(request: Dictionary) -> Dictionary:
 
 static func create_map(request: Dictionary) -> Dictionary:
 	var validation := validate_request(request)
-	var errors: Array[String] = validation.get(&"errors", [])
-	var warnings: Array[String] = validation.get(&"warnings", [])
+	var errors: Array[String] = _unique_messages(validation.get(&"errors", []))
+	var warnings: Array[String] = _unique_messages(validation.get(&"warnings", []))
 	if not errors.is_empty():
 		return _failure(errors, warnings)
 
@@ -139,7 +141,7 @@ static func create_map(request: Dictionary) -> Dictionary:
 	return {
 		&"valid": true,
 		&"errors": [],
-		&"warnings": warnings,
+		&"warnings": _unique_messages(warnings),
 		&"scene_path": scene_path,
 		&"output_resource_path": output_path,
 		&"map_id": normalized[&"map_id"],
@@ -271,6 +273,23 @@ static func _ensure_parent_directory(path: String) -> Error:
 static func _failure(errors: Array[String], warnings: Array[String]) -> Dictionary:
 	return {
 		&"valid": false,
-		&"errors": errors,
-		&"warnings": warnings,
+		&"errors": _unique_messages(errors),
+		&"warnings": _unique_messages(warnings),
 	}
+
+
+static func _unique_messages(messages: Array) -> Array[String]:
+	## Keep diagnostics deterministic while removing only exact normalized repeats.
+	## Normalization is deliberately limited to line endings and surrounding
+	## whitespace; message wording/case is never merged heuristically.
+	var unique: Array[String] = []
+	var seen: Dictionary = {}
+	for message in messages:
+		if message == null:
+			continue
+		var normalized := String(message).replace("\r\n", "\n").replace("\r", "\n").strip_edges()
+		if normalized.is_empty() or seen.has(normalized):
+			continue
+		seen[normalized] = true
+		unique.append(normalized)
+	return unique
