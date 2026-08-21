@@ -1,0 +1,48 @@
+[gd_scene format=3 uid="uid://yjjhpmoscqw7"]
+
+[ext_resource type="Script" uid="uid://67vt5a0pdyiv" path="res://scripts/map_authoring/tactical_map_author.gd" id="1_0trux"]
+[ext_resource type="Resource" uid="uid://s1dtd4vmbcj0" path="res://resources/map_tiles/libraries/default_placeable_library.tres" id="2_6gxoo"]
+[ext_resource type="Script" uid="uid://cb70l5i2lpm7x" path="res://scripts/core/map/tactical_cell_override.gd" id="3_v5h6o"]
+[ext_resource type="Script" uid="uid://tcmykitriw8v" path="res://scripts/core/map/tactical_edge_placement.gd" id="4_6x84o"]
+[ext_resource type="Script" uid="uid://dgr3igoi2vu4q" path="res://scripts/core/map/tactical_map_authoring_data.gd" id="5_rwgpr"]
+[ext_resource type="MeshLibrary" uid="uid://cmsgm4xtx1wug" path="res://resources/map_tiles/mesh_libraries/default_mesh_library.tres" id="6_4y30j"]
+
+[sub_resource type="Resource" id="Resource_v1qxo"]
+script = ExtResource("5_rwgpr")
+
+[node name="MapAuthoring_medium_warzone" type="Node3D" unique_id=1007251506]
+script = ExtResource("1_0trux")
+map_id = &"medium_warzone"
+level_count = 1
+placeable_library = ExtResource("2_6gxoo")
+authoring_data = SubResource("Resource_v1qxo")
+output_resource_path = "res://resources/maps/medium_warzone.tres"
+metadata/display_name = "中型战区"
+metadata/scene_path = "res://scenes/maps/medium_warzone.tscn"
+metadata/output_resource_path = "res://resources/maps/medium_warzone.tres"
+
+[node name="FloorGrid" type="GridMap" parent="." unique_id=1482233785]
+mesh_library = ExtResource("6_4y30j")
+collision_mask = 0
+
+[node name="StructureGrid" type="GridMap" parent="." unique_id=965478490]
+mesh_library = ExtResource("6_4y30j")
+collision_layer = 2
+collision_mask = 0
+
+[node name="DecorationGrid" type="GridMap" parent="." unique_id=1259296550]
+mesh_library = ExtResource("6_4y30j")
+collision_layer = 0
+collision_mask = 0
+
+[node name="Objects" type="Node3D" parent="." unique_id=49017396]
+
+[node name="Spawns" type="Node3D" parent="." unique_id=2007344833]
+
+[node name="PatrolRoutes" type="Node3D" parent="." unique_id=2146985382]
+
+[node name="TraversalLinks" type="Node3D" parent="." unique_id=584727479]
+
+[node name="TraversalVisuals" type="Node3D" parent="." unique_id=2107183286]
+
+[node name="ArtDecorations" type="Node3D" parent="." unique_id=1225449369]
