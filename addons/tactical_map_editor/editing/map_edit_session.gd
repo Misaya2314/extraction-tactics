@@ -1750,6 +1750,10 @@ func _entry_from_marker(marker: Node) -> Dictionary:
 func _load_placeables() -> void:
 	placeables.clear()
 	var library := _property(author, "placeable_library", null)
+	if library is TacticalPlaceableLibrary:
+		# Keep the palette safe even when a hot-reloaded Session reaches this
+		# loader before the EditorPlugin's filesystem-repair callback.
+		(library as TacticalPlaceableLibrary).prune_missing_definition_references()
 	if library != null:
 		var definitions := _property(library, "definitions", [])
 		if definitions is Array:

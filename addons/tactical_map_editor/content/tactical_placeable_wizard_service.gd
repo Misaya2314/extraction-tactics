@@ -204,6 +204,12 @@ static func build_library_for_author(author: Node, seed_library: TacticalPlaceab
 	for source in source_libraries:
 		if source == null:
 			continue
+		var source_repair := source.prune_missing_definition_references()
+		if bool(source_repair.get(&"changed", false)):
+			warnings.append("已从素材库内存索引移除 %d 个失效 Definition 和 %d 个绑定。" % [
+				int(source_repair.get(&"removed_definition_count", 0)),
+				int(source_repair.get(&"removed_binding_count", 0)),
+			])
 		if library.generated_mesh_library == null and source.generated_mesh_library != null:
 			library.generated_mesh_library = source.generated_mesh_library
 		for definition in source.definitions:
@@ -289,6 +295,15 @@ static func import_definition(author: Node, definition_path: String, library_pat
 		if seed_library == null:
 			errors.append("已有 Library 不是有效的 TacticalPlaceableLibrary：%s" % normalized_library_path)
 			return {&"valid": false, &"errors": errors, &"warnings": warnings}
+		var seed_repair := repair_library(seed_library, normalized_library_path)
+		if bool(seed_repair.get(&"changed", false)):
+			warnings.append("已清理已有素材库中的 %d 个失效 Definition 和 %d 个绑定。" % [
+				int(seed_repair.get(&"removed_definition_count", 0)),
+				int(seed_repair.get(&"removed_binding_count", 0)),
+			])
+			if not bool(seed_repair.get(&"valid", false)):
+				errors.append_array(seed_repair.get(&"errors", []))
+				return {&"valid": false, &"errors": errors, &"warnings": warnings}
 	var library_result := build_library_for_author(author, seed_library)
 	var library := library_result.get(&"library") as TacticalPlaceableLibrary
 	warnings.append_array(library_result.get(&"warnings", []))
@@ -433,7 +448,10 @@ static func save_new_cell(author: Node, request: Dictionary, definition_path: St
 	binding.mesh_item_id = definition.mesh_item_id
 	binding.mesh_library = definition.mesh_library
 	library.item_bindings.append(binding)
-	var library_errors := library.get_validation_errors()
+	# The new Definition is intentionally validated structurally here; its file
+	# is created by this transaction immediately below, so checking the path at
+	# this point would reject a valid not-yet-written resource.
+	var library_errors := library.get_validation_errors(false)
 	if not library_errors.is_empty():
 		errors.append_array(library_errors)
 		return {&"valid": false, &"errors": errors, &"warnings": warnings}
@@ -485,6 +503,51 @@ static func save_new_cell(author: Node, request: Dictionary, definition_path: St
 		&"definition_path": normalized_definition_path,
 		&"library_path": normalized_library_path,
 	}
+
+
+## Remove stale Definition/Binding entries after a source resource is deleted
+## and persist the repaired Library when it has a standalone resource path.
+## The in-memory cleanup is kept even when saving is impossible, so the active
+## editor session never continues to expose the deleted material.
+static func repair_library(library: TacticalPlaceableLibrary, library_path: String = "") -> Dictionary:
+	if library == null:
+		return {
+			&"valid": false,
+			&"changed": false,
+			&"errors": ["无法修复空的 TacticalPlaceableLibrary。"],
+			&"warnings": [],
+		}
+	var repair: Dictionary = library.prune_missing_definition_references()
+	if not bool(repair.get(&"changed", false)):
+		repair[&"valid"] = true
+		repair[&"errors"] = []
+		repair[&"warnings"] = []
+		return repair
+	var normalized_library_path := normalize_resource_path(library_path)
+	if normalized_library_path.is_empty():
+		normalized_library_path = normalize_resource_path(String(library.resource_path))
+	if not _valid_resource_path(normalized_library_path):
+		repair[&"valid"] = false
+		repair[&"errors"] = ["素材库已清理失效项，但没有可写入的 Library 路径。请手动保存当前素材库。"]
+		return repair
+	if not FileAccess.file_exists(normalized_library_path):
+		repair[&"valid"] = false
+		repair[&"errors"] = ["素材库已清理失效项，但 Library 文件不存在：%s。" % normalized_library_path]
+		return repair
+	var existing_uid := _read_resource_uid(normalized_library_path)
+	if String(library.resource_path).is_empty():
+		library.resource_path = normalized_library_path
+	var save_error := ResourceSaver.save(library, normalized_library_path)
+	if save_error != OK:
+		repair[&"valid"] = false
+		repair[&"errors"] = ["保存已修复的 Library 失败：%s" % error_string(save_error)]
+		return repair
+	if not existing_uid.is_empty():
+		_restore_resource_uid(normalized_library_path, existing_uid)
+	repair[&"valid"] = true
+	repair[&"errors"] = []
+	repair[&"library_path"] = normalized_library_path
+	return repair
 
 
 static func normalize_resource_path(value: String) -> String:

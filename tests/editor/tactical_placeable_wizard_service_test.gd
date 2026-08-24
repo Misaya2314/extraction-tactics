@@ -1,20 +1,22 @@
 extends SceneTree
 
-## Pure resource/save coverage for the Add Placeable wizard.  All resources
-## are synthetic and written under user://; no production map or scene is
-## loaded or modified.
+## Pure resource/save coverage for the Add Placeable wizard. All resources are
+## synthetic and written under the test-only temporary directory; no production
+## map or scene is loaded or modified.
 
 const SERVICE := preload("res://addons/tactical_map_editor/content/tactical_placeable_wizard_service.gd")
 
 var _failures: Array[String] = []
-var _root_path := "res://.godot/tactical_placeable_wizard_%d" % Time.get_ticks_usec()
+var _root_path := "res://tests/.tmp/tactical_placeable_wizard_%d" % Time.get_ticks_usec()
 
 
 func _init() -> void:
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_root_path.get_base_dir()))
 	_test_basic_save_and_definition_fields()
 	_test_legacy_catalog_is_preserved()
 	_test_transaction_rolls_back_definition_when_library_save_fails()
 	_test_existing_library_path_and_uid_are_reused()
+	_test_repair_deleted_definition_reference()
 	_finish()
 
 
@@ -124,6 +126,32 @@ func _test_existing_library_path_and_uid_are_reused() -> void:
 	_expect(reloaded != null and reloaded.find_definition(&"terrain.wizard.old") != null and reloaded.find_definition(&"terrain.wizard.reuse") != null, "wizard: updating existing Library must retain old and new definitions")
 	_cleanup_paths(paths)
 	author.free()
+
+
+func _test_repair_deleted_definition_reference() -> void:
+	var paths := _paths("repair")
+	var deleted_definition := TacticalObjectDefinition.new()
+	deleted_definition.placeable_id = &"terrain.deleted"
+	deleted_definition.resource_path = paths[&"definition"]
+	var definition_save_error := ResourceSaver.save(deleted_definition, paths[&"definition"])
+	_expect(definition_save_error == OK, "repair: fixture Definition should save before deletion")
+	var library := TacticalPlaceableLibrary.new()
+	var orphan_binding := MeshItemBinding.new()
+	orphan_binding.placeable_id = &"terrain.deleted"
+	orphan_binding.mesh_item_id = 4
+	library.definitions = [deleted_definition]
+	library.item_bindings = [orphan_binding]
+	var save_error := ResourceSaver.save(library, paths[&"library"])
+	_expect(save_error == OK, "repair: fixture Library with an external Definition should save")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(paths[&"definition"]))
+	var loaded := ResourceLoader.load(paths[&"library"]) as TacticalPlaceableLibrary
+	var result: Dictionary = {}
+	if loaded != null:
+		result = SERVICE.repair_library(loaded, paths[&"library"])
+	_expect(bool(result.get(&"valid", false)) and bool(result.get(&"changed", false)), "repair: deleted Definition references should be removed and persisted")
+	var repaired := ResourceLoader.load(paths[&"library"]) as TacticalPlaceableLibrary
+	_expect(repaired != null and repaired.definitions.is_empty() and repaired.item_bindings.is_empty(), "repair: persisted Library should contain no deleted Definition or orphan binding")
+	_cleanup_paths(paths)
 
 
 func _make_author() -> TacticalMapAuthor:

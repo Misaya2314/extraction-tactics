@@ -10,6 +10,7 @@ func _init() -> void:
 	_test_placeable_contracts()
 	_test_rules_override_and_edge_contracts()
 	_test_validator_diagnostics()
+	_test_missing_placeable_reference_cleanup()
 	_test_grid_schema_compatibility()
 	_test_library_first_baker_and_catalog_fallback()
 	_test_schema_and_catalog_migration()
@@ -172,6 +173,35 @@ func _test_validator_diagnostics() -> void:
 	_expect(_contains_error(consistency_result[&"errors"], "does not match"), "validator: binding/definition layer-item mismatch should fail")
 	_expect(_contains_error(consistency_result[&"errors"], "must reference a Cell definition"), "validator: non-Cell binding target should fail")
 	_expect(inconsistent_library.find_cell_definition(MapTileRule.Layer.STRUCTURE, 4) == null, "library: inconsistent binding must not resolve ambiguously")
+
+
+func _test_missing_placeable_reference_cleanup() -> void:
+	var missing_definition := TacticalCellTileDefinition.new()
+	missing_definition.placeable_id = &"terrain.deleted"
+	missing_definition.mesh_item_id = 7
+	missing_definition.resource_path = "res://.godot/tactical_missing_definition_%d.tres" % Time.get_ticks_usec()
+	var surviving_definition := TacticalObjectDefinition.new()
+	surviving_definition.placeable_id = &"object.surviving"
+	var missing_binding := MeshItemBinding.new()
+	missing_binding.placeable_id = missing_definition.placeable_id
+	missing_binding.mesh_item_id = missing_definition.mesh_item_id
+	var orphan_binding := MeshItemBinding.new()
+	orphan_binding.placeable_id = &"object.already_deleted"
+	orphan_binding.mesh_item_id = 8
+	var library := TacticalPlaceableLibrary.new()
+	library.definitions = [missing_definition, surviving_definition, null]
+	library.item_bindings = [missing_binding, orphan_binding, null]
+
+	var references := library.get_missing_definition_references()
+	_expect(references.size() == 2, "library cleanup: missing external and null Definitions should be detected")
+	_expect(_contains_error(library.get_validation_errors(), "references missing resource"), "library cleanup: missing external Definition should be diagnosable")
+	var repair := library.prune_missing_definition_references()
+	_expect(bool(repair.get(&"changed", false)), "library cleanup: stale references should change the Library")
+	_expect(int(repair.get(&"removed_definition_count", 0)) == 2, "library cleanup: missing and null Definitions should be removed")
+	_expect(int(repair.get(&"removed_binding_count", 0)) == 3, "library cleanup: stale and null bindings should be removed")
+	_expect(library.definitions.size() == 1 and library.definitions[0] == surviving_definition, "library cleanup: surviving Definition should remain")
+	_expect(library.item_bindings.is_empty(), "library cleanup: bindings for removed Definitions should not remain")
+	_expect(library.get_validation_errors().is_empty(), "library cleanup: repaired Library should no longer report missing references")
 
 
 func _test_grid_schema_compatibility() -> void:

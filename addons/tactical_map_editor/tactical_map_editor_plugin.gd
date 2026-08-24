@@ -14,6 +14,7 @@ const AUTHOR_SCRIPT_PATH := "res://scripts/map_authoring/tactical_map_author.gd"
 var _dock: TacticalMapDock
 var _session: TacticalMapEditSession
 var _selection: EditorSelection
+var _resource_filesystem: EditorFileSystem
 var _active_author: Node
 var _preview_root: Node3D
 var _preview_mesh: MeshInstance3D
@@ -37,6 +38,7 @@ var _temporary_erase_restore_tool: int = -1
 var _temporary_erase_active: bool = false
 var _bake_and_play_in_progress: bool = false
 var _selection_clear_in_progress: bool = false
+var _library_repair_in_progress: bool = false
 
 func _enter_tree() -> void:
 	_session = SESSION_SCRIPT.new()
@@ -65,6 +67,9 @@ func _enter_tree() -> void:
 	_selection = get_editor_interface().get_selection()
 	if _selection != null:
 		_selection.selection_changed.connect(_on_selection_changed)
+	_resource_filesystem = get_editor_interface().get_resource_filesystem()
+	if _resource_filesystem != null and not _resource_filesystem.filesystem_changed.is_connected(_on_resource_filesystem_changed):
+		_resource_filesystem.filesystem_changed.connect(_on_resource_filesystem_changed)
 	_on_selection_changed()
 
 func _exit_tree() -> void:
@@ -86,6 +91,9 @@ func _exit_tree() -> void:
 	_new_map_dialog = null
 	if _selection != null and _selection.selection_changed.is_connected(_on_selection_changed):
 		_selection.selection_changed.disconnect(_on_selection_changed)
+	if _resource_filesystem != null and _resource_filesystem.filesystem_changed.is_connected(_on_resource_filesystem_changed):
+		_resource_filesystem.filesystem_changed.disconnect(_on_resource_filesystem_changed)
+	_resource_filesystem = null
 	if _session != null:
 		if _session.changed.is_connected(_on_session_changed):
 			_session.changed.disconnect(_on_session_changed)
@@ -103,6 +111,30 @@ func _process(_delta: float) -> void:
 		return
 	if not _is_locked_edit_valid():
 		_exit_edit_mode("地图作者或编辑场景已改变，编辑模式已关闭。")
+
+
+func _on_resource_filesystem_changed() -> void:
+	if _library_repair_in_progress or _session == null or not _session.has_author():
+		return
+	var author := _session.author
+	var library := author.get("placeable_library") as TacticalPlaceableLibrary if author != null else null
+	if library == null:
+		return
+	_library_repair_in_progress = true
+	var repair: Dictionary = PLACEABLE_SERVICE.repair_library(library)
+	_library_repair_in_progress = false
+	if not bool(repair.get(&"changed", false)):
+		return
+	if _session.has_method("reload_placeables"):
+		_session.call("reload_placeables", true)
+	var removed_definitions := int(repair.get(&"removed_definition_count", 0))
+	var removed_bindings := int(repair.get(&"removed_binding_count", 0))
+	var summary := "已删除素材 %d 个、失效绑定 %d 个" % [removed_definitions, removed_bindings]
+	var errors: Array = repair.get(&"errors", [])
+	if not bool(repair.get(&"valid", false)):
+		_dock.set_status_message("检测到素材库悬空引用，已从当前编辑器清理%s，但保存失败：%s" % [summary, "；".join(errors)], false)
+		return
+	_dock.set_status_message("检测到素材文件被删除，已自动从素材库移除%s。" % summary, true)
 
 func _handles(object: Object) -> bool:
 	return _find_author(object) != null
@@ -375,6 +407,15 @@ func _bind_author(next_author: Node) -> bool:
 	_clear_box_overlay()
 	_clear_debug_overlay()
 	_clear_special_overlay()
+	# Repair a Library before the Session builds its palette. This covers a
+	# Definition deleted while the editor was closed, before any filesystem
+	# change signal can refresh the active scene.
+	if next_author != null:
+		var library := next_author.get("placeable_library") as TacticalPlaceableLibrary
+		if library != null:
+			_library_repair_in_progress = true
+			PLACEABLE_SERVICE.repair_library(library)
+			_library_repair_in_progress = false
 	if not _session.has_method("begin_for_author"):
 		return false
 	# Consume the formal bool result. Dynamic call() keeps this compatible with

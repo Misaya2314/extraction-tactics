@@ -22,6 +22,17 @@
         "visibility": 0.0
       }
     },
+    "res://resources/map_tiles/definitions/terrain/": {
+      "metadata/_custom_type_script": {
+        "visibility": 0
+      },
+      "resource_local_to_scene": {
+        "visibility": 0
+      },
+      "resource_name": {
+        "visibility": 0
+      }
+    },
     "res://resources/units/": {
       "metadata/_custom_type_script": {
         "visibility": 0.0
@@ -37,7 +48,8 @@
   "recent_paths": [
     "res://resources/map_tiles/definitions/objects/",
     "res://resources/map_tiles/definitions/structure/",
-    "res://resources/units/"
+    "res://resources/units/",
+    "res://resources/map_tiles/definitions/terrain/"
   ],
   "table_functions": {
     "filter": [

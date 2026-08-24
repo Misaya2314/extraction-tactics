@@ -134,56 +134,56 @@ placeable_id = &"legacy.structure.low_cover"
 target_layer = 1
 mesh_item_id = 3
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_6q8or"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_fbhb7"]
 size = Vector3(2, 0.2, 2)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_kx5ch"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_6d7pc"]
 size = Vector3(2, 0.2, 2)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_nv54q"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_38k0h"]
 size = Vector3(2, 1.6, 2)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_3id4b"]
+[sub_resource type="BoxShape3D" id="BoxShape3D_jqp7w"]
 size = Vector3(1.6, 0.7, 0.55)
 
-[sub_resource type="MeshLibrary" id="MeshLibrary_68yr4"]
+[sub_resource type="MeshLibrary" id="MeshLibrary_l2fjm"]
 item/0/name = "Floor"
 item/0/mesh = ExtResource("5_l2fjm")
 item/0/mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/0/mesh_cast_shadow = 1
-item/0/shapes = [SubResource("BoxShape3D_6q8or"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)]
+item/0/shapes = [SubResource("BoxShape3D_fbhb7"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)]
 item/0/navigation_mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/0/navigation_layers = 1
 item/1/name = "FloorAlt"
 item/1/mesh = ExtResource("6_vnvti")
 item/1/mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/1/mesh_cast_shadow = 1
-item/1/shapes = [SubResource("BoxShape3D_kx5ch"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)]
+item/1/shapes = [SubResource("BoxShape3D_6d7pc"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)]
 item/1/navigation_mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/1/navigation_layers = 1
 item/2/name = "Wall"
 item/2/mesh = ExtResource("7_10sna")
 item/2/mesh_transform = Transform3D(2, 0, 0, 0, 0.6, 0, 0, 0, 1, 0, 0, -0.5)
 item/2/mesh_cast_shadow = 1
-item/2/shapes = [SubResource("BoxShape3D_nv54q"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)]
+item/2/shapes = [SubResource("BoxShape3D_38k0h"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)]
 item/2/navigation_mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/2/navigation_layers = 1
 item/3/name = "LowCover"
 item/3/mesh = ExtResource("8_cntv1")
 item/3/mesh_transform = Transform3D(0, 0, 1.333333, 0, 0.875, 0, -0.5464, 0, 0, 0, 0, 0)
 item/3/mesh_cast_shadow = 1
-item/3/shapes = [SubResource("BoxShape3D_3id4b"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)]
+item/3/shapes = [SubResource("BoxShape3D_jqp7w"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)]
 item/3/navigation_mesh_transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
 item/3/navigation_layers = 1
 
-[sub_resource type="Resource" id="Resource_vxnou"]
+[sub_resource type="Resource" id="Resource_6q8or"]
 script = ExtResource("9_2gi0f")
 placeable_id = &"tile.floor.concrete"
 mesh_item_id = 2
-mesh_library = SubResource("MeshLibrary_68yr4")
+mesh_library = SubResource("MeshLibrary_l2fjm")
 
 [resource]
 script = ExtResource("10_6q8or")
 definitions = Array[ExtResource("1_fbhb7")]([SubResource("Resource_38k0h"), SubResource("Resource_l2fjm"), SubResource("Resource_10sna"), SubResource("Resource_2gi0f"), ExtResource("4_fbhb7")])
 generated_mesh_library = SubResource("MeshLibrary_naoqe")
-item_bindings = Array[ExtResource("9_2gi0f")]([SubResource("Resource_7axxt"), SubResource("Resource_hqnyt"), SubResource("Resource_2qxfe"), SubResource("Resource_kneuw"), SubResource("Resource_vxnou")])
+item_bindings = Array[ExtResource("9_2gi0f")]([SubResource("Resource_7axxt"), SubResource("Resource_hqnyt"), SubResource("Resource_2qxfe"), SubResource("Resource_kneuw"), SubResource("Resource_6q8or")])
