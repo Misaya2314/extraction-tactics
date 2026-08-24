@@ -1,0 +1,19 @@
+{
+  "column_properties": {
+    "res://resources/map_tiles/definitions/objects/": {
+      "metadata/_custom_type_script": {
+        "visibility": 0
+      },
+      "resource_local_to_scene": {
+        "visibility": 0
+      },
+      "resource_name": {
+        "visibility": 0
+      }
+    }
+  },
+  "recent_paths": [
+    "res://resources/map_tiles/definitions/objects/"
+  ],
+  "table_functions": {}
+}

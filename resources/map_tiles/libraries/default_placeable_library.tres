@@ -9,8 +9,8 @@
 [ext_resource type="Script" uid="uid://b7acgjg4ejn32" path="res://scripts/core/map/mesh_item_binding.gd" id="6_binding"]
 [ext_resource type="MeshLibrary" uid="uid://cmsgm4xtx1wug" path="res://resources/map_tiles/mesh_libraries/default_mesh_library.tres" id="7_mesh_library"]
 [ext_resource type="Resource" path="res://resources/map_tiles/definitions/objects/prototype_loot_crate.tres" id="8_loot_crate"]
-[ext_resource type="Resource" path="res://resources/map_tiles/definitions/objects/prototype_extraction_marker.tres" id="9_extraction"]
-[ext_resource type="Resource" path="res://resources/map_tiles/definitions/objects/prototype_explosive_barrel.tres" id="10_barrel"]
+[ext_resource type="Resource" uid="uid://cr6m2t7o8eq1x" path="res://resources/map_tiles/definitions/objects/prototype_extraction_marker.tres" id="9_extraction"]
+[ext_resource type="Resource" uid="uid://c5i48svkmnu7k" path="res://resources/map_tiles/definitions/objects/prototype_explosive_barrel.tres" id="10_barrel"]
 
 [sub_resource type="Resource" id="MeshItemBinding_floor"]
 script = ExtResource("6_binding")
