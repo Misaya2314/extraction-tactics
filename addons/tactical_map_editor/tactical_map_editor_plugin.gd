@@ -117,7 +117,9 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 	else:
 		# Before editing, only a selected scene root can start the mode.  This
 		# gate also lets M bind a root whose selection signal is still settling.
-		if _selected_scene_root_author() == null:
+		# An already-bound author (edit mode off) is allowed through so M can
+		# re-enter the mode without re-selecting the root.
+		if _selected_scene_root_author() == null and not _session.has_author():
 			return AFTER_GUI_INPUT_PASS
 
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -298,6 +300,13 @@ func _on_selection_changed() -> void:
 
 	var next_author := _selected_scene_root_author()
 	if next_author == null:
+		# Keep an already-bound author alive while edit mode is off so
+		# Validate / Bake / Save Scene / Bake & Play remain usable with native
+		# selection and camera unrestrained. A real scene switch still unbinds,
+		# because the stale author reference becomes invalid and has_author()
+		# returns false.
+		if _session.has_author():
+			return
 		_clear_author_binding("请在场景树中选择地图根节点后开启编辑。", false)
 		return
 	if not _bind_author(next_author):
@@ -321,9 +330,13 @@ func _request_edit_mode(enabled: bool) -> void:
 	if _session == null:
 		return
 	if not enabled:
-		_exit_edit_mode("地图编辑模式已关闭，请重新选择地图根节点后再开启。")
+		_leave_edit_mode_keep_author()
 		return
 	var selected_author := _selected_scene_root_author()
+	# Re-entering the mode right after leaving it: reuse the bound author even
+	# when the user has since clicked a non-root node for native selection.
+	if selected_author == null and _session.has_author() and _session.author == get_editor_interface().get_edited_scene_root():
+		selected_author = _session.author
 	if selected_author == null:
 		_session.set_edit_mode(false)
 		if _dock != null:
@@ -386,6 +399,25 @@ func _clear_author_binding(reason: String, valid: bool = false) -> void:
 
 func _exit_edit_mode(reason: String) -> void:
 	_clear_author_binding(reason, false)
+
+
+## Turn edit mode off without unbinding the author, so the Validate / Bake /
+## Save Scene / Bake & Play actions stay available while Godot's native
+## selection and camera are freely usable.
+func _leave_edit_mode_keep_author() -> void:
+	if _session == null:
+		return
+	_cancel_active_edit_input()
+	_clear_preview()
+	_clear_selection_overlay()
+	_clear_box_overlay()
+	_clear_special_overlay()
+	_active_author = null
+	if _session.edit_mode:
+		_session.set_edit_mode(false)
+	if _dock != null:
+		_dock.set_map_locked(false)
+		_dock.set_status_message("地图编辑模式已关闭；Validate / Bake / Save Scene / Bake & Play 仍可用。", true)
 
 func _is_locked_edit_valid() -> bool:
 	if _session == null or not _session.edit_mode:

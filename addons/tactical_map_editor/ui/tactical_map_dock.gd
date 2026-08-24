@@ -159,7 +159,7 @@ func _build_ui() -> void:
 	_edit_toggle = CheckButton.new()
 	_edit_toggle.name = "EditModeToggle"
 	_edit_toggle.text = "地图编辑模式（M）"
-	_edit_toggle.tooltip_text = "M 只在 3D 视口中快速切换地图编辑模式；关闭时保留 Godot 原生选择和相机操作。"
+	_edit_toggle.tooltip_text = "M 只在 3D 视口中快速切换地图编辑模式；关闭编辑模式后仍可执行 Validate / Bake / Save Scene / Bake & Play，并保留 Godot 原生选择和相机操作。"
 	_edit_toggle.toggled.connect(func(value: bool) -> void: edit_mode_changed.emit(value))
 	content.add_child(_edit_toggle)
 	var navigation_hint := Label.new()
@@ -499,7 +499,7 @@ func _refresh() -> void:
 		_selection_label.text = "作者：%s" % session.author.name if has_author else "请在场景树中选择地图根节点后开启编辑。"
 	_edit_toggle.disabled = not has_author
 	_edit_toggle.button_pressed = session.edit_mode and has_author
-	_edit_toggle.tooltip_text = "地图已锁定，已隐藏根节点选择框；可选择地图内子节点查看，但不会改变编辑层。" if _map_locked and has_author and session.edit_mode else "M 只在 3D 视口中快速切换地图编辑模式；关闭时保留 Godot 原生选择和相机操作。"
+	_edit_toggle.tooltip_text = "地图已锁定，已隐藏根节点选择框；可选择地图内子节点查看，但不会改变编辑层。" if _map_locked and has_author and session.edit_mode else "M 只在 3D 视口中快速切换地图编辑模式；关闭编辑模式后仍可执行 Validate / Bake / Save Scene / Bake & Play，并保留 Godot 原生选择和相机操作。"
 	_floor_spin.mouse_filter = Control.MOUSE_FILTER_STOP if has_author else Control.MOUSE_FILTER_IGNORE
 	var floor_line_edit := _floor_spin.get_line_edit()
 	if floor_line_edit != null:
