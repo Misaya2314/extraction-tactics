@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://bmrlbv7rckyn7"
+path="res://.godot/imported/cog-d.obj-0197b37bb24d109089c8bf5935153d1f.mesh"
+
+[deps]
+
+files=["res://.godot/imported/cog-d.obj-0197b37bb24d109089c8bf5935153d1f.mesh"]
+
+source_file="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/cog-d.obj"
+dest_files=["res://.godot/imported/cog-d.obj-0197b37bb24d109089c8bf5935153d1f.mesh", "res://.godot/imported/cog-d.obj-0197b37bb24d109089c8bf5935153d1f.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

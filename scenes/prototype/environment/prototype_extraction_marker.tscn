@@ -1,7 +1,7 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3]
 
-[ext_resource type="ArrayMesh" path="res://kenney_factory-kit_3.0/Models/OBJ format/indicator-special-area.obj" id="1_factory_indicator"]
-[ext_resource type="ArrayMesh" path="res://kenney_factory-kit_3.0/Models/OBJ format/warning-orange.obj" id="2_factory_warning"]
+[ext_resource type="ArrayMesh" uid="uid://5r3lrdsjaafu" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/indicator-special-area.obj" id="1_factory_indicator"]
+[ext_resource type="ArrayMesh" uid="uid://bbd6n6ehh1bi8" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/warning-orange.obj" id="2_factory_warning"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape_extraction"]
 radius = 0.85

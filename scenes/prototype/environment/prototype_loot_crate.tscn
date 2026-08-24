@@ -1,6 +1,6 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene format=3]
 
-[ext_resource type="ArrayMesh" path="res://kenney_factory-kit_3.0/Models/OBJ format/box-large.obj" id="1_factory_box"]
+[ext_resource type="ArrayMesh" uid="uid://d3rnpsqy0cm6f" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/box-large.obj" id="1_factory_box"]
 
 [sub_resource type="BoxShape3D" id="BoxShape_crate"]
 size = Vector3(1.1, 0.9, 1.1)

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dbe47d37q7bxk" path="res://scripts/core/combat/weapon_definition.gd" id="1_weapon"]
 [ext_resource type="Resource" path="res://resources/weapons/feedback_profiles/shotgun.tres" id="2_feedback"]
-[ext_resource type="PackedScene" uid="uid://byx3gx15shkoo" path="res://kenney_blaster-kit_2.1/Models/GLB format/blaster-l.glb" id="3_model"]
+[ext_resource type="PackedScene" uid="uid://byx3gx15shkoo" path="res://assets/models/kenney_blaster-kit_2.1/Models/GLB format/blaster-l.glb" id="3_model"]
 
 [resource]
 script = ExtResource("1_weapon")

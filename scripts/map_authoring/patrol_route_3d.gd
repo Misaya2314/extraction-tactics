@@ -13,4 +13,3 @@ func to_data() -> MapPatrolRouteData:
 	data.points = points.duplicate()
 	data.loop = loop
 	return data
-

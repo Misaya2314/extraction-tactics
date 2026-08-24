@@ -21,17 +21,17 @@
 [ext_resource type="Resource" path="res://resources/units/assault.tres" id="23_qev5h"]
 [ext_resource type="Script" uid="uid://7rj66gqmlpvo" path="res://scripts/map_authoring/patrol_route_3d.gd" id="24_omjrg"]
 [ext_resource type="Script" uid="uid://bp1awl00e5he5" path="res://scripts/map_authoring/traversal_link_3d.gd" id="25_6dyku"]
-[ext_resource type="ArrayMesh" uid="uid://dawm11blbwd16" path="res://kenney_factory-kit_3.0/Models/OBJ format/floor-large.obj" id="26_factory_floor"]
-[ext_resource type="ArrayMesh" uid="uid://cg7hl6hcaiio" path="res://kenney_factory-kit_3.0/Models/OBJ format/top-large-checkerboard.obj" id="27_factory_floor_alt"]
-[ext_resource type="ArrayMesh" uid="uid://c8okdav0y27na" path="res://kenney_factory-kit_3.0/Models/OBJ format/structure-wall.obj" id="28_factory_wall"]
-[ext_resource type="ArrayMesh" uid="uid://dtnokrmmr5ggu" path="res://kenney_factory-kit_3.0/Models/OBJ format/conveyor-bars-fence.obj" id="29_factory_cover"]
-[ext_resource type="ArrayMesh" uid="uid://32rsarqa2p08" path="res://kenney_factory-kit_3.0/Models/OBJ format/machine.obj" id="30_factory_machine"]
-[ext_resource type="ArrayMesh" uid="uid://cktopt5tnp80v" path="res://kenney_factory-kit_3.0/Models/OBJ format/machine-fortified.obj" id="31_factory_machine_fortified"]
-[ext_resource type="ArrayMesh" uid="uid://cmn7h5ovjejfr" path="res://kenney_factory-kit_3.0/Models/OBJ format/pipe-large.obj" id="32_factory_pipe"]
-[ext_resource type="ArrayMesh" uid="uid://bgdu7f4bytvb2" path="res://kenney_factory-kit_3.0/Models/OBJ format/scanner-low.obj" id="33_factory_scanner"]
-[ext_resource type="ArrayMesh" uid="uid://be2jfo26pxwx" path="res://kenney_factory-kit_3.0/Models/OBJ format/robot-arm-a.obj" id="34_factory_robot"]
-[ext_resource type="ArrayMesh" uid="uid://bbd6n6ehh1bi8" path="res://kenney_factory-kit_3.0/Models/OBJ format/warning-orange.obj" id="35_factory_warning"]
-[ext_resource type="ArrayMesh" uid="uid://c3ogoknocf2dk" path="res://kenney_factory-kit_3.0/Models/OBJ format/catwalk-stairs.obj" id="36_factory_stairs"]
+[ext_resource type="ArrayMesh" uid="uid://dawm11blbwd16" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/floor-large.obj" id="26_factory_floor"]
+[ext_resource type="ArrayMesh" uid="uid://cg7hl6hcaiio" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/top-large-checkerboard.obj" id="27_factory_floor_alt"]
+[ext_resource type="ArrayMesh" uid="uid://c8okdav0y27na" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/structure-wall.obj" id="28_factory_wall"]
+[ext_resource type="ArrayMesh" uid="uid://dtnokrmmr5ggu" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/conveyor-bars-fence.obj" id="29_factory_cover"]
+[ext_resource type="ArrayMesh" uid="uid://32rsarqa2p08" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/machine.obj" id="30_factory_machine"]
+[ext_resource type="ArrayMesh" uid="uid://cktopt5tnp80v" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/machine-fortified.obj" id="31_factory_machine_fortified"]
+[ext_resource type="ArrayMesh" uid="uid://cmn7h5ovjejfr" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/pipe-large.obj" id="32_factory_pipe"]
+[ext_resource type="ArrayMesh" uid="uid://bgdu7f4bytvb2" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/scanner-low.obj" id="33_factory_scanner"]
+[ext_resource type="ArrayMesh" uid="uid://be2jfo26pxwx" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/robot-arm-a.obj" id="34_factory_robot"]
+[ext_resource type="ArrayMesh" uid="uid://bbd6n6ehh1bi8" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/warning-orange.obj" id="35_factory_warning"]
+[ext_resource type="ArrayMesh" uid="uid://c3ogoknocf2dk" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/catwalk-stairs.obj" id="36_factory_stairs"]
 
 [sub_resource type="Resource" id="Resource_jgq0w"]
 script = ExtResource("2_7l4va")
@@ -156,7 +156,7 @@ kind = 1
 scene = ExtResource("9_f7meg")
 cell = Vector3i(11, 0, 8)
 
-[node name="_Preview" type="Node3D" parent="Objects/extraction" unique_id=1162979131 instance=ExtResource("9_f7meg")]
+[node name="_Preview" type="Node3D" parent="Objects/extraction" unique_id=1828478471 instance=ExtResource("9_f7meg")]
 metadata/map_marker_preview = true
 
 [node name="loot_3" type="Node3D" parent="Objects" unique_id=1132772281]
@@ -170,7 +170,7 @@ loot_table = ExtResource("13_y00vi")
 loot_seed = 303
 cell = Vector3i(10, 0, 6)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_3" unique_id=100589618 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_3" unique_id=1496484766 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="loot_high" type="Node3D" parent="Objects" unique_id=446513249]
@@ -184,7 +184,7 @@ loot_table = ExtResource("14_wf2yo")
 loot_seed = 404
 cell = Vector3i(10, 1, 1)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_high" unique_id=554497514 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_high" unique_id=221704052 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="barrel_1" type="Node3D" parent="Objects" unique_id=1599025707]
@@ -196,7 +196,7 @@ scene = ExtResource("15_surd2")
 blocks_movement = true
 cell = Vector3i(3, 0, 7)
 
-[node name="_Preview" type="Node3D" parent="Objects/barrel_1" unique_id=1989773108 instance=ExtResource("15_surd2")]
+[node name="_Preview" type="Node3D" parent="Objects/barrel_1" unique_id=2046706815 instance=ExtResource("15_surd2")]
 metadata/map_marker_preview = true
 
 [node name="barrel_2" type="Node3D" parent="Objects" unique_id=200211528]
@@ -208,7 +208,7 @@ scene = ExtResource("15_surd2")
 blocks_movement = true
 cell = Vector3i(10, 0, 2)
 
-[node name="_Preview" type="Node3D" parent="Objects/barrel_2" unique_id=2012667510 instance=ExtResource("15_surd2")]
+[node name="_Preview" type="Node3D" parent="Objects/barrel_2" unique_id=391487486 instance=ExtResource("15_surd2")]
 metadata/map_marker_preview = true
 
 [node name="loot_2" type="Node3D" parent="Objects" unique_id=1895152242]
@@ -223,7 +223,7 @@ loot_table = ExtResource("12_2s8lf")
 loot_seed = 202
 cell = Vector3i(7, 0, 4)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_2" unique_id=1447220177 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_2" unique_id=24937500 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="loot_1" type="Node3D" parent="Objects" unique_id=1203230928]
@@ -238,7 +238,7 @@ loot_table = ExtResource("11_u7p6a")
 loot_seed = 101
 cell = Vector3i(1, 0, 3)
 
-[node name="_Preview" type="Node3D" parent="Objects/loot_1" unique_id=1499237253 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/loot_1" unique_id=402215823 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="对象___loot_017" type="Node3D" parent="Objects" unique_id=544532906]
@@ -252,7 +252,7 @@ loot_table = ExtResource("13_y00vi")
 loot_seed = 303
 cell = Vector3i(1, 0, 5)
 
-[node name="_Preview" type="Node3D" parent="Objects/对象___loot_017" unique_id=1430178276 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/对象___loot_017" unique_id=113596695 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="对象___loot_049" type="Node3D" parent="Objects" unique_id=44092805]
@@ -266,7 +266,7 @@ loot_table = ExtResource("13_y00vi")
 loot_seed = 303
 cell = Vector3i(1, 0, 6)
 
-[node name="_Preview" type="Node3D" parent="Objects/对象___loot_049" unique_id=1325705666 instance=ExtResource("10_y6bde")]
+[node name="_Preview" type="Node3D" parent="Objects/对象___loot_049" unique_id=864404518 instance=ExtResource("10_y6bde")]
 metadata/map_marker_preview = true
 
 [node name="对象___explosive_023" type="Node3D" parent="Objects" unique_id=261634959]
@@ -278,7 +278,7 @@ scene = ExtResource("15_surd2")
 blocks_movement = true
 cell = Vector3i(7, 0, 7)
 
-[node name="_Preview" type="Node3D" parent="Objects/对象___explosive_023" unique_id=168227073 instance=ExtResource("15_surd2")]
+[node name="_Preview" type="Node3D" parent="Objects/对象___explosive_023" unique_id=920264974 instance=ExtResource("15_surd2")]
 metadata/map_marker_preview = true
 
 [node name="对象___explosive_057" type="Node3D" parent="Objects" unique_id=1948409948]
@@ -290,7 +290,7 @@ scene = ExtResource("15_surd2")
 blocks_movement = true
 cell = Vector3i(8, 0, 7)
 
-[node name="_Preview" type="Node3D" parent="Objects/对象___explosive_057" unique_id=1205062492 instance=ExtResource("15_surd2")]
+[node name="_Preview" type="Node3D" parent="Objects/对象___explosive_057" unique_id=1562996179 instance=ExtResource("15_surd2")]
 metadata/map_marker_preview = true
 
 [node name="Spawns" type="Node3D" parent="." unique_id=1279936416]

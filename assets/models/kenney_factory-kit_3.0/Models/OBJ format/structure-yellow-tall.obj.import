@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dbxuh6ghevht2"
+path="res://.godot/imported/structure-yellow-tall.obj-d00b2f38b34c2ddfc717a52c89a70bec.mesh"
+
+[deps]
+
+files=["res://.godot/imported/structure-yellow-tall.obj-d00b2f38b34c2ddfc717a52c89a70bec.mesh"]
+
+source_file="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/structure-yellow-tall.obj"
+dest_files=["res://.godot/imported/structure-yellow-tall.obj-d00b2f38b34c2ddfc717a52c89a70bec.mesh", "res://.godot/imported/structure-yellow-tall.obj-d00b2f38b34c2ddfc717a52c89a70bec.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

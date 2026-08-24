@@ -1,9 +1,9 @@
 [gd_resource type="MeshLibrary" format=3 uid="uid://cmsgm4xtx1wug"]
 
-[ext_resource type="ArrayMesh" uid="uid://dawm11blbwd16" path="res://kenney_factory-kit_3.0/Models/OBJ format/floor-large.obj" id="1_floor"]
-[ext_resource type="ArrayMesh" uid="uid://cg7hl6hcaiio" path="res://kenney_factory-kit_3.0/Models/OBJ format/top-large-checkerboard.obj" id="2_floor_alt"]
-[ext_resource type="ArrayMesh" uid="uid://c8okdav0y27na" path="res://kenney_factory-kit_3.0/Models/OBJ format/structure-wall.obj" id="3_wall"]
-[ext_resource type="ArrayMesh" uid="uid://dtnokrmmr5ggu" path="res://kenney_factory-kit_3.0/Models/OBJ format/conveyor-bars-fence.obj" id="4_cover"]
+[ext_resource type="ArrayMesh" uid="uid://dawm11blbwd16" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/floor-large.obj" id="1_floor"]
+[ext_resource type="ArrayMesh" uid="uid://cg7hl6hcaiio" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/top-large-checkerboard.obj" id="2_floor_alt"]
+[ext_resource type="ArrayMesh" uid="uid://c8okdav0y27na" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/structure-wall.obj" id="3_wall"]
+[ext_resource type="ArrayMesh" uid="uid://dtnokrmmr5ggu" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/conveyor-bars-fence.obj" id="4_cover"]
 
 [sub_resource type="BoxShape3D" id="BoxShape_floor"]
 size = Vector3(2, 0.2, 2)

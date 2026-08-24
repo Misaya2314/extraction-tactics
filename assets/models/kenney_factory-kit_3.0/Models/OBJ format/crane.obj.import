@@ -1,0 +1,25 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://cvbeljaxety6w"
+path="res://.godot/imported/crane.obj-65a6afab6cb2a562c3d69ccac3fa5090.mesh"
+
+[deps]
+
+files=["res://.godot/imported/crane.obj-65a6afab6cb2a562c3d69ccac3fa5090.mesh"]
+
+source_file="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/crane.obj"
+dest_files=["res://.godot/imported/crane.obj-65a6afab6cb2a562c3d69ccac3fa5090.mesh", "res://.godot/imported/crane.obj-65a6afab6cb2a562c3d69ccac3fa5090.mesh"]
+
+[params]
+
+generate_tangents=true
+generate_lods=true
+generate_shadow_mesh=true
+generate_lightmap_uv2=false
+generate_lightmap_uv2_texel_size=0.2
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+force_disable_mesh_compression=false

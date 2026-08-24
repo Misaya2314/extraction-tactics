@@ -1,6 +1,6 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3]
 
-[ext_resource type="ArrayMesh" path="res://kenney_factory-kit_3.0/Models/OBJ format/piston-round.obj" id="1_factory_piston"]
+[ext_resource type="ArrayMesh" uid="uid://bth6abo56fscu" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/piston-round.obj" id="1_factory_piston"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape_barrel"]
 radius = 0.45
