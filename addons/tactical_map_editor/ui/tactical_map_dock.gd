@@ -243,7 +243,7 @@ func _build_ui() -> void:
 	_add_placeable_button = Button.new()
 	_add_placeable_button.name = "AddPlaceableButton"
 	_add_placeable_button.text = "添加素材"
-	_add_placeable_button.tooltip_text = "打开素材向导，创建一个引用现有 MeshLibrary item 的 Cell 定义。"
+	_add_placeable_button.tooltip_text = "从资源文件导入一个已有的 Cell 或 Object Definition。"
 	_add_placeable_button.pressed.connect(func() -> void: add_placeable_requested.emit())
 	palette_heading.add_child(_add_placeable_button)
 	_palette = ItemList.new()
@@ -1119,7 +1119,7 @@ func _ensure_add_placeable_button() -> bool:
 	_add_placeable_button = Button.new()
 	_add_placeable_button.name = "AddPlaceableButton"
 	_add_placeable_button.text = "添加素材"
-	_add_placeable_button.tooltip_text = "打开素材向导，创建一个引用现有 MeshLibrary item 的 Cell 定义。"
+	_add_placeable_button.tooltip_text = "从资源文件导入一个已有的 Cell 或 Object Definition。"
 	_add_placeable_button.pressed.connect(_emit_add_placeable_requested)
 	parent.add_child(_add_placeable_button)
 	return true

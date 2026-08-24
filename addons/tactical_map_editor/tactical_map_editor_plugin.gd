@@ -6,6 +6,7 @@ const TARGET_SCRIPT := preload("res://addons/tactical_map_editor/editing/placeme
 const INPUT_STRATEGY := preload("res://addons/tactical_map_editor/editing/tactical_map_input_strategy.gd")
 const DOCK_SCRIPT := preload("res://addons/tactical_map_editor/ui/tactical_map_dock.gd")
 const WIZARD_SCRIPT := preload("res://addons/tactical_map_editor/ui/tactical_placeable_wizard.gd")
+const PLACEABLE_SERVICE := preload("res://addons/tactical_map_editor/content/tactical_placeable_wizard_service.gd")
 const NEW_MAP_DIALOG_SCRIPT := preload("res://addons/tactical_map_editor/ui/tactical_new_map_dialog.gd")
 const PREVIEW_BUILDER := preload("res://addons/tactical_map_editor/preview/tactical_preview_builder.gd")
 const AUTHOR_SCRIPT_PATH := "res://scripts/map_authoring/tactical_map_author.gd"
@@ -24,6 +25,7 @@ var _debug_overlay_root: Node3D
 var _debug_overlay: MultiMeshInstance3D
 var _special_overlay_root: Node3D
 var _wizard: TacticalPlaceableWizard
+var _placeable_file_dialog: FileDialog
 var _new_map_dialog: TacticalNewMapDialog
 var _last_preview_target: TacticalPlacementTarget
 var _drag_button: int = 0
@@ -75,7 +77,10 @@ func _exit_tree() -> void:
 	_clear_special_overlay()
 	if _wizard != null and is_instance_valid(_wizard):
 		_wizard.queue_free()
-	_wizard = null
+		_wizard = null
+	if _placeable_file_dialog != null and is_instance_valid(_placeable_file_dialog):
+		_placeable_file_dialog.queue_free()
+		_placeable_file_dialog = null
 	if _new_map_dialog != null and is_instance_valid(_new_map_dialog):
 		_new_map_dialog.queue_free()
 	_new_map_dialog = null
@@ -486,21 +491,44 @@ func _open_placeable_wizard() -> void:
 		if _dock != null:
 			_dock.set_status_message("没有活动的 TacticalMapAuthor，无法添加素材。", false)
 		return
-	if _wizard == null or not is_instance_valid(_wizard):
-		_wizard = WIZARD_SCRIPT.new()
-		_wizard.name = "TacticalPlaceableWizard"
-		_wizard.saved.connect(_on_placeable_wizard_saved)
-		var base_control := get_editor_interface().get_base_control()
-		if base_control == null:
-			_wizard.free()
-			_wizard = null
-			_dock.set_status_message("无法打开素材向导：编辑器基座不可用。", false)
-			return
-		base_control.add_child(_wizard)
+	var base_control := get_editor_interface().get_base_control()
+	if base_control == null:
+		_dock.set_status_message("无法打开素材选择器：编辑器基座不可用。", false)
+		return
+	if _placeable_file_dialog == null or not is_instance_valid(_placeable_file_dialog):
+		_placeable_file_dialog = FileDialog.new()
+		_placeable_file_dialog.name = "TacticalPlaceableDefinitionPicker"
+		_placeable_file_dialog.title = "选择要加入素材库的 Definition"
+		_placeable_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+		_placeable_file_dialog.access = FileDialog.ACCESS_RESOURCES
+		_placeable_file_dialog.filters = PackedStringArray(["*.tres ; Placeable Definition"])
+		_placeable_file_dialog.file_selected.connect(_on_placeable_definition_selected)
+		base_control.add_child(_placeable_file_dialog)
+	_placeable_file_dialog.current_dir = "res://resources/map_tiles/definitions"
+	_placeable_file_dialog.popup_centered_ratio(0.7)
+	_dock.set_status_message("请选择一个 TacticalCellTileDefinition 或 TacticalObjectDefinition。", true)
+
+
+func _on_placeable_definition_selected(path: String) -> void:
+	if _session == null or not _session.has_author():
+		if _dock != null:
+			_dock.set_status_message("地图作者已失效，请重新开启地图编辑模式。", false)
+		return
 	var paths := _default_placeable_paths()
-	_wizard.configure(_session.author, String(paths.get(&"definition", "")), String(paths.get(&"library", "")))
-	_wizard.popup_centered()
-	_dock.set_status_message("请在素材向导中完成配置。", true)
+	var result: Dictionary = PLACEABLE_SERVICE.import_definition(
+		_session.author,
+		path,
+		String(paths.get(&"library", "")),
+	)
+	if not bool(result.get(&"valid", false)):
+		var errors := Array(result.get(&"errors", []))
+		var message_parts: Array[String] = []
+		for error_value in errors:
+			message_parts.append(String(error_value))
+		var message := "；".join(message_parts)
+		_dock.set_status_message("素材导入失败：%s" % message, false)
+		return
+	_on_placeable_wizard_saved(result)
 
 func _open_new_map_dialog() -> void:
 	if _new_map_dialog == null or not is_instance_valid(_new_map_dialog):

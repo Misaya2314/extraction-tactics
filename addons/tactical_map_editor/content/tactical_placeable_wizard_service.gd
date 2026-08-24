@@ -191,18 +191,26 @@ static func build_definition(request: Dictionary) -> TacticalCellTileDefinition:
 	return definition
 
 
-static func build_library_for_author(author: Node) -> Dictionary:
+static func build_library_for_author(author: Node, seed_library: TacticalPlaceableLibrary = null) -> Dictionary:
 	var library := TacticalPlaceableLibrary.new()
 	library.schema_version = TacticalPlaceableLibrary.CURRENT_SCHEMA_VERSION
 	var warnings: Array[String] = []
 	var current := author.get("placeable_library") as TacticalPlaceableLibrary if author != null else null
+	var source_libraries: Array[TacticalPlaceableLibrary] = []
 	if current != null:
-		library.generated_mesh_library = current.generated_mesh_library
-		for definition in current.definitions:
-			if definition != null:
+		source_libraries.append(current)
+	if seed_library != null and seed_library != current:
+		source_libraries.append(seed_library)
+	for source in source_libraries:
+		if source == null:
+			continue
+		if library.generated_mesh_library == null and source.generated_mesh_library != null:
+			library.generated_mesh_library = source.generated_mesh_library
+		for definition in source.definitions:
+			if definition != null and library.find_definition(definition.placeable_id) == null:
 				library.definitions.append(definition)
-		for binding in current.item_bindings:
-			if binding != null:
+		for binding in source.item_bindings:
+			if binding != null and not _has_binding_key(library, binding.target_layer, binding.mesh_item_id):
 				library.item_bindings.append(binding)
 	var catalog := author.get("tile_catalog") as MapTileCatalog if author != null else null
 	if catalog != null:
@@ -221,6 +229,167 @@ static func build_library_for_author(author: Node) -> Dictionary:
 					continue
 				library.item_bindings.append(binding)
 	return {&"library": library, &"warnings": warnings}
+
+
+## Import a pre-authored Cell or Object Definition into the author's active
+## placeable library.  The source Definition is never overwritten: only the
+## library index/bindings are updated, so ResourceTables remains the place
+## where the authored data is edited.
+static func import_definition(author: Node, definition_path: String, library_path: String) -> Dictionary:
+	var errors: Array[String] = []
+	var warnings: Array[String] = []
+	var normalized_definition_path := normalize_resource_path(definition_path)
+	var normalized_library_path := normalize_resource_path(library_path)
+	if author == null:
+		errors.append("没有活动的 TacticalMapAuthor。")
+	if not _valid_resource_path(normalized_definition_path):
+		errors.append("Definition 路径必须是 res:// 或 user:// 下的 .tres 文件。")
+	if not _valid_resource_path(normalized_library_path):
+		errors.append("Library 路径必须是 res:// 或 user:// 下的 .tres 文件。")
+	if normalized_definition_path == normalized_library_path and not normalized_definition_path.is_empty():
+		errors.append("Definition 与 Library 不能使用同一路径。")
+	if not errors.is_empty():
+		return {&"valid": false, &"errors": errors, &"warnings": warnings}
+
+	var definition := ResourceLoader.load(normalized_definition_path) as TacticalPlaceableDefinition
+	if definition == null:
+		errors.append("所选资源不是 TacticalCellTileDefinition 或 TacticalObjectDefinition。")
+		return {&"valid": false, &"errors": errors, &"warnings": warnings}
+	if not definition.is_valid():
+		errors.append("Definition 无效：%s。" % String(definition.placeable_id))
+	var is_cell := definition is TacticalCellTileDefinition
+	var is_object := definition is TacticalObjectDefinition
+	var target_mesh_library: MeshLibrary = null
+	if not is_cell and not is_object:
+		errors.append("当前素材导入只支持 Cell 地格和 Object 对象。")
+	if is_object:
+		var object_definition := definition as TacticalObjectDefinition
+		if object_definition.scene == null:
+			errors.append("Object Definition 没有指定 scene PackedScene。")
+	if is_cell:
+		var cell_definition := definition as TacticalCellTileDefinition
+		var target_layer := int(cell_definition.target_layer)
+		if target_layer != MapTileRule.Layer.FLOOR and target_layer != MapTileRule.Layer.STRUCTURE:
+			errors.append("当前 Cell 导入只支持 Floor 或 Structure 目标层。")
+		var grid := _grid_for_author_layer(author, target_layer)
+		if grid == null:
+			errors.append("目标层没有对应的 GridMap。")
+		elif grid.mesh_library == null:
+			errors.append("目标 GridMap 没有 MeshLibrary。")
+		else:
+			target_mesh_library = grid.mesh_library
+			if not target_mesh_library.get_item_list().has(cell_definition.mesh_item_id):
+				errors.append("目标 GridMap 的 MeshLibrary 中不存在 item %d。" % cell_definition.mesh_item_id)
+	if not errors.is_empty():
+		return {&"valid": false, &"errors": errors, &"warnings": warnings}
+
+	var seed_library: TacticalPlaceableLibrary = null
+	if FileAccess.file_exists(normalized_library_path):
+		seed_library = ResourceLoader.load(normalized_library_path) as TacticalPlaceableLibrary
+		if seed_library == null:
+			errors.append("已有 Library 不是有效的 TacticalPlaceableLibrary：%s" % normalized_library_path)
+			return {&"valid": false, &"errors": errors, &"warnings": warnings}
+	var library_result := build_library_for_author(author, seed_library)
+	var library := library_result.get(&"library") as TacticalPlaceableLibrary
+	warnings.append_array(library_result.get(&"warnings", []))
+	if library == null:
+		errors.append("无法构建当前地图的素材库。")
+		return {&"valid": false, &"errors": errors, &"warnings": warnings}
+	if library.generated_mesh_library == null and target_mesh_library != null:
+		library.generated_mesh_library = target_mesh_library
+
+	var existing_index := -1
+	for index in range(library.definitions.size()):
+		var existing := library.definitions[index]
+		if existing != null and existing.placeable_id == definition.placeable_id:
+			existing_index = index
+			if (existing is TacticalCellTileDefinition) != is_cell:
+				errors.append("稳定 ID 已被另一种素材类型使用：%s。" % definition.placeable_id)
+			break
+	if not errors.is_empty():
+		return {&"valid": false, &"errors": errors, &"warnings": warnings}
+	if existing_index >= 0:
+		# Re-importing the same stable ID updates the library reference, which
+		# lets ResourceTables edits flow into the map editor without duplicates.
+		library.definitions[existing_index] = definition
+	else:
+		library.definitions.append(definition)
+
+	if is_cell:
+		var cell_definition := definition as TacticalCellTileDefinition
+		var binding_index := -1
+		for index in range(library.item_bindings.size()):
+			var binding := library.item_bindings[index]
+			if binding == null:
+				continue
+			if binding.placeable_id == definition.placeable_id:
+				binding_index = index
+				continue
+			if binding.target_layer == cell_definition.target_layer and binding.mesh_item_id == cell_definition.mesh_item_id:
+				errors.append("目标层与 MeshLibrary item 已绑定到 %s，不能重复绑定。" % binding.placeable_id)
+		if not errors.is_empty():
+			return {&"valid": false, &"errors": errors, &"warnings": warnings}
+		var new_binding := MeshItemBinding.new()
+		new_binding.placeable_id = definition.placeable_id
+		new_binding.target_layer = cell_definition.target_layer
+		new_binding.mesh_item_id = cell_definition.mesh_item_id
+		new_binding.mesh_library = cell_definition.mesh_library
+		if new_binding.mesh_library == null:
+			new_binding.mesh_library = target_mesh_library
+		if binding_index >= 0:
+			library.item_bindings[binding_index] = new_binding
+		else:
+			library.item_bindings.append(new_binding)
+
+	var library_errors := library.get_validation_errors()
+	if not library_errors.is_empty():
+		errors.append_array(library_errors)
+		return {&"valid": false, &"errors": errors, &"warnings": warnings}
+	var directory_error := _ensure_parent_directory(normalized_library_path)
+	if directory_error != OK:
+		errors.append("创建 Library 目录失败：%s" % error_string(directory_error))
+		return {&"valid": false, &"errors": errors, &"warnings": warnings}
+
+	var library_preexists := FileAccess.file_exists(normalized_library_path)
+	var existing_uid := _read_resource_uid(normalized_library_path) if library_preexists else ""
+	var output_library := library
+	if library_preexists:
+		var existing_library := ResourceLoader.load(normalized_library_path) as TacticalPlaceableLibrary
+		if existing_library == null:
+			errors.append("无法重新载入已有 Library：%s" % normalized_library_path)
+			return {&"valid": false, &"errors": errors, &"warnings": warnings}
+		existing_library.schema_version = library.schema_version
+		existing_library.generated_mesh_library = library.generated_mesh_library
+		existing_library.definitions = library.definitions
+		existing_library.item_bindings = library.item_bindings
+		output_library = existing_library
+	else:
+		library.resource_path = normalized_library_path
+	var save_error := ResourceSaver.save(output_library, normalized_library_path)
+	if save_error != OK:
+		errors.append("保存 Library 失败：%s" % error_string(save_error))
+		return {&"valid": false, &"errors": errors, &"warnings": warnings}
+	if not existing_uid.is_empty():
+		_restore_resource_uid(normalized_library_path, existing_uid)
+	author.set("placeable_library", output_library)
+	return {
+		&"valid": true,
+		&"errors": [],
+		&"warnings": warnings,
+		&"definition": definition,
+		&"library": output_library,
+		&"placeable_id": definition.placeable_id,
+		&"definition_path": normalized_definition_path,
+		&"library_path": normalized_library_path,
+		&"imported_kind": "cell" if is_cell else "object",
+	}
+
+
+static func _grid_for_author_layer(author: Node, layer: int) -> GridMap:
+	if author == null:
+		return null
+	var node_name := "FloorGrid" if layer == MapTileRule.Layer.FLOOR else "StructureGrid"
+	return author.get_node_or_null(NodePath(node_name)) as GridMap
 
 
 static func save_new_cell(author: Node, request: Dictionary, definition_path: String, library_path: String) -> Dictionary:
