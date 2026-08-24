@@ -28,6 +28,7 @@ var _new_map_dialog: TacticalNewMapDialog
 var _last_preview_target: TacticalPlacementTarget
 var _drag_button: int = 0
 var _box_drag_active: bool = false
+var _box_erase_mode: bool = false
 var _box_anchor_cell: Vector3i = Vector3i.ZERO
 var _box_current_cell: Vector3i = Vector3i.ZERO
 var _temporary_erase_restore_tool: int = -1
@@ -162,7 +163,8 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 			# it until the next ordinary cursor motion.
 			_clear_preview()
 			return AFTER_GUI_INPUT_PASS
-		var target := _target_from_screen(viewport_camera, motion.position)
+		var box_target_tool := TacticalMapEditSession.Tool.ERASE if _box_drag_active and _box_erase_mode else -1
+		var target := _target_from_screen(viewport_camera, motion.position, box_target_tool)
 		_update_preview(target)
 		if _box_drag_active:
 			if target.valid:
@@ -185,6 +187,15 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 			if not mouse.pressed and _box_drag_active:
 				return _finish_box_paint(viewport_camera, mouse)
 			if mouse.pressed:
+				if _session.tool == TacticalMapEditSession.Tool.BOX_PAINT:
+					var is_box_erase := mouse.ctrl_pressed
+					var requested_tool := TacticalMapEditSession.Tool.ERASE if is_box_erase else TacticalMapEditSession.Tool.BOX_PAINT
+					var box_left_target := _target_from_screen(viewport_camera, mouse.position, requested_tool)
+					_update_preview(box_left_target)
+					if not box_left_target.valid:
+						_session.set_status_message(box_left_target.reason, false)
+						return AFTER_GUI_INPUT_STOP
+					return _begin_box_paint(box_left_target, is_box_erase)
 				if mouse_action == INPUT_STRATEGY.Action.LEFT_TEMP_ERASE:
 					return _begin_temporary_erase(viewport_camera, mouse)
 				var left_target := _target_from_screen(viewport_camera, mouse.position)
@@ -199,8 +210,6 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 				if mouse_action == INPUT_STRATEGY.Action.LEFT_PICK:
 					_session.pick_at(left_target.cell)
 					return AFTER_GUI_INPUT_STOP
-				if _session.tool == TacticalMapEditSession.Tool.BOX_PAINT:
-					return _begin_box_paint(left_target)
 				_drag_button = MOUSE_BUTTON_LEFT
 				_session.begin_stroke(_session.tool_name())
 				_session.apply_at(left_target.cell)
@@ -229,22 +238,30 @@ func _begin_temporary_erase(viewport_camera: Camera3D, mouse: InputEventMouseBut
 	return AFTER_GUI_INPUT_STOP
 
 
-func _begin_box_paint(target: TacticalPlacementTarget) -> int:
+func _begin_box_paint(target: TacticalPlacementTarget, is_erase: bool = false) -> int:
 	_box_drag_active = true
+	_box_erase_mode = is_erase
 	_box_anchor_cell = target.cell
 	_box_current_cell = target.cell
-	_session.begin_stroke("框选绘制")
+	_session.begin_stroke("框选擦除" if is_erase else "框选绘制")
 	_update_box_overlay(_box_anchor_cell, _box_current_cell, true)
 	return AFTER_GUI_INPUT_STOP
 
 
 func _finish_box_paint(viewport_camera: Camera3D, mouse: InputEventMouseButton) -> int:
-	var target := _target_from_screen(viewport_camera, mouse.position)
+	var is_erase := _box_erase_mode or mouse.ctrl_pressed
+	var requested_tool := TacticalMapEditSession.Tool.ERASE if is_erase else TacticalMapEditSession.Tool.BOX_PAINT
+	var target := _target_from_screen(viewport_camera, mouse.position, requested_tool)
 	if target.valid:
 		_box_current_cell = target.cell
 	_update_box_overlay(_box_anchor_cell, _box_current_cell, target.valid)
 	_box_drag_active = false
-	_session.apply_rectangle(_box_anchor_cell, _box_current_cell)
+	# Allow mid-drag Ctrl toggle: keep stroke label in sync with final mode.
+	var expected_label := "框选擦除" if is_erase else "框选绘制"
+	if _session.stroke_active and _session.stroke_label != expected_label:
+		_session.stroke_label = expected_label
+	_box_erase_mode = false
+	_session.apply_rectangle(_box_anchor_cell, _box_current_cell, is_erase)
 	_session.finish_stroke(get_undo_redo())
 	_clear_box_overlay()
 	_clear_preview()
@@ -265,6 +282,7 @@ func _restore_temporary_erase_tool() -> void:
 func _cancel_active_edit_input() -> void:
 	if _session == null:
 		_drag_button = 0
+		_box_erase_mode = false
 		_temporary_erase_active = false
 		_temporary_erase_restore_tool = -1
 		return
@@ -273,6 +291,7 @@ func _cancel_active_edit_input() -> void:
 	if _box_drag_active:
 		_session.cancel_stroke()
 		_box_drag_active = false
+		_box_erase_mode = false
 		_clear_box_overlay()
 	_drag_button = 0
 	_restore_temporary_erase_tool()
@@ -906,7 +925,12 @@ func _update_box_overlay(from_cell: Vector3i, to_cell: Vector3i, valid: bool) ->
 	_box_overlay.mesh = box_mesh
 	var overlay_material := _box_overlay.material_override as StandardMaterial3D
 	if overlay_material != null:
-		overlay_material.albedo_color = Color(0.25, 0.95, 0.4, 0.24) if valid else Color(0.95, 0.2, 0.2, 0.24)
+		if not valid:
+			overlay_material.albedo_color = Color(0.95, 0.2, 0.2, 0.24)
+		elif _box_erase_mode:
+			overlay_material.albedo_color = Color(0.96, 0.42, 0.18, 0.32)
+		else:
+			overlay_material.albedo_color = Color(0.25, 0.95, 0.4, 0.24)
 	_box_overlay.visible = true
 
 

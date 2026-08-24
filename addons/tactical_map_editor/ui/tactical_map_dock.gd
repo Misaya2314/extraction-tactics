@@ -199,7 +199,7 @@ func _build_ui() -> void:
 	content.add_child(_edit_toggle)
 	var navigation_hint := Label.new()
 	navigation_hint.name = "NavigationHint"
-	navigation_hint.text = "视口导航：普通 RMB 为 Godot 原生自由观察；按住 RMB + WASD 飞行；MMB 原生环绕/平移（按 Godot 设置）。擦除：擦除工具 + 左键，或 Ctrl + 左键临时擦除。"
+	navigation_hint.text = "视口导航：普通 RMB 为 Godot 原生自由观察；按住 RMB + WASD 飞行；MMB 原生环绕/平移（按 Godot 设置）。擦除：擦除工具 + 左键，或 Ctrl + 左键临时擦除；Box Paint 按住 Ctrl 拖选为擦除。"
 	navigation_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	navigation_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	navigation_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -248,7 +248,7 @@ func _build_ui() -> void:
 	_tool_option.add_item("Rotate", TacticalMapEditSession.Tool.ROTATE)
 	_tool_option.add_item("Select", TacticalMapEditSession.Tool.SELECT)
 	_tool_option.add_item("Box Paint", TacticalMapEditSession.Tool.BOX_PAINT)
-	_tool_option.set_item_tooltip(_tool_option.item_count - 1, "按住左键拖出矩形，松开后批量绘制 Cell 地格。")
+	_tool_option.set_item_tooltip(_tool_option.item_count - 1, "按住左键拖出矩形，松开后批量绘制 Cell 地格；按住 Ctrl 拖选时改为批量擦除。")
 	_tool_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tool_option.item_selected.connect(func(index: int) -> void:
 		tool_changed.emit(int(_tool_option.get_item_id(index)))
@@ -1634,9 +1634,11 @@ func _ensure_box_paint_tool_item() -> void:
 		return
 	for index in range(_tool_option.item_count):
 		if _tool_option.get_item_id(index) == TacticalMapEditSession.Tool.BOX_PAINT:
+			# Keep tooltip in sync with the Box Paint Ctrl-erase feature.
+			_tool_option.set_item_tooltip(index, "按住左键拖出矩形，松开后批量绘制 Cell 地格；按住 Ctrl 拖选时改为批量擦除。")
 			return
 	_tool_option.add_item("Box Paint", TacticalMapEditSession.Tool.BOX_PAINT)
-	_tool_option.set_item_tooltip(_tool_option.item_count - 1, "按住左键拖出矩形，松开后批量绘制 Cell 地格。")
+	_tool_option.set_item_tooltip(_tool_option.item_count - 1, "按住左键拖出矩形，松开后批量绘制 Cell 地格；按住 Ctrl 拖选时改为批量擦除。")
 
 
 func _ensure_property_panel() -> bool:

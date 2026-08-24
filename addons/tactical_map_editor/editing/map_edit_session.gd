@@ -965,13 +965,34 @@ func apply_at(cell: Vector3i) -> bool:
 
 ## Applies every cell in an X/Z rectangle as one stroke.  The editor uses this
 ## for Box Paint so large areas do not emit a change signal for every cell.
-func apply_rectangle(from_cell: Vector3i, to_cell: Vector3i) -> bool:
+func apply_rectangle(from_cell: Vector3i, to_cell: Vector3i, erase: bool = false) -> bool:
 	if tool != Tool.BOX_PAINT:
 		_set_status("当前工具不是框选绘制。", false)
 		return false
 	if from_cell.y != to_cell.y:
-		_set_status("框选绘制必须位于同一楼层。", false)
+		_set_status("框选%s必须位于同一楼层。" % ("擦除" if erase else "绘制"), false)
 		return false
+	if erase:
+		if not stroke_active:
+			begin_stroke("框选擦除")
+		# Temporarily treat the stroke as ERASE so snapshot captures and
+		# validation follow the target_layer, not the selected Cell placeable.
+		var saved_tool := tool
+		tool = Tool.ERASE
+		var min_x := mini(from_cell.x, to_cell.x)
+		var max_x := maxi(from_cell.x, to_cell.x)
+		var min_z := mini(from_cell.z, to_cell.z)
+		var max_z := maxi(from_cell.z, to_cell.z)
+		var changed_count := 0
+		for z in range(min_z, max_z + 1):
+			for x in range(min_x, max_x + 1):
+				if _apply_at_internal(Vector3i(x, from_cell.y, z), false):
+					changed_count += 1
+		tool = saved_tool
+		if changed_count > 0:
+			_set_status("框选擦除：已擦除 %d 格。" % changed_count, true)
+			_emit_changed()
+		return changed_count > 0
 	if not stroke_active:
 		begin_stroke("框选绘制")
 	var min_x := mini(from_cell.x, to_cell.x)
