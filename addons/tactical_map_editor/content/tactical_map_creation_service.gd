@@ -12,6 +12,13 @@ const DEFAULT_PLACEABLE_LIBRARY_PATH := "res://resources/map_tiles/libraries/def
 const DEFAULT_SCENE_PATH := "res://scenes/maps/new_map.tscn"
 const DEFAULT_OUTPUT_RESOURCE_PATH := "res://resources/maps/new_map.tres"
 
+const DEFAULT_ENV_BACKGROUND_COLOR: Color = Color(0.018, 0.028, 0.045, 1.0)
+const DEFAULT_ENV_AMBIENT_COLOR: Color = Color(0.32, 0.4, 0.52, 1.0)
+const DEFAULT_KEY_LIGHT_ROTATION: Vector3 = Vector3(-55.0, -35.0, 0.0)
+const DEFAULT_KEY_LIGHT_COLOR: Color = Color(0.86, 0.92, 1.0, 1.0)
+const DEFAULT_FILL_LIGHT_ROTATION: Vector3 = Vector3(-30.0, 145.0, 0.0)
+const DEFAULT_FILL_LIGHT_COLOR: Color = Color(0.42, 0.52, 0.72, 1.0)
+
 
 static func default_request() -> Dictionary:
 	return {
@@ -169,6 +176,9 @@ static func _build_empty_author(request: Dictionary, mesh_library: MeshLibrary) 
 	_add_owned(author, _new_grid("DecorationGrid", mesh_library, author.cell_dimensions, 0))
 	for child_name in ["Objects", "Spawns", "PatrolRoutes", "TraversalLinks", "TraversalVisuals", "ArtDecorations"]:
 		_add_owned(author, Node3D.new(), child_name)
+	_add_owned(author, _new_world_environment())
+	_add_owned(author, _new_directional_light("KeyLight", DEFAULT_KEY_LIGHT_ROTATION, DEFAULT_KEY_LIGHT_COLOR, 1.2, true))
+	_add_owned(author, _new_directional_light("FillLight", DEFAULT_FILL_LIGHT_ROTATION, DEFAULT_FILL_LIGHT_COLOR, 0.25, false))
 	return author
 
 
@@ -180,6 +190,35 @@ static func _new_grid(node_name: String, mesh_library: MeshLibrary, cell_size: V
 	grid.collision_layer = collision_layer
 	grid.collision_mask = 0
 	return grid
+
+
+static func _new_world_environment() -> WorldEnvironment:
+	var world_environment := WorldEnvironment.new()
+	world_environment.name = "WorldEnvironment"
+	var environment := Environment.new()
+	environment.background_mode = Environment.BG_COLOR
+	environment.background_color = DEFAULT_ENV_BACKGROUND_COLOR
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.ambient_light_color = DEFAULT_ENV_AMBIENT_COLOR
+	environment.ambient_light_energy = 0.7
+	world_environment.environment = environment
+	return world_environment
+
+
+static func _new_directional_light(
+	node_name: String,
+	rotation: Vector3,
+	color: Color,
+	energy: float,
+	with_shadows: bool
+) -> DirectionalLight3D:
+	var light := DirectionalLight3D.new()
+	light.name = node_name
+	light.rotation_degrees = rotation
+	light.light_color = color
+	light.light_energy = energy
+	light.shadow_enabled = with_shadows
+	return light
 
 
 static func _add_owned(parent: Node, child: Node, child_name: String = "") -> void:
