@@ -7,7 +7,6 @@
 script = ExtResource("1_archetype")
 archetype_id = &"player_bravo"
 display_name = "破门手"
-max_action_points = 3
 move_range = 5
-vision_range = 6
+vision_range = 12
 default_weapon = ExtResource("2_weapon")

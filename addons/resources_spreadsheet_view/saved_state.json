@@ -2,6 +2,28 @@
   "column_properties": {
     "res://resources/map_tiles/definitions/objects/": {
       "metadata/_custom_type_script": {
+        "visibility": 0.0
+      },
+      "resource_local_to_scene": {
+        "visibility": 0.0
+      },
+      "resource_name": {
+        "visibility": 0.0
+      }
+    },
+    "res://resources/map_tiles/definitions/structure/": {
+      "metadata/_custom_type_script": {
+        "visibility": 0
+      },
+      "resource_local_to_scene": {
+        "visibility": 0
+      },
+      "resource_name": {
+        "visibility": 0
+      }
+    },
+    "res://resources/units/": {
+      "metadata/_custom_type_script": {
         "visibility": 0
       },
       "resource_local_to_scene": {
@@ -13,7 +35,16 @@
     }
   },
   "recent_paths": [
-    "res://resources/map_tiles/definitions/objects/"
+    "res://resources/map_tiles/definitions/objects/",
+    "res://resources/map_tiles/definitions/structure/",
+    "res://resources/units/"
   ],
-  "table_functions": {}
+  "table_functions": {
+    "filter": [
+      "return true"
+    ],
+    "process": [
+      "return value"
+    ]
+  }
 }

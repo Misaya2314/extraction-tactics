@@ -1,33 +1,33 @@
 [gd_resource type="MeshLibrary" format=3 uid="uid://ghwggyobq5va"]
 
-[ext_resource type="Material" path="res://assets/prototype/materials/ground.tres" id="1_fdfc0"]
-[ext_resource type="Material" path="res://assets/prototype/materials/ground_alt.tres" id="2_r410k"]
-[ext_resource type="Material" path="res://assets/prototype/materials/wall.tres" id="3_wv80e"]
-[ext_resource type="Material" path="res://assets/prototype/materials/low_cover.tres" id="4_mtugy"]
+[ext_resource type="Material" path="res://assets/prototype/materials/ground.tres" id="1_ne7oa"]
+[ext_resource type="Material" path="res://assets/prototype/materials/ground_alt.tres" id="2_jopun"]
+[ext_resource type="Material" path="res://assets/prototype/materials/wall.tres" id="3_m64t0"]
+[ext_resource type="Material" path="res://assets/prototype/materials/low_cover.tres" id="4_ty3ld"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_a0oya"]
-material = ExtResource("1_fdfc0")
+material = ExtResource("1_ne7oa")
 size = Vector3(2, 0.2, 2)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_2ijl5"]
 size = Vector3(2, 0.2, 2)
 
 [sub_resource type="BoxMesh" id="BoxMesh_j4vsh"]
-material = ExtResource("2_r410k")
+material = ExtResource("2_jopun")
 size = Vector3(2, 0.2, 2)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_eybwt"]
 size = Vector3(2, 0.2, 2)
 
 [sub_resource type="BoxMesh" id="BoxMesh_kdavn"]
-material = ExtResource("3_wv80e")
+material = ExtResource("3_m64t0")
 size = Vector3(2, 1.6, 2)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_lfqu4"]
 size = Vector3(2, 1.6, 2)
 
 [sub_resource type="BoxMesh" id="BoxMesh_3v8x3"]
-material = ExtResource("4_mtugy")
+material = ExtResource("4_ty3ld")
 size = Vector3(1.6, 0.7, 0.55)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_t548j"]
