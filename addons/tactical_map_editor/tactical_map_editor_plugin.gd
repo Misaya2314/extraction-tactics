@@ -36,7 +36,6 @@ var _temporary_erase_active: bool = false
 var _bake_and_play_in_progress: bool = false
 var _selection_clear_in_progress: bool = false
 
-
 func _enter_tree() -> void:
 	_session = SESSION_SCRIPT.new()
 	_dock = DOCK_SCRIPT.new()
@@ -58,10 +57,6 @@ func _enter_tree() -> void:
 	_dock.special_edit_finish_requested.connect(_finish_special_edit)
 	_dock.debug_view_changed.connect(_on_debug_view_changed)
 	_dock.validation_location_requested.connect(_on_validation_location_requested)
-	_dock.property_override_requested.connect(_on_property_override_requested)
-	_dock.property_inherit_requested.connect(_on_property_inherit_requested)
-	_dock.default_property_override_requested.connect(_on_default_property_override_requested)
-	_dock.default_property_restore_requested.connect(_on_default_property_restore_requested)
 	set_input_event_forwarding_always_enabled()
 	set_process(true)
 	add_control_to_dock(DOCK_SLOT_RIGHT_UL, _dock)
@@ -69,7 +64,6 @@ func _enter_tree() -> void:
 	if _selection != null:
 		_selection.selection_changed.connect(_on_selection_changed)
 	_on_selection_changed()
-
 
 func _exit_tree() -> void:
 	set_process(false)
@@ -99,23 +93,19 @@ func _exit_tree() -> void:
 	_session = null
 	_active_author = null
 
-
 func _process(_delta: float) -> void:
 	if _session == null or not _session.edit_mode:
 		return
 	if not _is_locked_edit_valid():
 		_exit_edit_mode("地图作者或编辑场景已改变，编辑模式已关闭。")
 
-
 func _handles(object: Object) -> bool:
 	return _find_author(object) != null
-
 
 func _edit(object: Object) -> void:
 	var selected_author := _find_author(object)
 	if selected_author != null:
 		_activate_author(selected_author)
-
 
 func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 	if _session == null:
@@ -222,7 +212,6 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 
 	return AFTER_GUI_INPUT_PASS
 
-
 func _begin_temporary_erase(viewport_camera: Camera3D, mouse: InputEventMouseButton) -> int:
 	var erase_target := _target_from_screen(viewport_camera, mouse.position, TacticalMapEditSession.Tool.ERASE)
 	_update_preview(erase_target)
@@ -237,7 +226,6 @@ func _begin_temporary_erase(viewport_camera: Camera3D, mouse: InputEventMouseBut
 	_session.apply_at(erase_target.cell)
 	return AFTER_GUI_INPUT_STOP
 
-
 func _begin_box_paint(target: TacticalPlacementTarget, is_erase: bool = false) -> int:
 	_box_drag_active = true
 	_box_erase_mode = is_erase
@@ -246,7 +234,6 @@ func _begin_box_paint(target: TacticalPlacementTarget, is_erase: bool = false) -
 	_session.begin_stroke("框选擦除" if is_erase else "框选绘制")
 	_update_box_overlay(_box_anchor_cell, _box_current_cell, true)
 	return AFTER_GUI_INPUT_STOP
-
 
 func _finish_box_paint(viewport_camera: Camera3D, mouse: InputEventMouseButton) -> int:
 	var is_erase := _box_erase_mode or mouse.ctrl_pressed
@@ -267,7 +254,6 @@ func _finish_box_paint(viewport_camera: Camera3D, mouse: InputEventMouseButton) 
 	_clear_preview()
 	return AFTER_GUI_INPUT_STOP
 
-
 func _restore_temporary_erase_tool() -> void:
 	if not _temporary_erase_active:
 		_temporary_erase_restore_tool = -1
@@ -277,7 +263,6 @@ func _restore_temporary_erase_tool() -> void:
 	_temporary_erase_restore_tool = -1
 	if _session != null and _session.has_author() and previous_tool >= 0:
 		_session.set_tool(previous_tool)
-
 
 func _cancel_active_edit_input() -> void:
 	if _session == null:
@@ -295,7 +280,6 @@ func _cancel_active_edit_input() -> void:
 		_clear_box_overlay()
 	_drag_button = 0
 	_restore_temporary_erase_tool()
-
 
 func _on_selection_changed() -> void:
 	if _selection == null or _session == null:
@@ -319,7 +303,6 @@ func _on_selection_changed() -> void:
 	if not _bind_author(next_author):
 		_clear_author_binding("地图根节点绑定失败，请重新选择作者场景根节点。", false)
 
-
 func _activate_author(next_author: Node) -> void:
 	if next_author == null:
 		return
@@ -331,10 +314,8 @@ func _activate_author(next_author: Node) -> void:
 	if not _bind_author(next_author):
 		_clear_author_binding("地图根节点绑定失败，请重新选择作者场景根节点。", false)
 
-
 func _on_edit_mode_changed(enabled: bool) -> void:
 	_request_edit_mode(enabled)
-
 
 func _request_edit_mode(enabled: bool) -> void:
 	if _session == null:
@@ -362,7 +343,6 @@ func _request_edit_mode(enabled: bool) -> void:
 		_dock.set_status_message("地图已锁定，已隐藏根节点选择框。", true)
 	_clear_editor_selection_for_lock()
 
-
 func _bind_author(next_author: Node) -> bool:
 	if _session == null or not is_map_author_root_node(next_author):
 		return false
@@ -387,7 +367,6 @@ func _bind_author(next_author: Node) -> bool:
 		return false
 	return _session.author == next_author
 
-
 func _clear_author_binding(reason: String, valid: bool = false) -> void:
 	_cancel_active_edit_input()
 	_clear_preview()
@@ -405,10 +384,8 @@ func _clear_author_binding(reason: String, valid: bool = false) -> void:
 		_dock.set_session(_session)
 		_dock.set_status_message(reason, valid)
 
-
 func _exit_edit_mode(reason: String) -> void:
 	_clear_author_binding(reason, false)
-
 
 func _is_locked_edit_valid() -> bool:
 	if _session == null or not _session.edit_mode:
@@ -419,12 +396,10 @@ func _is_locked_edit_valid() -> bool:
 		return false
 	return _active_author == get_editor_interface().get_edited_scene_root()
 
-
 func _selected_scene_root_author() -> Node:
 	if _selection == null:
 		return null
 	return selected_scene_root_author(_selection.get_selected_nodes(), get_editor_interface().get_edited_scene_root())
-
 
 func _selection_includes_author(nodes: Array, author: Node) -> bool:
 	if author == null:
@@ -433,7 +408,6 @@ func _selection_includes_author(nodes: Array, author: Node) -> bool:
 		if node == author:
 			return true
 	return false
-
 
 func _clear_editor_selection_for_lock() -> void:
 	if _selection == null or _selection_clear_in_progress:
@@ -444,7 +418,6 @@ func _clear_editor_selection_for_lock() -> void:
 	_selection.clear()
 	_selection_clear_in_progress = false
 
-
 func _on_floor_changed(level: int) -> void:
 	_session.set_floor_level(level)
 	_clear_preview()
@@ -453,24 +426,19 @@ func _on_floor_changed(level: int) -> void:
 	_update_debug_overlay()
 	_update_special_overlay()
 
-
 func _on_target_layer_changed(layer: int) -> void:
 	_session.set_target_layer(layer)
-
 
 func _on_tool_changed(tool: int) -> void:
 	_cancel_active_edit_input()
 	_session.set_tool(tool)
 	_clear_box_overlay()
 
-
 func _on_rotate_requested() -> void:
 	_session.rotate_selection()
 
-
 func _on_placeable_selected(index: int) -> void:
 	_session.select_placeable(index)
-
 
 func _on_session_changed() -> void:
 	if _dock != null and _session != null:
@@ -480,7 +448,6 @@ func _on_session_changed() -> void:
 	_update_special_overlay()
 	if _last_preview_target != null:
 		_update_preview(_last_preview_target)
-
 
 func _open_placeable_wizard() -> void:
 	if _session == null or not _session.has_author():
@@ -503,7 +470,6 @@ func _open_placeable_wizard() -> void:
 	_wizard.popup_centered()
 	_dock.set_status_message("请在素材向导中完成配置。", true)
 
-
 func _open_new_map_dialog() -> void:
 	if _new_map_dialog == null or not is_instance_valid(_new_map_dialog):
 		_new_map_dialog = NEW_MAP_DIALOG_SCRIPT.new()
@@ -522,11 +488,9 @@ func _open_new_map_dialog() -> void:
 	if _dock != null:
 		_dock.set_status_message("请配置新地图请求；创建服务校验通过后才可创建。", true)
 
-
 func _on_new_map_dialog_canceled() -> void:
 	if _dock != null:
 		_dock.set_status_message("已取消新建地图。", true)
-
 
 func _on_new_map_created(result: Dictionary) -> void:
 	var scene_path := String(result.get(&"scene_path", "")).strip_edges()
@@ -542,7 +506,6 @@ func _on_new_map_created(result: Dictionary) -> void:
 	if _dock != null:
 		_dock.set_status_message("地图已创建，正在打开作者场景…", true)
 	call_deferred("_activate_new_map_scene", scene_path)
-
 
 func _activate_new_map_scene(scene_path: String) -> void:
 	var root := get_editor_interface().get_edited_scene_root()
@@ -561,7 +524,6 @@ func _activate_new_map_scene(scene_path: String) -> void:
 	if _dock != null:
 		_dock.set_status_message("地图场景已打开，但未找到 TacticalMapAuthor；请检查创建服务输出。", false)
 
-
 func _default_placeable_paths() -> Dictionary:
 	var map_token := "map"
 	if _session != null and _session.has_author():
@@ -578,13 +540,11 @@ func _default_placeable_paths() -> Dictionary:
 	var definition_path := "res://resources/map_tiles/definitions/generated/%s_terrain_new_cell.tres" % map_token
 	return {&"definition": definition_path, &"library": library_path}
 
-
 func _safe_path_token(value: String) -> String:
 	var result := value.strip_edges()
 	for character in ["/", "\\", " ", ":"]:
 		result = result.replace(character, "_")
 	return result if not result.is_empty() else "map"
-
 
 func _on_placeable_wizard_saved(result: Dictionary) -> void:
 	if _session == null:
@@ -610,7 +570,6 @@ func _on_placeable_wizard_saved(result: Dictionary) -> void:
 		var warning_count := Array(result.get(&"warnings", [])).size()
 		_dock.set_status_message("素材已加入%s，请保存作者场景。" % ("（警告 %d 条）" % warning_count if warning_count > 0 else ""), true)
 
-
 func _finish_special_edit() -> void:
 	if _session == null or not _session.has_method("finish_special_edit"):
 		if _session != null:
@@ -620,13 +579,11 @@ func _finish_special_edit() -> void:
 	if not finished:
 		_session.set_status_message("当前没有可结束的特殊编辑。", false)
 
-
 func _on_debug_view_changed(view: int) -> void:
 	if _session == null:
 		return
 	_session.set_debug_view(view)
 	_update_debug_overlay()
-
 
 func _on_validation_location_requested(diagnostic: Dictionary) -> void:
 	if _session == null:
@@ -642,35 +599,6 @@ func _on_validation_location_requested(diagnostic: Dictionary) -> void:
 	_update_debug_overlay()
 	_best_effort_focus_validation_cell(coordinate as Vector3i)
 
-
-func _on_default_property_override_requested(field: StringName, value: Variant) -> void:
-	if _session == null or not _session.has_method("write_default_property"):
-		if _session != null:
-			_session.set_status_message("正式默认属性服务尚未提供，当前素材属性为只读。", false)
-		return
-	_session.call("write_default_property", field, value, get_undo_redo())
-
-
-func _on_default_property_restore_requested(field: StringName) -> void:
-	if _session == null or not _session.has_method("restore_default_property"):
-		if _session != null:
-			_session.set_status_message("正式默认属性服务尚未提供，当前素材属性为只读。", false)
-		return
-	_session.call("restore_default_property", field, get_undo_redo())
-
-
-func _on_property_override_requested(field: StringName, value: Variant) -> void:
-	if _session == null:
-		return
-	_session.write_property_override(field, value, [], get_undo_redo())
-
-
-func _on_property_inherit_requested(field: StringName) -> void:
-	if _session == null:
-		return
-	_session.clear_property_override(field, [], get_undo_redo())
-
-
 func _validate_author() -> void:
 	if not _session.has_author():
 		return
@@ -679,7 +607,6 @@ func _validate_author() -> void:
 		_dock.show_result("Validate", result)
 	_refresh_validation_outputs(result)
 
-
 func _bake_author() -> void:
 	if not _session.has_author():
 		return
@@ -687,7 +614,6 @@ func _bake_author() -> void:
 	if result is Dictionary:
 		_dock.show_result("Bake", result)
 	_refresh_validation_outputs(result)
-
 
 func _refresh_validation_outputs(result: Variant = null) -> void:
 	if _session == null:
@@ -709,14 +635,12 @@ func _refresh_validation_outputs(result: Variant = null) -> void:
 		_dock.set_validation_diagnostics(diagnostics)
 	_update_debug_overlay()
 
-
 func _save_scene() -> void:
 	var error := get_editor_interface().save_scene()
 	if error == OK:
 		_session.set_status_message("场景已保存。", true)
 	else:
 		_session.set_status_message("场景保存失败：%s" % error_string(error), false)
-
 
 func _bake_and_play() -> void:
 	if _bake_and_play_in_progress:
@@ -760,7 +684,6 @@ func _bake_and_play() -> void:
 	_dock.set_status_message("Bake & Play 已启动主场景。", true)
 	_bake_and_play_in_progress = false
 
-
 func _target_from_screen(camera: Camera3D, screen_position: Vector2, requested_tool: int = -1) -> TacticalPlacementTarget:
 	if not _session.has_author():
 		return TARGET_SCRIPT.invalid("没有活动的地图作者。")
@@ -803,7 +726,6 @@ func _target_from_screen(camera: Camera3D, screen_position: Vector2, requested_t
 		target.reason = "可吸取。" if target.valid else "坐标超出地图体积。"
 	return target
 
-
 func _update_preview(target: TacticalPlacementTarget) -> void:
 	if _session == null or not _session.edit_mode or not _session.has_author() or target == null:
 		_clear_preview()
@@ -824,7 +746,6 @@ func _update_preview(target: TacticalPlacementTarget) -> void:
 	_rebuild_preview_content(author)
 	_apply_preview_tint(Color(0.25, 0.95, 0.4, 0.28) if target.valid else Color(0.95, 0.2, 0.2, 0.28))
 	_preview_root.visible = true
-
 
 func _update_selection_overlay() -> void:
 	if _session == null or not _session.has_author():
@@ -857,7 +778,6 @@ func _update_selection_overlay() -> void:
 	_selection_overlay.multimesh = multi_mesh
 	_selection_overlay.visible = true
 
-
 func _ensure_selection_overlay() -> void:
 	if _selection_overlay != null and is_instance_valid(_selection_overlay):
 		return
@@ -882,7 +802,6 @@ func _ensure_selection_overlay() -> void:
 	_selection_overlay_root.owner = null
 	_selection_overlay.owner = null
 
-
 func _clear_selection_overlay() -> void:
 	if _selection_overlay_root != null and is_instance_valid(_selection_overlay_root):
 		if _selection_overlay_root.get_parent() != null:
@@ -890,7 +809,6 @@ func _clear_selection_overlay() -> void:
 		_selection_overlay_root.free()
 	_selection_overlay_root = null
 	_selection_overlay = null
-
 
 func _update_box_overlay(from_cell: Vector3i, to_cell: Vector3i, valid: bool) -> void:
 	if not _box_drag_active or _session == null or not _session.has_author():
@@ -933,7 +851,6 @@ func _update_box_overlay(from_cell: Vector3i, to_cell: Vector3i, valid: bool) ->
 			overlay_material.albedo_color = Color(0.25, 0.95, 0.4, 0.24)
 	_box_overlay.visible = true
 
-
 func _ensure_box_overlay() -> void:
 	if _box_overlay != null and is_instance_valid(_box_overlay):
 		return
@@ -958,7 +875,6 @@ func _ensure_box_overlay() -> void:
 	_box_overlay_root.owner = null
 	_box_overlay.owner = null
 
-
 func _clear_box_overlay() -> void:
 	if _box_overlay_root != null and is_instance_valid(_box_overlay_root):
 		if _box_overlay_root.get_parent() != null:
@@ -966,7 +882,6 @@ func _clear_box_overlay() -> void:
 		_box_overlay_root.free()
 	_box_overlay_root = null
 	_box_overlay = null
-
 
 func _update_debug_overlay() -> void:
 	if _session == null or not _session.has_author() or _session.get_debug_view() == TacticalMapEditSession.DebugView.NORMAL:
@@ -1023,7 +938,6 @@ func _update_debug_overlay() -> void:
 	_debug_overlay.multimesh = multi_mesh
 	_debug_overlay.visible = true
 
-
 func _debug_color(record: Dictionary) -> Color:
 	if record.get(&"coordinate", null) == _session.get_debug_focus_cell():
 		return Color(0.98, 0.12, 0.92, 0.9)
@@ -1060,12 +974,10 @@ func _debug_color(record: Dictionary) -> Color:
 			normalized = clampf(float(value) / 4.0, 0.0, 1.0)
 	return _heat_color(normalized)
 
-
 func _heat_color(value: float) -> Color:
 	var low := Color(0.12, 0.85, 0.82, 0.42)
 	var high := Color(0.94, 0.12, 0.08, 0.58)
 	return low.lerp(high, clampf(value, 0.0, 1.0))
-
 
 func _ensure_debug_overlay() -> void:
 	if _debug_overlay != null and is_instance_valid(_debug_overlay):
@@ -1092,7 +1004,6 @@ func _ensure_debug_overlay() -> void:
 	_debug_overlay_root.owner = null
 	_debug_overlay.owner = null
 
-
 func _clear_debug_overlay() -> void:
 	if _debug_overlay_root != null and is_instance_valid(_debug_overlay_root):
 		if _debug_overlay_root.get_parent() != null:
@@ -1100,7 +1011,6 @@ func _clear_debug_overlay() -> void:
 		_debug_overlay_root.free()
 	_debug_overlay_root = null
 	_debug_overlay = null
-
 
 func _best_effort_focus_validation_cell(cell: Vector3i) -> void:
 	# Godot 4.7 editor viewport focus APIs differ between minor builds.  Use a
@@ -1114,7 +1024,6 @@ func _best_effort_focus_validation_cell(cell: Vector3i) -> void:
 	if viewport != null and viewport.has_method("focus_selection"):
 		viewport.call("focus_selection")
 	_session.set_status_message("已定位并高亮地格 %s。" % cell, true)
-
 
 func _update_special_overlay() -> void:
 	if _session == null or not _session.has_author():
@@ -1172,7 +1081,6 @@ func _update_special_overlay() -> void:
 	_add_special_lines(traversal_segments, "TraversalLines", Color("d58cff"))
 	_add_special_lines(patrol_segments, "PatrolLines", Color("ffbf63"))
 
-
 func _ensure_special_overlay(author: Node3D) -> void:
 	if _special_overlay_root != null and is_instance_valid(_special_overlay_root):
 		return
@@ -1181,7 +1089,6 @@ func _ensure_special_overlay(author: Node3D) -> void:
 	_special_overlay_root.set_meta("tactical_map_editor_preview", true)
 	author.add_child(_special_overlay_root)
 	_special_overlay_root.owner = null
-
 
 func _add_special_points(points: Array[Dictionary], node_name: String, dimensions: Vector3, radius: float) -> void:
 	if _special_overlay_root == null or points.is_empty():
@@ -1213,7 +1120,6 @@ func _add_special_points(points: Array[Dictionary], node_name: String, dimension
 	_special_overlay_root.add_child(instance)
 	instance.owner = null
 
-
 func _add_special_lines(segments: Array[Dictionary], node_name: String, color: Color) -> void:
 	if _special_overlay_root == null or segments.is_empty():
 		return
@@ -1238,14 +1144,12 @@ func _add_special_lines(segments: Array[Dictionary], node_name: String, color: C
 	_special_overlay_root.add_child(instance)
 	instance.owner = null
 
-
 func _clear_special_overlay() -> void:
 	if _special_overlay_root != null and is_instance_valid(_special_overlay_root):
 		if _special_overlay_root.get_parent() != null:
 			_special_overlay_root.get_parent().remove_child(_special_overlay_root)
 		_special_overlay_root.free()
 	_special_overlay_root = null
-
 
 func _editor_descendants(root: Node) -> Array[Node]:
 	var result: Array[Node] = []
@@ -1261,7 +1165,6 @@ func _editor_descendants(root: Node) -> Array[Node]:
 			pending.append(child)
 	return result
 
-
 func _ensure_preview() -> void:
 	if _preview_root != null and is_instance_valid(_preview_root):
 		return
@@ -1273,7 +1176,6 @@ func _ensure_preview() -> void:
 	_preview_root.set_meta("tactical_map_editor_preview", true)
 	author.add_child(_preview_root)
 	_preview_root.owner = null
-
 
 func _rebuild_preview_content(author: Node3D) -> void:
 	if _preview_root == null or author == null or _session == null:
@@ -1311,7 +1213,6 @@ func _rebuild_preview_content(author: Node3D) -> void:
 		if visual_node != null and is_instance_valid(visual_node):
 			_apply_preview_visual_defaults(visual_node)
 
-
 func _build_cell_preview(selected: Dictionary, author: Node3D) -> MeshInstance3D:
 	if String(selected.get("kind", "cell")) != "cell":
 		return null
@@ -1332,7 +1233,6 @@ func _build_cell_preview(selected: Dictionary, author: Node3D) -> MeshInstance3D
 	var item_id := int(selected.get("item_id", default_item_id))
 	return PREVIEW_BUILDER.build_cell_mesh(_preview_root, mesh_library, item_id, _session.rotation_quarters)
 
-
 static func _cell_preview_grid_name(layer: int) -> String:
 	match layer:
 		0:
@@ -1343,11 +1243,9 @@ static func _cell_preview_grid_name(layer: int) -> String:
 			return "DecorationGrid"
 	return ""
 
-
 func _build_fallback_preview(author: Node3D) -> MeshInstance3D:
 	var dimensions: Vector3 = author.get("cell_dimensions")
 	return PREVIEW_BUILDER.build_fallback(_preview_root, dimensions)
-
 
 func _collect_preview_visuals(node: Node, output: Array[Node]) -> void:
 	if node is GeometryInstance3D:
@@ -1355,20 +1253,16 @@ func _collect_preview_visuals(node: Node, output: Array[Node]) -> void:
 	for child in node.get_children():
 		_collect_preview_visuals(child, output)
 
-
 func _apply_preview_visual_defaults(node: Node) -> void:
 	PREVIEW_BUILDER.apply_preview_visual_defaults(node)
-
 
 func _apply_preview_tint(color: Color) -> void:
 	if _preview_root == null:
 		return
 	PREVIEW_BUILDER.tint_preview(_preview_root, color)
 
-
 func _disable_preview_collisions(node: Node) -> void:
 	PREVIEW_BUILDER.disable_collisions(node)
-
 
 func _clear_preview() -> void:
 	_clear_box_overlay()
@@ -1380,7 +1274,6 @@ func _clear_preview() -> void:
 	_preview_mesh = null
 	_last_preview_target = null
 
-
 static func is_map_author_root_node(object: Object) -> bool:
 	var node := object as Node
 	if node == null or not is_instance_valid(node):
@@ -1390,7 +1283,6 @@ static func is_map_author_root_node(object: Object) -> bool:
 	var script := node.get_script()
 	return script != null and script.resource_path == AUTHOR_SCRIPT_PATH
 
-
 static func selected_scene_root_author(nodes: Array, edited_scene_root: Node) -> Node:
 	if edited_scene_root == null or nodes.size() != 1:
 		return null
@@ -1398,7 +1290,6 @@ static func selected_scene_root_author(nodes: Array, edited_scene_root: Node) ->
 	if candidate != edited_scene_root:
 		return null
 	return candidate if is_map_author_root_node(candidate) else null
-
 
 static func selection_belongs_to_author(nodes: Array, author: Node) -> bool:
 	if author == null or not is_instance_valid(author):
@@ -1408,7 +1299,6 @@ static func selection_belongs_to_author(nodes: Array, author: Node) -> bool:
 		if selected == null or (selected != author and not author.is_ancestor_of(selected)):
 			return false
 	return true
-
 
 func _find_author(object: Object) -> Node:
 	var node := object as Node
