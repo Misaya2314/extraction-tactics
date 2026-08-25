@@ -76,6 +76,40 @@ static func apply_preview_visual_defaults(node: Node, color: Color = Color(0.25,
 		apply_preview_visual_defaults(child, color)
 
 
+## Basis whose local +Y axis points along a cardinal facing direction on the
+## X/Z ground plane. Shared by the spawn-marker overlay and the placement
+## preview so both render the same physical orientation.
+static func facing_basis(facing: Vector2i) -> Basis:
+	var y := Vector3(float(facing.x), 0.0, float(facing.y)).normalized()
+	var z := Vector3.UP
+	var x := y.cross(z).normalized()
+	z = x.cross(y).normalized()
+	return Basis(x, y, z)
+
+
+## Builds a thin, tapered "needle" arrow (base at origin, tip along +Y) that
+## callers can drop into a root and orient with facing_basis(). Reuses
+## CylinderMesh with a near-zero top radius so the tip reads clearly as a
+## direction indicator without relying on ConeMesh (absent in this engine).
+static func build_facing_needle(length: float, radius: float, color: Color) -> MeshInstance3D:
+	var needle := CylinderMesh.new()
+	needle.top_radius = radius * 0.12
+	needle.bottom_radius = radius
+	needle.height = length
+	needle.radial_segments = 8
+	var instance := MeshInstance3D.new()
+	instance.name = "FacingNeedle"
+	instance.mesh = needle
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.albedo_color = color
+	instance.material_override = material
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return instance
+
+
 static func tint_preview(node: Node, color: Color) -> void:
 	if node == null:
 		return

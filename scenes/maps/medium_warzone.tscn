@@ -13,7 +13,6 @@
 [ext_resource type="Resource" path="res://resources/loot/loot_table_supply.tres" id="10_g5ewa"]
 [ext_resource type="Resource" uid="uid://mpdq1kfchbn5" path="res://resources/units/player_bravo.tres" id="10_v1qxo"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_explosive_barrel.tscn" id="11_vjtoi"]
-[ext_resource type="Resource" uid="uid://h3ehge0ky7uj" path="res://resources/units/dummy_enemy.tres" id="12_g5ewa"]
 
 [sub_resource type="Resource" id="Resource_v1qxo"]
 script = ExtResource("5_rwgpr")
@@ -75,7 +74,7 @@ blocks_movement = true
 loot_table = ExtResource("10_g5ewa")
 cell = Vector3i(22, 0, 9)
 
-[node name="_Preview" type="Node3D" parent="Objects/补给战利品箱_004" unique_id=1227115221 instance=ExtResource("9_atd6i")]
+[node name="_Preview" type="Node3D" parent="Objects/补给战利品箱_004" unique_id=1510233547 instance=ExtResource("9_atd6i")]
 metadata/map_marker_preview = true
 
 [node name="补给战利品箱_007" type="Node3D" parent="Objects" unique_id=763951032]
@@ -88,7 +87,7 @@ blocks_movement = true
 loot_table = ExtResource("10_g5ewa")
 cell = Vector3i(9, 0, 7)
 
-[node name="_Preview" type="Node3D" parent="Objects/补给战利品箱_007" unique_id=1686645699 instance=ExtResource("9_atd6i")]
+[node name="_Preview" type="Node3D" parent="Objects/补给战利品箱_007" unique_id=999494474 instance=ExtResource("9_atd6i")]
 metadata/map_marker_preview = true
 
 [node name="撤离点_010" type="Node3D" parent="Objects" unique_id=725839812]
@@ -99,7 +98,7 @@ kind = 1
 scene = ExtResource("8_6x84o")
 cell = Vector3i(1, 0, 19)
 
-[node name="_Preview" type="Node3D" parent="Objects/撤离点_010" unique_id=786109245 instance=ExtResource("8_6x84o")]
+[node name="_Preview" type="Node3D" parent="Objects/撤离点_010" unique_id=1393133715 instance=ExtResource("8_6x84o")]
 metadata/map_marker_preview = true
 
 [node name="爆炸桶_001" type="Node3D" parent="Objects" unique_id=1529784217]
@@ -111,55 +110,37 @@ scene = ExtResource("11_vjtoi")
 blocks_movement = true
 cell = Vector3i(15, 0, 14)
 
-[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_001" unique_id=303090035 instance=ExtResource("11_vjtoi")]
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_001" unique_id=944082383 instance=ExtResource("11_vjtoi")]
 metadata/map_marker_preview = true
 
 [node name="Spawns" type="Node3D" parent="." unique_id=2007344833]
 
-[node name="enemyspawn_001" type="Node3D" parent="Spawns" unique_id=1559516355]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 51, 1, 35)
+[node name="enemyspawn_007" type="Node3D" parent="Spawns" unique_id=1935432651]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37, 1, 33)
 script = ExtResource("9_4y30j")
-unit_name = &"enemyspawn_001"
+unit_name = &"enemyspawn_007"
 faction = "enemy"
+facing = Vector2i(-1, 0)
 visual_color = Color(1, 0.35686275, 0.35686275, 1)
-cell = Vector3i(25, 0, 17)
+cell = Vector3i(18, 0, 16)
 
-[node name="enemyspawn_002" type="Node3D" parent="Spawns" unique_id=1648102866]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 51, 1, 11)
+[node name="enemyspawn_008" type="Node3D" parent="Spawns" unique_id=1077527458]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37, 1, 17)
 script = ExtResource("9_4y30j")
-unit_name = &"enemyspawn_002"
+unit_name = &"enemyspawn_008"
 faction = "enemy"
+facing = Vector2i(-1, 0)
 visual_color = Color(1, 0.35686275, 0.35686275, 1)
-cell = Vector3i(25, 0, 5)
+cell = Vector3i(18, 0, 8)
 
-[node name="enemyspawn_003" type="Node3D" parent="Spawns" unique_id=1584712870]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 1, 19)
-script = ExtResource("9_4y30j")
-unit_name = &"enemyspawn_003"
-faction = "enemy"
-visual_color = Color(1, 0.35686275, 0.35686275, 1)
-archetype = ExtResource("12_g5ewa")
-encounter_id = &"1"
-cell = Vector3i(17, 0, 9)
-
-[node name="enemyspawn_004" type="Node3D" parent="Spawns" unique_id=1523516505]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 1, 31)
-script = ExtResource("9_4y30j")
-unit_name = &"enemyspawn_004"
-faction = "enemy"
-visual_color = Color(1, 0.35686275, 0.35686275, 1)
-archetype = ExtResource("12_g5ewa")
-encounter_id = &"1"
-cell = Vector3i(17, 0, 15)
-
-[node name="playerspawn_001" type="Node3D" parent="Spawns" unique_id=328344878]
+[node name="playerspawn_001" type="Node3D" parent="Spawns" unique_id=1860130731]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1, 17)
 script = ExtResource("9_4y30j")
 unit_name = &"playerspawn_001"
 archetype = ExtResource("10_v1qxo")
 cell = Vector3i(3, 0, 8)
 
-[node name="playerspawn_002" type="Node3D" parent="Spawns" unique_id=1622711914]
+[node name="playerspawn_002" type="Node3D" parent="Spawns" unique_id=1531800276]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1, 27)
 script = ExtResource("9_4y30j")
 unit_name = &"playerspawn_002"
