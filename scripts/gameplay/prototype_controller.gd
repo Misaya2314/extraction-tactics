@@ -67,6 +67,11 @@ const VISION_BLOCK_COLOR := Color(0.0, 0.0, 0.0, 0.6)
 const ENEMY_VISION_COLOR := Color(0.62, 0.4, 1.0, 0.22)
 var inventory_body_collapsed := true
 var _restore_inventory_after_loot := false
+## Shared, lazily-built highlight resources so whole-map overlay rebuilds reuse
+## one Mesh + one Material per color instead of allocating per cell, which
+## otherwise exhausts the D3D12 RESOURCES descriptor heap on large maps.
+var _highlight_mesh_cache: Dictionary = {}
+var _highlight_material_cache: Dictionary = {}
 const INVENTORY_PANEL_EXPANDED_BOTTOM := 570.0
 const INVENTORY_PANEL_COLLAPSED_BOTTOM := 300.0
 
@@ -1228,12 +1233,9 @@ func _refresh_action_bar() -> void:
 func _add_highlight(parent: Node3D, cell: Vector3i, color: Color, height_offset: float = MOVE_HIGHLIGHT_SURFACE_OFFSET) -> void:
 	if not is_instance_valid(parent):
 		return
-	var material := StandardMaterial3D.new()
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.albedo_color = color
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(grid.cell_dimensions.x * 0.88, 0.035, grid.cell_dimensions.z * 0.88)
+	var material := _get_cached_highlight_material(color)
+	var mesh := _get_cached_highlight_mesh(
+		Vector3(grid.cell_dimensions.x * 0.88, 0.035, grid.cell_dimensions.z * 0.88))
 	var highlight := MeshInstance3D.new()
 	highlight.name = "Cell_%d_%d_%d" % [cell.x, cell.y, cell.z]
 	highlight.mesh = mesh
@@ -1245,6 +1247,30 @@ func _add_highlight(parent: Node3D, cell: Vector3i, color: Color, height_offset:
 	# correct 3D surface even if a presentation layer has a transform of its own.
 	highlight.global_position = grid.cell_to_world(cell) + Vector3.UP * height_offset
 	highlight.visible = true
+
+
+## Reuses one translucent unshaded material per color instead of allocating a
+## fresh StandardMaterial3D for every highlight cell.
+func _get_cached_highlight_material(color: Color) -> StandardMaterial3D:
+	if _highlight_material_cache.has(color):
+		return _highlight_material_cache[color]
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = color
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_highlight_material_cache[color] = material
+	return material
+
+
+## Reuses one BoxMesh per size for all highlight cells, since every cell on a
+## fixed grid shares the same footprint.
+func _get_cached_highlight_mesh(size: Vector3) -> BoxMesh:
+	if _highlight_mesh_cache.has(size):
+		return _highlight_mesh_cache[size]
+	var mesh := BoxMesh.new()
+	mesh.size = size
+	_highlight_mesh_cache[size] = mesh
+	return mesh
 
 
 func _refresh_object_highlights() -> void:

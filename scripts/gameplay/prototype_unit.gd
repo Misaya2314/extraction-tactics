@@ -417,10 +417,23 @@ func move_along_world_path(
 func _apply_visual_color() -> void:
 	if not is_instance_valid(body_mesh):
 		return
-	var material := StandardMaterial3D.new()
-	material.albedo_color = visual_color
-	material.roughness = 0.78
+	var material := _cached_visual_material(visual_color)
 	body_mesh.material_override = material
+
+
+## Reuses one material per color across all units, so setting the visual color
+## repeatedly (e.g. after every archetype swap) does not allocate a fresh
+## StandardMaterial3D each time.
+static var _visual_material_cache: Dictionary = {}
+
+static func _cached_visual_material(color: Color) -> StandardMaterial3D:
+	if _visual_material_cache.has(color):
+		return _visual_material_cache[color]
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.78
+	_visual_material_cache[color] = material
+	return material
 
 
 func _apply_weapon_stats(reset_if_unarmed: bool = false) -> void:
