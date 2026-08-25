@@ -65,8 +65,6 @@ var debug_reveal_all := false
 var action_mode: int = ACTION_MODE_MOVE
 const VISION_BLOCK_COLOR := Color(0.0, 0.0, 0.0, 0.6)
 const ENEMY_VISION_COLOR := Color(0.62, 0.4, 1.0, 0.22)
-const ENEMY_DANGER_COLOR := Color(1.0, 0.55, 0.1, 0.3)
-const ENEMY_MOVE_COLOR := Color(0.3, 0.9, 0.95, 0.32)
 var inventory_body_collapsed := true
 var _restore_inventory_after_loot := false
 const INVENTORY_PANEL_EXPANDED_BOTTOM := 570.0
@@ -1189,20 +1187,11 @@ func _can_attack_target(target: PrototypeUnit) -> bool:
 	)
 
 
-## When an enemy unit is selected, tints its vision / danger / move zones on
-## the overlay (nested layers, drawn bottom-up so inner zones read on top).
-## The danger zone is every cell within attack_range of some cell the enemy
-## can move to this turn (reachable cells × attack range union).
+## When an enemy unit is selected, tints the cells it can actually detect
+## (facing vision cone + line of sight) so the overlay matches the detection
+## rules used to trigger combat.
 func _refresh_enemy_range_overlays(enemy: PrototypeUnit) -> void:
 	var origin := enemy.grid_cell
-	var danger: Dictionary = {}
-	for target_cell in grid.get_reachable_cells(origin, enemy.move_range):
-		for level in range(grid.get_level_count()):
-			for z in range(grid.get_grid_size().y):
-				for x in range(grid.get_grid_size().x):
-					var cell := Vector3i(x, level, z)
-					if grid.has_cell(cell) and GridVisibility.tactical_distance(target_cell, cell) <= enemy.attack_range:
-						danger[cell] = true
 	var footprint := grid.get_grid_size()
 	for level in range(grid.get_level_count()):
 		for z in range(footprint.y):
@@ -1210,13 +1199,8 @@ func _refresh_enemy_range_overlays(enemy: PrototypeUnit) -> void:
 				var cell := Vector3i(x, level, z)
 				if not grid.has_cell(cell) or cell == origin:
 					continue
-				var distance := GridVisibility.tactical_distance(origin, cell)
-				if distance <= enemy.vision_range:
+				if DetectionRules.can_detect(origin, cell, enemy.facing, enemy.vision_range, opaque_cells):
 					_add_highlight(vision_highlights_root, cell, ENEMY_VISION_COLOR, 0.045)
-				if danger.has(cell):
-					_add_highlight(vision_highlights_root, cell, ENEMY_DANGER_COLOR, 0.065)
-				if distance <= enemy.move_range:
-					_add_highlight(vision_highlights_root, cell, ENEMY_MOVE_COLOR, 0.085)
 
 
 func _refresh_move_highlights() -> void:
