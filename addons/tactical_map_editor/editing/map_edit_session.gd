@@ -70,6 +70,7 @@ var edit_mode: bool = false
 var placeables: Array = []
 var selected_placeable: Dictionary = {}
 var selected_cells: Array[Vector3i] = []
+var _selection_clipboard: Dictionary = {}
 var debug_view: int = DebugView.NORMAL
 var debug_focus_cell: Vector3i = Vector3i(-1, -1, -1)
 var _property_service: TacticalMapPropertyService = PROPERTY_SERVICE_SCRIPT.new()
@@ -110,6 +111,7 @@ func begin_for_author(new_author: Node, new_scene_root: Node = null) -> bool:
 		return false
 	cancel_stroke()
 	_clear_selection_internal()
+	_selection_clipboard.clear()
 	author = new_author
 	edited_scene_root = new_scene_root
 	floor_level = 0
@@ -135,6 +137,7 @@ func begin_for_author(new_author: Node, new_scene_root: Node = null) -> bool:
 func clear_author() -> void:
 	cancel_stroke()
 	_clear_selection_internal()
+	_selection_clipboard.clear()
 	author = null
 	edited_scene_root = null
 	placeables.clear()
@@ -711,6 +714,287 @@ func select_cell(cell: Vector3i, additive: bool = false, toggle: bool = false) -
 	_set_status("已选择 %d 格。" % selected_cells.size(), true)
 	_emit_changed()
 	return true
+
+
+## Select every compiled Floor cell inside the X/Z rectangle on the current
+## floor. Shift-style additive/toggle selection is handled here so the editor
+## viewport can provide a real drag-to-select interaction instead of relying
+## on a modifier key for every individual cell.
+func select_cells_in_rect(from_cell: Vector3i, to_cell: Vector3i, additive: bool = false, toggle: bool = false) -> bool:
+	if not has_author():
+		_set_status("没有活动的 TacticalMapAuthor。", false)
+		return false
+	if from_cell.y != to_cell.y or from_cell.y != floor_level:
+		_set_status("框选范围必须位于当前编辑楼层。", false)
+		return false
+	var min_x := mini(from_cell.x, to_cell.x)
+	var max_x := maxi(from_cell.x, to_cell.x)
+	var min_z := mini(from_cell.z, to_cell.z)
+	var max_z := maxi(from_cell.z, to_cell.z)
+	var rectangle: Array[Vector3i] = []
+	for z in range(min_z, max_z + 1):
+		for x in range(min_x, max_x + 1):
+			var cell := Vector3i(x, floor_level, z)
+			if _inside_volume(cell) and _has_floor_cell(cell):
+				rectangle.append(cell)
+	var next_selection: Array[Vector3i] = []
+	if additive:
+		next_selection = get_selected_cells()
+		for cell in rectangle:
+			if toggle and next_selection.has(cell):
+				next_selection.erase(cell)
+			elif not next_selection.has(cell):
+				next_selection.append(cell)
+	else:
+		next_selection = rectangle
+	_sort_cells(next_selection)
+	if next_selection == selected_cells:
+		return false
+	selected_cells = next_selection
+	_set_status("已选择 %d 格。" % selected_cells.size(), true)
+	_emit_changed()
+	return true
+
+
+func has_selection_clipboard() -> bool:
+	return not _selection_clipboard.is_empty()
+
+
+## Replace the content on every selected cell with the currently selected
+## Cell/Object placeable. One call produces one editor Undo action.
+func selection_replace(undo_redo: Object = null) -> bool:
+	var cells := get_selected_cells()
+	if cells.is_empty():
+		_set_status("没有选中的地格。", false)
+		return false
+	if selected_placeable.is_empty():
+		_set_status("素材栏中没有选中素材。", false)
+		return false
+	var layer := _paint_effective_layer()
+	if not _is_grid_layer(layer) and layer != TargetLayer.OBJECT:
+		_set_status("当前素材不能用于替换选中的地格。", false)
+		return false
+	if layer == TargetLayer.OBJECT and _objects_root() == null:
+		_set_status("作者场景缺少 Objects 节点。", false)
+		return false
+	var before := _capture_selection_layer_snapshots(cells, layer)
+	var changed := false
+	if layer == TargetLayer.OBJECT:
+		for cell in cells:
+			if _replace_object_at(cell):
+				changed = true
+	else:
+		var grid := _grid_for_layer(layer)
+		var item_id := int(selected_placeable.get("item_id", -1))
+		if grid == null or item_id < 0:
+			_set_status("当前素材没有有效的 GridMap item_id。", false)
+			return false
+		var orientation := _orientation_for_quarters(layer)
+		for cell in cells:
+			if grid.get_cell_item(cell) != item_id or grid.get_cell_item_orientation(cell) != orientation:
+				grid.set_cell_item(cell, item_id, orientation)
+				changed = true
+	if not changed:
+		_set_status("替换没有产生变化。", true)
+		return false
+	var after := _capture_selection_layer_snapshots(cells, layer)
+	return _commit_selection_operation(before, after, "替换选中地格", undo_redo, cells, cells)
+
+
+## Rotate every selected cell on the current target layer by 90 degrees.
+func selection_rotate(undo_redo: Object = null) -> bool:
+	var cells := get_selected_cells()
+	if cells.is_empty():
+		_set_status("没有选中的地格。", false)
+		return false
+	var layer := target_layer
+	if not _is_grid_layer(layer) and layer != TargetLayer.OBJECT and layer != TargetLayer.SPAWNER:
+		_set_status("当前目标层不支持批量旋转。", false)
+		return false
+	var before := _capture_selection_layer_snapshots(cells, layer)
+	var changed := false
+	for cell in cells:
+		if _rotate_at(cell):
+			changed = true
+	if not changed:
+		_set_status("选中的地格没有可旋转内容。", false)
+		return false
+	var after := _capture_selection_layer_snapshots(cells, layer)
+	return _commit_selection_operation(before, after, "旋转选中地格", undo_redo, cells, cells)
+
+
+## Delete the current target-layer content from every selected cell.
+func selection_delete(undo_redo: Object = null) -> bool:
+	var cells := get_selected_cells()
+	if cells.is_empty():
+		_set_status("没有选中的地格。", false)
+		return false
+	var layer := target_layer
+	if not _is_grid_layer(layer) and layer != TargetLayer.OBJECT and layer != TargetLayer.SPAWNER and layer != TargetLayer.TRAVERSAL and layer != TargetLayer.AI:
+		_set_status("当前目标层不支持删除。", false)
+		return false
+	var before := _capture_selection_layer_snapshots(cells, layer)
+	var changed := false
+	for cell in cells:
+		var cell_changed := false
+		match layer:
+			TargetLayer.OBJECT:
+				cell_changed = _clear_layer_at(cell, layer)
+			TargetLayer.SPAWNER:
+				cell_changed = _erase_spawn_at(cell)
+			TargetLayer.TRAVERSAL:
+				cell_changed = _erase_traversal_at(cell)
+			TargetLayer.AI:
+				cell_changed = _erase_patrol_at(cell)
+			_:
+				cell_changed = _clear_layer_at(cell, layer)
+		changed = changed or cell_changed
+	if not changed:
+		_set_status("选中的地格没有可删除内容。", false)
+		return false
+	var after := _capture_selection_layer_snapshots(cells, layer)
+	return _commit_selection_operation(before, after, "删除选中地格内容", undo_redo, cells, cells)
+
+
+## Move the selected content as a group. The destination must be inside the
+## map volume and cannot overwrite unrelated content.
+func selection_move(delta: Vector3i, undo_redo: Object = null) -> bool:
+	var cells := get_selected_cells()
+	if cells.is_empty():
+		_set_status("没有选中的地格。", false)
+		return false
+	if delta == Vector3i.ZERO or delta.y != 0:
+		_set_status("移动方向必须是 X/Z 轴上的非零偏移。", false)
+		return false
+	var layer := target_layer
+	if not _is_grid_layer(layer) and layer != TargetLayer.OBJECT:
+		_set_status("当前目标层暂不支持批量移动。", false)
+		return false
+	var destinations: Array[Vector3i] = []
+	for cell in cells:
+		var destination := cell + delta
+		if not _inside_volume(destination):
+			_set_status("移动目标超出地图楼层范围。", false)
+			return false
+		if layer != TargetLayer.FLOOR and not _has_floor_cell(destination):
+			_set_status("移动目标必须位于有效 Floor 上。", false)
+			return false
+		destinations.append(destination)
+	var has_content := false
+	for cell in cells:
+		if _selection_layer_has_content(cell, layer):
+			has_content = true
+			break
+	if not has_content:
+		_set_status("选中的目标层没有可移动内容。", false)
+		return false
+	for destination in destinations:
+		if cells.has(destination):
+			continue
+		if _selection_layer_has_content(destination, layer):
+			_set_status("移动目标已有内容，操作已取消。", false)
+			return false
+	var operation_cells: Array[Vector3i] = []
+	for cell in cells:
+		if not operation_cells.has(cell):
+			operation_cells.append(cell)
+	for destination in destinations:
+		if not operation_cells.has(destination):
+			operation_cells.append(destination)
+	_sort_cells(operation_cells)
+	var before := _capture_selection_layer_snapshots(operation_cells, layer)
+	var source_snapshots := _capture_selection_layer_snapshots(cells, layer)
+	for cell in cells:
+		_clear_layer_at(cell, layer)
+	for index in range(source_snapshots.size()):
+		var moved_snapshot := _relocate_content_snapshot(source_snapshots[index], destinations[index], false)
+		_apply_snapshot(moved_snapshot)
+	var after := _capture_selection_layer_snapshots(operation_cells, layer)
+	var next_selection: Array[Vector3i] = []
+	for destination in destinations:
+		next_selection.append(destination)
+	_sort_cells(next_selection)
+	return _commit_selection_operation(before, after, "移动选中地格内容", undo_redo, cells, next_selection)
+
+
+## Copy the current target-layer content to the session clipboard. Clipboard
+## state is editor-session state and is intentionally not an Undo action.
+func selection_copy() -> bool:
+	var cells := get_selected_cells()
+	if cells.is_empty():
+		_set_status("没有选中的地格。", false)
+		return false
+	var layer := target_layer
+	if not _is_grid_layer(layer) and layer != TargetLayer.OBJECT:
+		_set_status("当前目标层暂不支持复制。", false)
+		return false
+	var anchor := cells[0]
+	var entries: Array = []
+	for cell in cells:
+		entries.append({
+			&"offset": cell - anchor,
+			&"snapshot": _capture_layer_snapshot(cell, layer),
+		})
+	_selection_clipboard = {
+		&"layer": layer,
+		&"entries": entries,
+		&"source_cells": cells.duplicate(),
+	}
+	_set_status("已复制 %d 格，可选择目标起点后粘贴。" % entries.size(), true)
+	_emit_changed()
+	return true
+
+
+## Paste the clipboard with the first selected cell as its anchor. Pasted
+## content replaces the destination cells and is recorded as one Undo action.
+func selection_paste(undo_redo: Object = null) -> bool:
+	if _selection_clipboard.is_empty():
+		_set_status("剪贴板为空，请先复制选中地格。", false)
+		return false
+	var cells := get_selected_cells()
+	if cells.is_empty():
+		_set_status("请先选择粘贴起点。", false)
+		return false
+	var layer := int(_selection_clipboard.get(&"layer", -1))
+	if layer != target_layer:
+		_set_status("粘贴需要切换到与剪贴板相同的目标层：%s。" % target_layer_name(layer), false)
+		return false
+	var entries: Array = _selection_clipboard.get(&"entries", [])
+	if entries.is_empty():
+		_set_status("剪贴板中没有可粘贴内容。", false)
+		return false
+	var anchor := cells[0]
+	var valid_entries: Array = []
+	var destinations: Array[Vector3i] = []
+	for entry_value in entries:
+		if not entry_value is Dictionary:
+			continue
+		valid_entries.append(entry_value)
+		var offset_value = entry_value.get(&"offset", Vector3i.ZERO)
+		var offset: Vector3i = offset_value if offset_value is Vector3i else Vector3i.ZERO
+		var destination := anchor + offset
+		if not _inside_volume(destination):
+			_set_status("粘贴目标超出地图楼层范围。", false)
+			return false
+		if layer != TargetLayer.FLOOR and not _has_floor_cell(destination):
+			_set_status("粘贴目标必须位于有效 Floor 上。", false)
+			return false
+		destinations.append(destination)
+	if destinations.is_empty():
+		_set_status("剪贴板中没有有效粘贴目标。", false)
+		return false
+	var before := _capture_selection_layer_snapshots(destinations, layer)
+	for index in range(destinations.size()):
+		var source_entry: Dictionary = valid_entries[index]
+		var source_snapshot: Dictionary = source_entry.get(&"snapshot", {})
+		var pasted_snapshot := _relocate_content_snapshot(source_snapshot, destinations[index], layer == TargetLayer.OBJECT)
+		_apply_snapshot(pasted_snapshot)
+	var after := _capture_selection_layer_snapshots(destinations, layer)
+	var next_selection: Array[Vector3i] = []
+	for destination in destinations:
+		next_selection.append(destination)
+	_sort_cells(next_selection)
+	return _commit_selection_operation(before, after, "粘贴选中地格内容", undo_redo, cells, next_selection)
 
 
 func get_property_fields() -> Array[StringName]:
@@ -1452,21 +1736,31 @@ func _capture_snapshot(cell: Vector3i) -> Dictionary:
 	if selected_kind == "patrol" and (tool == Tool.PAINT or tool == Tool.BOX_PAINT):
 		return {"kind": "patrol_root", "layer": TargetLayer.AI, "cell": cell, "root_exists": _content_root(PATROL_ROUTES_NODE_NAME) != null, "records": _capture_patrol_records()}
 	if snapshot_content_layer == TargetLayer.SPAWNER:
-		return {"kind": "spawn_root", "layer": TargetLayer.SPAWNER, "cell": cell, "root_exists": _content_root(SPAWNS_NODE_NAME) != null, "records": _capture_spawn_records()}
+		return _capture_layer_snapshot(cell, TargetLayer.SPAWNER)
 	if snapshot_content_layer == TargetLayer.TRAVERSAL:
-		return {"kind": "traversal_root", "layer": TargetLayer.TRAVERSAL, "cell": cell, "root_exists": _content_root(TRAVERSAL_LINKS_NODE_NAME) != null, "records": _capture_traversal_records()}
+		return _capture_layer_snapshot(cell, TargetLayer.TRAVERSAL)
 	if snapshot_content_layer == TargetLayer.AI:
-		return {"kind": "patrol_root", "layer": TargetLayer.AI, "cell": cell, "root_exists": _content_root(PATROL_ROUTES_NODE_NAME) != null, "records": _capture_patrol_records()}
+		return _capture_layer_snapshot(cell, TargetLayer.AI)
 	var snapshot_layer := _paint_effective_layer() if tool == Tool.PAINT or tool == Tool.BOX_PAINT else target_layer
-	if snapshot_layer == TargetLayer.OBJECT:
+	return _capture_layer_snapshot(cell, snapshot_layer)
+
+
+func _capture_layer_snapshot(cell: Vector3i, layer: int) -> Dictionary:
+	if layer == TargetLayer.SPAWNER:
+		return {"kind": "spawn_root", "layer": TargetLayer.SPAWNER, "cell": cell, "root_exists": _content_root(SPAWNS_NODE_NAME) != null, "records": _capture_spawn_records()}
+	if layer == TargetLayer.TRAVERSAL:
+		return {"kind": "traversal_root", "layer": TargetLayer.TRAVERSAL, "cell": cell, "root_exists": _content_root(TRAVERSAL_LINKS_NODE_NAME) != null, "records": _capture_traversal_records()}
+	if layer == TargetLayer.AI:
+		return {"kind": "patrol_root", "layer": TargetLayer.AI, "cell": cell, "root_exists": _content_root(PATROL_ROUTES_NODE_NAME) != null, "records": _capture_patrol_records()}
+	if layer == TargetLayer.OBJECT:
 		return {"kind": "object", "layer": TargetLayer.OBJECT, "cell": cell, "records": _capture_marker_records(cell)}
-	var grid := _grid_for_layer(snapshot_layer)
+	var grid := _grid_for_layer(layer)
 	if grid == null:
-		return {"kind": "grid", "layer": snapshot_layer, "cell": cell, "item": -1, "orientation": 0}
+		return {"kind": "grid", "layer": layer, "cell": cell, "item": -1, "orientation": 0}
 	var item := grid.get_cell_item(cell)
 	return {
 		"kind": "grid",
-		"layer": snapshot_layer,
+		"layer": layer,
 		"cell": cell,
 		"item": item,
 		"orientation": grid.get_cell_item_orientation(cell) if item >= 0 else 0,
@@ -1514,6 +1808,123 @@ func _apply_snapshot(snapshot: Dictionary) -> void:
 		grid.set_cell_item(cell, -1)
 	else:
 		grid.set_cell_item(cell, item, int(snapshot.get("orientation", 0)))
+
+
+func _capture_selection_layer_snapshots(cells: Array[Vector3i], layer: int) -> Array:
+	var result: Array = []
+	if cells.is_empty():
+		return result
+	if _selection_layer_uses_global_snapshot(layer):
+		result.append(_capture_layer_snapshot(cells[0], layer))
+		return result
+	for cell in cells:
+		result.append(_capture_layer_snapshot(cell, layer))
+	return result
+
+
+func _selection_layer_uses_global_snapshot(layer: int) -> bool:
+	return layer == TargetLayer.SPAWNER or layer == TargetLayer.TRAVERSAL or layer == TargetLayer.AI
+
+
+func _selection_layer_has_content(cell: Vector3i, layer: int) -> bool:
+	if layer == TargetLayer.OBJECT:
+		return not _markers_at(cell).is_empty()
+	if not _is_grid_layer(layer):
+		return false
+	var grid := _grid_for_layer(layer)
+	return grid != null and grid.get_cell_item(cell) >= 0
+
+
+func _clear_layer_at(cell: Vector3i, layer: int) -> bool:
+	if layer == TargetLayer.OBJECT:
+		var markers := _markers_at(cell)
+		if markers.is_empty():
+			return false
+		for marker in markers:
+			var node: Node = marker
+			if node.get_parent() != null:
+				node.get_parent().remove_child(node)
+			node.free()
+		return true
+	if not _is_grid_layer(layer):
+		return false
+	var grid := _grid_for_layer(layer)
+	if grid == null or grid.get_cell_item(cell) < 0:
+		return false
+	grid.set_cell_item(cell, -1)
+	return true
+
+
+func _relocate_content_snapshot(source: Dictionary, cell: Vector3i, duplicate_object_ids: bool) -> Dictionary:
+	var result := source.duplicate(true)
+	result[&"cell"] = cell
+	if String(result.get(&"kind", "")) != "object":
+		return result
+	var relocated_records: Array = []
+	for record_value in result.get(&"records", []):
+		if not record_value is Dictionary:
+			continue
+		var record: Dictionary = (record_value as Dictionary).duplicate(true)
+		record[&"cell"] = cell
+		if duplicate_object_ids:
+			record[&"object_id"] = _next_object_id("copy")
+		relocated_records.append(record)
+	result[&"records"] = relocated_records
+	return result
+
+
+func _selection_snapshots_equal(before: Array, after: Array) -> bool:
+	if before.size() != after.size():
+		return false
+	for index in range(before.size()):
+		if not _snapshot_equal(before[index], after[index]):
+			return false
+	return true
+
+
+func _copy_cell_array(source: Array) -> Array[Vector3i]:
+	var result: Array[Vector3i] = []
+	for value in source:
+		if value is Vector3i:
+			result.append(value)
+	return result
+
+
+func _apply_selection_operation(snapshots: Array, selection: Array) -> void:
+	for snapshot_value in snapshots:
+		if snapshot_value is Dictionary:
+			_apply_snapshot(snapshot_value as Dictionary)
+	selected_cells = _copy_cell_array(selection)
+	_set_status("已应用选择编辑快照。", true)
+	_emit_changed()
+
+
+func _commit_selection_operation(before: Array, after: Array, label: String, undo_redo: Object, before_selection: Array[Vector3i], after_selection: Array[Vector3i]) -> bool:
+	if _selection_snapshots_equal(before, after):
+		_set_status("%s没有产生变化。" % label, true)
+		return false
+	var before_cells := _copy_cell_array(before_selection)
+	var after_cells := _copy_cell_array(after_selection)
+	selected_cells = after_cells.duplicate()
+	var action_context: Object = edited_scene_root if edited_scene_root != null else author
+	if undo_redo is EditorUndoRedoManager:
+		var manager := undo_redo as EditorUndoRedoManager
+		manager.create_action(label, UndoRedo.MERGE_DISABLE, action_context)
+		manager.add_do_method(self, &"_apply_selection_operation", after, after_cells)
+		manager.add_undo_method(self, &"_apply_selection_operation", before, before_cells)
+		# The operation has already been applied. Do not execute the do callback
+		# once more during commit; this is especially important for Object markers
+		# whose preview/snap callbacks may be deferred by Godot.
+		manager.commit_action(false)
+	elif undo_redo is UndoRedo:
+		var generic_undo_redo := undo_redo as UndoRedo
+		generic_undo_redo.create_action(label)
+		generic_undo_redo.add_do_method(Callable(self, &"_apply_selection_operation").bind(after, after_cells))
+		generic_undo_redo.add_undo_method(Callable(self, &"_apply_selection_operation").bind(before, before_cells))
+		generic_undo_redo.commit_action(false)
+	_set_status("%s：已修改 %d 格，并创建一个 Undo Action。" % [label, after_cells.size()], true)
+	_emit_changed()
+	return true
 
 
 func _capture_marker_records(cell: Vector3i) -> Array:

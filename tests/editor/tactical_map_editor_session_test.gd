@@ -23,6 +23,7 @@ func _init() -> void:
 	_test_erase_validation_ignores_paint_selection()
 	_test_next_object_id_scans_existing_markers()
 	_test_selection_is_deterministic_and_clears_on_floor_change()
+	_test_selection_content_operations_and_undo()
 	_test_property_override_batch_undo_and_inherit()
 	_test_debug_views_validation_and_focus()
 	_test_legacy_default_descriptor_constraints()
@@ -547,8 +548,85 @@ func _test_selection_is_deterministic_and_clears_on_floor_change() -> void:
 	_expect(floor_grid.get_cell_item(Vector3i(0, 0, 0)) == before_item, "selection: selecting cells must not modify GridMap")
 	_expect(session.select_cell(Vector3i(0, 0, 0), true, true), "selection: Shift click on selected cell should toggle it")
 	_expect(session.get_selected_cells().size() == 1 and session.is_cell_selected(Vector3i(1, 0, 0)), "selection: toggled cell should be removed")
+	session.clear_selection()
+	_expect(session.select_cells_in_rect(Vector3i(0, 0, 0), Vector3i(1, 0, 0)), "selection: rectangle drag should select the Floor cells in its area")
+	_expect(session.get_selected_cells().size() == 2 and session.is_cell_selected(Vector3i(0, 0, 0)) and session.is_cell_selected(Vector3i(1, 0, 0)), "selection: rectangle selection should support multiple cells")
 	session.set_floor_level(1)
 	_expect(session.get_selected_cells().is_empty(), "selection: changing floor should clear cells from the old floor")
+	author.free()
+
+
+func _test_selection_content_operations_and_undo() -> void:
+	var author := _make_author()
+	var floor_grid := author.get_node("FloorGrid") as GridMap
+	floor_grid.set_cell_item(Vector3i(2, 0, 0), 0)
+	var session = SessionScript.new()
+	session.begin_for_author(author, author)
+	session.placeables = [
+		{"id": "selection.floor.0", "label": "Selection Floor 0", "kind": "cell", "layer": SessionScript.TargetLayer.FLOOR, "item_id": 0},
+		{"id": "selection.floor.1", "label": "Selection Floor 1", "kind": "cell", "layer": SessionScript.TargetLayer.FLOOR, "item_id": 1},
+	]
+	session.select_placeable(1)
+	session.set_tool(SessionScript.Tool.SELECT)
+	_expect(session.select_cell(Vector3i(0, 0, 0)), "selection ops: first cell should be selectable")
+	_expect(session.select_cell(Vector3i(1, 0, 0), true, false), "selection ops: Shift-style additive selection should work")
+	var selected := session.get_selected_cells()
+	_expect(selected.size() == 2 and selected[0] == Vector3i(0, 0, 0) and selected[1] == Vector3i(1, 0, 0), "selection ops: selected cells should be deterministic")
+
+	var replace_undo := UndoRedo.new()
+	_expect(session.selection_replace(replace_undo), "selection ops: replace should mutate every selected cell")
+	_expect(floor_grid.get_cell_item(Vector3i(0, 0, 0)) == 1 and floor_grid.get_cell_item(Vector3i(1, 0, 0)) == 1, "selection ops: replace should write the selected material")
+	_expect(replace_undo.has_undo(), "selection ops: replace should create one Undo action")
+	replace_undo.undo()
+	_expect(floor_grid.get_cell_item(Vector3i(0, 0, 0)) == 0 and floor_grid.get_cell_item(Vector3i(1, 0, 0)) == 0, "selection ops: replace undo should restore all cells")
+	replace_undo.redo()
+	_expect(floor_grid.get_cell_item(Vector3i(0, 0, 0)) == 1 and floor_grid.get_cell_item(Vector3i(1, 0, 0)) == 1, "selection ops: replace redo should restore the replacement")
+
+	var before_orientation := floor_grid.get_cell_item_orientation(Vector3i(0, 0, 0))
+	var rotate_undo := UndoRedo.new()
+	_expect(session.selection_rotate(rotate_undo), "selection ops: rotate should mutate selected cells")
+	var rotated_orientation := floor_grid.get_cell_item_orientation(Vector3i(0, 0, 0))
+	_expect(rotated_orientation != before_orientation, "selection ops: rotate should change the GridMap orientation")
+	rotate_undo.undo()
+	_expect(floor_grid.get_cell_item_orientation(Vector3i(0, 0, 0)) == before_orientation, "selection ops: rotate undo should restore orientation")
+	rotate_undo.redo()
+	_expect(floor_grid.get_cell_item_orientation(Vector3i(0, 0, 0)) == rotated_orientation, "selection ops: rotate redo should restore orientation")
+
+	var copy_undo := UndoRedo.new()
+	_expect(session.selection_copy(), "selection ops: copy should fill the selection clipboard")
+	_expect(session.has_selection_clipboard(), "selection ops: clipboard should report copied content")
+	_expect(session.select_cell(Vector3i(2, 0, 0)), "selection ops: destination anchor should be selectable")
+	_expect(session.selection_paste(copy_undo), "selection ops: paste should write the copied shape")
+	_expect(floor_grid.get_cell_item(Vector3i(2, 0, 0)) == 1 and floor_grid.get_cell_item(Vector3i(3, 0, 0)) == 1, "selection ops: paste should preserve copied content and shape")
+	_expect(copy_undo.has_undo(), "selection ops: paste should create one Undo action")
+	copy_undo.undo()
+	_expect(floor_grid.get_cell_item(Vector3i(2, 0, 0)) == 0 and floor_grid.get_cell_item(Vector3i(3, 0, 0)) < 0, "selection ops: paste undo should restore the destination")
+	copy_undo.redo()
+	_expect(floor_grid.get_cell_item(Vector3i(2, 0, 0)) == 1 and floor_grid.get_cell_item(Vector3i(3, 0, 0)) == 1, "selection ops: paste redo should restore the copied shape")
+
+	var move_undo := UndoRedo.new()
+	_expect(session.selection_move(Vector3i(1, 0, 0), move_undo), "selection ops: move should move the selected group")
+	_expect(floor_grid.get_cell_item(Vector3i(2, 0, 0)) < 0 and floor_grid.get_cell_item(Vector3i(3, 0, 0)) == 1 and floor_grid.get_cell_item(Vector3i(4, 0, 0)) == 1, "selection ops: move should translate content as a group")
+	_expect(session.get_selected_cells().has(Vector3i(3, 0, 0)) and session.get_selected_cells().has(Vector3i(4, 0, 0)), "selection ops: move should translate the selection")
+	move_undo.undo()
+	_expect(floor_grid.get_cell_item(Vector3i(2, 0, 0)) == 1 and floor_grid.get_cell_item(Vector3i(3, 0, 0)) == 1 and floor_grid.get_cell_item(Vector3i(4, 0, 0)) < 0, "selection ops: move undo should restore source and destination")
+	move_undo.redo()
+	_expect(floor_grid.get_cell_item(Vector3i(3, 0, 0)) == 1 and floor_grid.get_cell_item(Vector3i(4, 0, 0)) == 1, "selection ops: move redo should reapply the translation")
+
+	var delete_undo := UndoRedo.new()
+	_expect(session.selection_delete(delete_undo), "selection ops: delete should remove all selected content")
+	_expect(floor_grid.get_cell_item(Vector3i(3, 0, 0)) < 0 and floor_grid.get_cell_item(Vector3i(4, 0, 0)) < 0, "selection ops: delete should clear selected content")
+	_expect(delete_undo.has_undo(), "selection ops: delete should create one Undo action")
+	delete_undo.undo()
+	_expect(floor_grid.get_cell_item(Vector3i(3, 0, 0)) == 1 and floor_grid.get_cell_item(Vector3i(4, 0, 0)) == 1, "selection ops: delete undo should restore selected content")
+	delete_undo.redo()
+	_expect(floor_grid.get_cell_item(Vector3i(3, 0, 0)) < 0 and floor_grid.get_cell_item(Vector3i(4, 0, 0)) < 0, "selection ops: delete redo should remove selected content again")
+
+	delete_undo.free()
+	move_undo.free()
+	copy_undo.free()
+	rotate_undo.free()
+	replace_undo.free()
 	author.free()
 
 

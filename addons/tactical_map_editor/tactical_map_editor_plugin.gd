@@ -36,6 +36,19 @@ var _box_anchor_cell: Vector3i = Vector3i.ZERO
 var _box_current_cell: Vector3i = Vector3i.ZERO
 var _temporary_erase_restore_tool: int = -1
 var _temporary_erase_active: bool = false
+enum SelectionDragMode {
+	NONE,
+	RECTANGLE,
+	MOVE,
+}
+var _selection_drag_active: bool = false
+var _selection_drag_mode: int = SelectionDragMode.NONE
+var _selection_drag_start_cell: Vector3i = Vector3i.ZERO
+var _selection_drag_current_cell: Vector3i = Vector3i.ZERO
+var _selection_drag_additive: bool = false
+var _selection_drag_toggle: bool = false
+var _selection_drag_preview_delta: Vector3i = Vector3i.ZERO
+var _selection_rect_drag_active: bool = false
 var _bake_and_play_in_progress: bool = false
 var _selection_clear_in_progress: bool = false
 var _library_repair_in_progress: bool = false
@@ -51,6 +64,11 @@ func _enter_tree() -> void:
 	_dock.target_layer_changed.connect(_on_target_layer_changed)
 	_dock.tool_changed.connect(_on_tool_changed)
 	_dock.rotate_requested.connect(_on_rotate_requested)
+	_dock.selection_replace_requested.connect(_on_selection_replace_requested)
+	_dock.selection_rotate_requested.connect(_on_selection_rotate_requested)
+	_dock.selection_delete_requested.connect(_on_selection_delete_requested)
+	_dock.selection_copy_requested.connect(_on_selection_copy_requested)
+	_dock.selection_paste_requested.connect(_on_selection_paste_requested)
 	_dock.placeable_selected.connect(_on_placeable_selected)
 	_dock.validate_requested.connect(_validate_author)
 	_dock.bake_requested.connect(_bake_author)
@@ -168,7 +186,10 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 		if not _session.edit_mode:
 			return AFTER_GUI_INPUT_PASS
 		if key_action == INPUT_STRATEGY.Action.ROTATE:
-			_session.rotate_selection()
+			if _session.tool == TacticalMapEditSession.Tool.SELECT:
+				_session.selection_rotate(get_undo_redo())
+			else:
+				_session.rotate_selection()
 			return AFTER_GUI_INPUT_STOP
 		if key_action == INPUT_STRATEGY.Action.CANCEL:
 			_cancel_active_edit_input()
@@ -194,12 +215,17 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 			return AFTER_GUI_INPUT_PASS
 		var box_target_tool := TacticalMapEditSession.Tool.ERASE if _box_drag_active and _box_erase_mode else -1
 		var target := _target_from_screen(viewport_camera, motion.position, box_target_tool)
-		_update_preview(target)
+		if _session.tool == TacticalMapEditSession.Tool.SELECT:
+			_clear_preview()
+		else:
+			_update_preview(target)
 		if _box_drag_active:
 			if target.valid:
 				_box_current_cell = target.cell
 			_update_box_overlay(_box_anchor_cell, _box_current_cell, target.valid)
 			return AFTER_GUI_INPUT_STOP
+		if _selection_drag_active:
+			return _update_selection_drag(target)
 		if _drag_button != 0:
 			if target.valid:
 				_session.apply_at(target.cell)
@@ -215,6 +241,8 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 		if mouse.button_index == MOUSE_BUTTON_LEFT:
 			if not mouse.pressed and _box_drag_active:
 				return _finish_box_paint(viewport_camera, mouse)
+			if not mouse.pressed and _selection_drag_active:
+				return _finish_selection_drag(viewport_camera, mouse)
 			if mouse.pressed:
 				if _session.tool == TacticalMapEditSession.Tool.BOX_PAINT:
 					var is_box_erase := mouse.ctrl_pressed
@@ -228,13 +256,15 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 				if mouse_action == INPUT_STRATEGY.Action.LEFT_TEMP_ERASE:
 					return _begin_temporary_erase(viewport_camera, mouse)
 				var left_target := _target_from_screen(viewport_camera, mouse.position)
+				if mouse_action == INPUT_STRATEGY.Action.LEFT_SELECT:
+					if not _selection_target_has_cell_position(left_target):
+						_session.set_status_message(left_target.reason, false)
+						return AFTER_GUI_INPUT_STOP
+					_clear_preview()
+					return _begin_selection_drag(left_target, mouse)
 				_update_preview(left_target)
 				if not left_target.valid:
 					_session.set_status_message(left_target.reason, false)
-					return AFTER_GUI_INPUT_STOP
-				if mouse_action == INPUT_STRATEGY.Action.LEFT_SELECT:
-					_session.select_cell(left_target.cell, mouse.shift_pressed, mouse.shift_pressed)
-					_update_selection_overlay()
 					return AFTER_GUI_INPUT_STOP
 				if mouse_action == INPUT_STRATEGY.Action.LEFT_PICK:
 					_session.pick_at(left_target.cell)
@@ -293,6 +323,86 @@ func _finish_box_paint(viewport_camera: Camera3D, mouse: InputEventMouseButton) 
 	_clear_preview()
 	return AFTER_GUI_INPUT_STOP
 
+func _selection_target_has_cell_position(target: TacticalPlacementTarget) -> bool:
+	if target == null or _session == null or not _session.has_author():
+		return false
+	# A target with a canonical world position came from a successful ray/plane
+	# intersection. It may still be invalid for Select because the cell has no
+	# Floor; rectangle selection deliberately accepts those coordinates and
+	# filters them in Session.
+	return target.world_position != Vector3.ZERO and _session._inside_volume(target.cell)
+
+
+func _begin_selection_drag(target: TacticalPlacementTarget, mouse: InputEventMouseButton) -> int:
+	_selection_drag_active = true
+	_selection_drag_start_cell = target.cell
+	_selection_drag_current_cell = target.cell
+	_selection_drag_additive = mouse.shift_pressed
+	_selection_drag_toggle = mouse.shift_pressed
+	_selection_drag_preview_delta = Vector3i.ZERO
+	if _session.is_cell_selected(target.cell) and not mouse.shift_pressed:
+		_selection_drag_mode = SelectionDragMode.MOVE
+		_update_selection_overlay()
+	else:
+		_selection_drag_mode = SelectionDragMode.RECTANGLE
+		_selection_rect_drag_active = true
+		_update_box_overlay(target.cell, target.cell, true)
+	return AFTER_GUI_INPUT_STOP
+
+
+func _update_selection_drag(target: TacticalPlacementTarget) -> int:
+	if not _selection_drag_active:
+		return AFTER_GUI_INPUT_PASS
+	if _selection_target_has_cell_position(target):
+		_selection_drag_current_cell = target.cell
+		if _selection_drag_mode == SelectionDragMode.MOVE:
+			_selection_drag_preview_delta = target.cell - _selection_drag_start_cell
+			_update_selection_overlay(_selection_drag_preview_delta)
+		else:
+			_update_box_overlay(_selection_drag_start_cell, _selection_drag_current_cell, _session._inside_volume(target.cell))
+	return AFTER_GUI_INPUT_STOP
+
+
+func _finish_selection_drag(viewport_camera: Camera3D, mouse: InputEventMouseButton) -> int:
+	if not _selection_drag_active:
+		return AFTER_GUI_INPUT_PASS
+	var target := _target_from_screen(viewport_camera, mouse.position)
+	if _selection_target_has_cell_position(target):
+		_selection_drag_current_cell = target.cell
+	var start_cell := _selection_drag_start_cell
+	var end_cell := _selection_drag_current_cell
+	var drag_mode := _selection_drag_mode
+	var additive := _selection_drag_additive
+	var toggle := _selection_drag_toggle
+	_reset_selection_drag()
+	if drag_mode == SelectionDragMode.MOVE:
+		var delta := end_cell - start_cell
+		if delta != Vector3i.ZERO:
+			_session.selection_move(delta, get_undo_redo())
+		_update_selection_overlay()
+		_clear_preview()
+		return AFTER_GUI_INPUT_STOP
+	_clear_box_overlay()
+	if start_cell == end_cell:
+		_session.select_cell(start_cell, additive, toggle)
+	else:
+		_session.select_cells_in_rect(start_cell, end_cell, additive, toggle)
+	_update_selection_overlay()
+	_clear_preview()
+	return AFTER_GUI_INPUT_STOP
+
+
+func _reset_selection_drag() -> void:
+	_selection_drag_active = false
+	_selection_drag_mode = SelectionDragMode.NONE
+	_selection_drag_start_cell = Vector3i.ZERO
+	_selection_drag_current_cell = Vector3i.ZERO
+	_selection_drag_additive = false
+	_selection_drag_toggle = false
+	_selection_drag_preview_delta = Vector3i.ZERO
+	_selection_rect_drag_active = false
+
+
 func _restore_temporary_erase_tool() -> void:
 	if not _temporary_erase_active:
 		_temporary_erase_restore_tool = -1
@@ -306,6 +416,8 @@ func _restore_temporary_erase_tool() -> void:
 func _cancel_active_edit_input() -> void:
 	if _session == null:
 		_drag_button = 0
+		_reset_selection_drag()
+		_clear_box_overlay()
 		_box_erase_mode = false
 		_temporary_erase_active = false
 		_temporary_erase_restore_tool = -1
@@ -316,6 +428,9 @@ func _cancel_active_edit_input() -> void:
 		_session.cancel_stroke()
 		_box_drag_active = false
 		_box_erase_mode = false
+		_clear_box_overlay()
+	if _selection_drag_active:
+		_reset_selection_drag()
 		_clear_box_overlay()
 	_drag_button = 0
 	_restore_temporary_erase_tool()
@@ -513,7 +628,30 @@ func _on_tool_changed(tool: int) -> void:
 	_clear_box_overlay()
 
 func _on_rotate_requested() -> void:
-	_session.rotate_selection()
+	if _session.tool == TacticalMapEditSession.Tool.SELECT:
+		_session.selection_rotate(get_undo_redo())
+	else:
+		_session.rotate_selection()
+
+
+func _on_selection_replace_requested() -> void:
+	_session.selection_replace(get_undo_redo())
+
+
+func _on_selection_rotate_requested() -> void:
+	_session.selection_rotate(get_undo_redo())
+
+
+func _on_selection_delete_requested() -> void:
+	_session.selection_delete(get_undo_redo())
+
+
+func _on_selection_copy_requested() -> void:
+	_session.selection_copy()
+
+
+func _on_selection_paste_requested() -> void:
+	_session.selection_paste(get_undo_redo())
 
 func _on_placeable_selected(index: int) -> void:
 	_session.select_placeable(index)
@@ -848,7 +986,7 @@ func _update_preview(target: TacticalPlacementTarget) -> void:
 	_apply_preview_tint(Color(0.25, 0.95, 0.4, 0.28) if target.valid else Color(0.95, 0.2, 0.2, 0.28))
 	_preview_root.visible = true
 
-func _update_selection_overlay() -> void:
+func _update_selection_overlay(offset: Vector3i = Vector3i.ZERO) -> void:
 	if _session == null or not _session.has_author():
 		_clear_selection_overlay()
 		return
@@ -871,7 +1009,7 @@ func _update_selection_overlay() -> void:
 	multi_mesh.mesh = box
 	multi_mesh.instance_count = cells.size()
 	for index in range(cells.size()):
-		var local_center: Vector3 = author.call("cell_to_local", cells[index])
+		var local_center: Vector3 = author.call("cell_to_local", cells[index] + offset)
 		# cell_to_local is the canonical centre; lift the thin overlay just above
 		# the tile so it remains visible without changing any map geometry.
 		local_center.y += dimensions.y * 0.47
@@ -912,7 +1050,7 @@ func _clear_selection_overlay() -> void:
 	_selection_overlay = null
 
 func _update_box_overlay(from_cell: Vector3i, to_cell: Vector3i, valid: bool) -> void:
-	if not _box_drag_active or _session == null or not _session.has_author():
+	if (not _box_drag_active and not _selection_rect_drag_active) or _session == null or not _session.has_author():
 		_clear_box_overlay()
 		return
 	var author := _session.author as Node3D

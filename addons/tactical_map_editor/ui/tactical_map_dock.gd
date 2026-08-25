@@ -11,6 +11,11 @@ signal floor_changed(level: int)
 signal target_layer_changed(layer: int)
 signal tool_changed(tool: int)
 signal rotate_requested
+signal selection_replace_requested
+signal selection_rotate_requested
+signal selection_delete_requested
+signal selection_copy_requested
+signal selection_paste_requested
 signal placeable_selected(index: int)
 signal validate_requested
 signal bake_requested
@@ -44,6 +49,13 @@ var _floor_spin: SpinBox
 var _target_option: OptionButton
 var _tool_option: OptionButton
 var _rotate_button: Button
+var _selection_actions_panel: VBoxContainer
+var _selection_count_label: Label
+var _selection_replace_button: Button
+var _selection_rotate_button: Button
+var _selection_delete_button: Button
+var _selection_copy_button: Button
+var _selection_paste_button: Button
 var _search: LineEdit
 var _palette: ItemList
 var _add_placeable_button: Button
@@ -210,7 +222,6 @@ func _build_ui() -> void:
 	_tool_option.add_item("Paint", TacticalMapEditSession.Tool.PAINT)
 	_tool_option.add_item("Erase", TacticalMapEditSession.Tool.ERASE)
 	_tool_option.add_item("Pick", TacticalMapEditSession.Tool.PICK)
-	_tool_option.add_item("Rotate", TacticalMapEditSession.Tool.ROTATE)
 	_tool_option.add_item("Select", TacticalMapEditSession.Tool.SELECT)
 	_tool_option.add_item("Box Paint", TacticalMapEditSession.Tool.BOX_PAINT)
 	_tool_option.set_item_tooltip(_tool_option.item_count - 1, "按住左键拖出矩形，松开后批量绘制 Cell 地格；按住 Ctrl 拖选时改为批量擦除。")
@@ -221,7 +232,7 @@ func _build_ui() -> void:
 	tool_row.add_child(_tool_option)
 	_rotate_button = Button.new()
 	_rotate_button.text = "R 旋转"
-	_rotate_button.tooltip_text = "旋转选中的素材 90°；Rotate 工具可旋转目标格已有内容。"
+	_rotate_button.tooltip_text = "非 Select 模式旋转当前素材 90°；Select 模式请使用“选择操作”中的批量旋转。"
 	_rotate_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_rotate_button.pressed.connect(func() -> void: rotate_requested.emit())
 	tool_row.add_child(_rotate_button)
@@ -253,6 +264,7 @@ func _build_ui() -> void:
 	_palette.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_palette.item_selected.connect(_on_palette_item_selected)
 	content.add_child(_palette)
+	_build_selection_actions_panel(content)
 	_build_special_panel(content)
 	_build_spawn_panel(content)
 
@@ -489,7 +501,9 @@ func _refresh() -> void:
 		_refresh_special_edit_panel()
 		_refresh_spawn_configuration_panel()
 	_refresh_validation_panel()
+	_refresh_selection_actions()
 	if session == null:
+		_rotate_button.visible = false
 		_refreshing = false
 		return
 	var has_author := session.has_author()
@@ -509,6 +523,7 @@ func _refresh() -> void:
 	_target_option.disabled = not has_author
 	_tool_option.disabled = not has_author
 	_rotate_button.disabled = not has_author
+	_rotate_button.visible = has_author and session.tool != TacticalMapEditSession.Tool.SELECT
 	_validate_button.disabled = not has_author
 	_bake_button.disabled = not has_author
 	_save_button.disabled = not has_author
@@ -525,6 +540,7 @@ func _refresh() -> void:
 			_tool_option.select(tool_index)
 			break
 	_refresh_palette()
+	_refresh_selection_actions()
 	_refresh_debug_panel()
 	_refresh_special_edit_panel()
 	_refresh_spawn_configuration_panel()
@@ -548,6 +564,87 @@ func _refresh_palette() -> void:
 		_palette.set_item_metadata(_palette.item_count - 1, entry.get("id", ""))
 		if String(entry.get("id", "")) == selected_id:
 			_palette.select(_palette.item_count - 1)
+
+
+func _build_selection_actions_panel(content: VBoxContainer) -> void:
+	_selection_actions_panel = VBoxContainer.new()
+	_selection_actions_panel.name = "SelectionActionsPanel"
+	_selection_actions_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.add_child(_selection_actions_panel)
+	var heading := Label.new()
+	heading.text = "选择操作"
+	heading.add_theme_font_size_override("font_size", 14)
+	_selection_actions_panel.add_child(heading)
+	_selection_count_label = Label.new()
+	_selection_count_label.name = "SelectionCountLabel"
+	_selection_count_label.text = "已选地格：0"
+	_selection_actions_panel.add_child(_selection_count_label)
+	var hint := Label.new()
+	hint.name = "SelectionActionsHint"
+	hint.text = "拖拽框选；拖拽已选地格移动；Shift 追加/切换。"
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_color_override("font_color", Color("aab4c5"))
+	_selection_actions_panel.add_child(hint)
+	var edit_grid := GridContainer.new()
+	edit_grid.name = "SelectionEditButtons"
+	edit_grid.columns = 3
+	edit_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_selection_actions_panel.add_child(edit_grid)
+	_selection_replace_button = Button.new()
+	_selection_replace_button.name = "SelectionReplaceButton"
+	_selection_replace_button.text = "替换"
+	_selection_replace_button.tooltip_text = "使用素材栏当前素材替换所有选中地格。"
+	_selection_replace_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_selection_replace_button.pressed.connect(_emit_selection_replace_requested)
+	edit_grid.add_child(_selection_replace_button)
+	_selection_rotate_button = Button.new()
+	_selection_rotate_button.name = "SelectionRotateButton"
+	_selection_rotate_button.text = "旋转"
+	_selection_rotate_button.tooltip_text = "将当前目标层中所有选中内容旋转 90°。"
+	_selection_rotate_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_selection_rotate_button.pressed.connect(_emit_selection_rotate_requested)
+	edit_grid.add_child(_selection_rotate_button)
+	_selection_delete_button = Button.new()
+	_selection_delete_button.name = "SelectionDeleteButton"
+	_selection_delete_button.text = "删除"
+	_selection_delete_button.tooltip_text = "删除当前目标层中所有选中内容。"
+	_selection_delete_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_selection_delete_button.pressed.connect(_emit_selection_delete_requested)
+	edit_grid.add_child(_selection_delete_button)
+	var clipboard_row := HBoxContainer.new()
+	clipboard_row.name = "SelectionClipboardButtons"
+	clipboard_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_selection_actions_panel.add_child(clipboard_row)
+	_selection_copy_button = Button.new()
+	_selection_copy_button.name = "SelectionCopyButton"
+	_selection_copy_button.text = "复制"
+	_selection_copy_button.tooltip_text = "复制当前目标层的选中内容。"
+	_selection_copy_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_selection_copy_button.pressed.connect(_emit_selection_copy_requested)
+	clipboard_row.add_child(_selection_copy_button)
+	_selection_paste_button = Button.new()
+	_selection_paste_button.name = "SelectionPasteButton"
+	_selection_paste_button.text = "粘贴"
+	_selection_paste_button.tooltip_text = "以第一个选中地格为起点粘贴剪贴板内容。"
+	_selection_paste_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_selection_paste_button.pressed.connect(_emit_selection_paste_requested)
+	clipboard_row.add_child(_selection_paste_button)
+
+func _refresh_selection_actions() -> void:
+	if not _is_valid_control(_selection_actions_panel):
+		return
+	var has_author := session != null and session.has_author()
+	var selected_count := session.selected_cell_count() if has_author else 0
+	var selection_tool_active := has_author and session.edit_mode and session.tool == TacticalMapEditSession.Tool.SELECT
+	_selection_actions_panel.visible = selection_tool_active
+	var has_selection := selection_tool_active and selected_count > 0
+	_selection_count_label.text = "已选地格：%d" % selected_count
+	var action_enabled := has_selection
+	_selection_replace_button.disabled = not action_enabled
+	_selection_rotate_button.disabled = not action_enabled
+	_selection_delete_button.disabled = not action_enabled
+	_selection_copy_button.disabled = not action_enabled
+	_selection_paste_button.disabled = not action_enabled or not session.has_selection_clipboard()
 
 func _get_palette_entries(query: String = "") -> Array:
 	if session == null:
@@ -838,6 +935,26 @@ func _emit_add_placeable_requested() -> void:
 func _emit_new_map_requested() -> void:
 	new_map_requested.emit()
 
+
+func _emit_selection_replace_requested() -> void:
+	selection_replace_requested.emit()
+
+
+func _emit_selection_rotate_requested() -> void:
+	selection_rotate_requested.emit()
+
+
+func _emit_selection_delete_requested() -> void:
+	selection_delete_requested.emit()
+
+
+func _emit_selection_copy_requested() -> void:
+	selection_copy_requested.emit()
+
+
+func _emit_selection_paste_requested() -> void:
+	selection_paste_requested.emit()
+
 func _is_valid_control(control: Object) -> bool:
 	return control != null and is_instance_valid(control)
 
@@ -850,6 +967,13 @@ func _has_base_ui_ready() -> bool:
 		and _is_valid_control(_target_option) \
 		and _is_valid_control(_tool_option) \
 		and _is_valid_control(_rotate_button) \
+		and _is_valid_control(_selection_actions_panel) \
+		and _is_valid_control(_selection_count_label) \
+		and _is_valid_control(_selection_replace_button) \
+		and _is_valid_control(_selection_rotate_button) \
+		and _is_valid_control(_selection_delete_button) \
+		and _is_valid_control(_selection_copy_button) \
+		and _is_valid_control(_selection_paste_button) \
 		and _is_valid_control(_search) \
 		and _is_valid_control(_palette) \
 		and _is_valid_control(_status) \
@@ -881,14 +1005,16 @@ func _ensure_phase_c_ui() -> bool:
 	_ensure_new_map_button()
 	if not _ensure_tool_option():
 		return false
+	_remove_legacy_rotate_tool_item()
 	_ensure_select_tool_item()
 	_ensure_box_paint_tool_item()
 	_ensure_add_placeable_button()
+	var selection_actions_ready := _ensure_selection_actions_panel()
 	var debug_ready := _ensure_debug_panel()
 	var validation_ready := _ensure_validation_panel()
 	var special_ready := _ensure_special_panel()
 	var spawn_ready := _ensure_spawn_panel()
-	return debug_ready and validation_ready and special_ready and spawn_ready
+	return selection_actions_ready and debug_ready and validation_ready and special_ready and spawn_ready
 
 func _ensure_scroll_container() -> bool:
 	if not _is_valid_control(_content):
@@ -1028,6 +1154,96 @@ func _ensure_spawn_panel() -> bool:
 		_spawn_apply_button = _spawn_panel.find_child("ApplySpawnConfigurationButton", true, false) as Button
 	return _is_valid_control(_spawn_context_label) and _is_valid_control(_spawn_archetype_picker) and _is_valid_control(_spawn_weapon_picker) and _is_valid_control(_spawn_encounter_edit) and _is_valid_control(_spawn_patrol_edit) and _is_valid_control(_spawn_apply_button)
 
+
+func _ensure_selection_actions_panel() -> bool:
+	if not _is_valid_control(_selection_actions_panel):
+		var existing := find_child("SelectionActionsPanel", true, false)
+		if existing is VBoxContainer:
+			_selection_actions_panel = existing as VBoxContainer
+	if not _is_valid_control(_selection_actions_panel):
+		var parent := _content if _is_valid_control(_content) else self
+		if parent is VBoxContainer:
+			_build_selection_actions_panel(parent as VBoxContainer)
+	if not _is_valid_control(_selection_actions_panel):
+		return false
+	if not _is_valid_control(_selection_count_label):
+		_selection_count_label = _selection_actions_panel.find_child("SelectionCountLabel", true, false) as Label
+	if not _is_valid_control(_selection_replace_button):
+		_selection_replace_button = _selection_actions_panel.find_child("SelectionReplaceButton", true, false) as Button
+	if not _is_valid_control(_selection_rotate_button):
+		_selection_rotate_button = _selection_actions_panel.find_child("SelectionRotateButton", true, false) as Button
+	if not _is_valid_control(_selection_delete_button):
+		_selection_delete_button = _selection_actions_panel.find_child("SelectionDeleteButton", true, false) as Button
+	if not _is_valid_control(_selection_copy_button):
+		_selection_copy_button = _selection_actions_panel.find_child("SelectionCopyButton", true, false) as Button
+	if not _is_valid_control(_selection_paste_button):
+		_selection_paste_button = _selection_actions_panel.find_child("SelectionPasteButton", true, false) as Button
+	_ensure_selection_action_layout()
+	_remove_legacy_selection_move_controls()
+	if not _is_valid_control(_selection_count_label) or not _is_valid_control(_selection_replace_button) or not _is_valid_control(_selection_rotate_button) or not _is_valid_control(_selection_delete_button) or not _is_valid_control(_selection_copy_button) or not _is_valid_control(_selection_paste_button):
+		return false
+	if not _selection_replace_button.pressed.is_connected(_emit_selection_replace_requested):
+		_selection_replace_button.pressed.connect(_emit_selection_replace_requested)
+	if not _selection_rotate_button.pressed.is_connected(_emit_selection_rotate_requested):
+		_selection_rotate_button.pressed.connect(_emit_selection_rotate_requested)
+	if not _selection_delete_button.pressed.is_connected(_emit_selection_delete_requested):
+		_selection_delete_button.pressed.connect(_emit_selection_delete_requested)
+	if not _selection_copy_button.pressed.is_connected(_emit_selection_copy_requested):
+		_selection_copy_button.pressed.connect(_emit_selection_copy_requested)
+	if not _selection_paste_button.pressed.is_connected(_emit_selection_paste_requested):
+		_selection_paste_button.pressed.connect(_emit_selection_paste_requested)
+	return true
+
+
+func _ensure_selection_action_layout() -> void:
+	if not _is_valid_control(_selection_actions_panel):
+		return
+	if _selection_actions_panel.find_child("SelectionEditButtons", true, false) != null:
+		return
+	var legacy_grid := _selection_actions_panel.find_child("SelectionActionButtons", true, false)
+	if legacy_grid == null or legacy_grid.get_parent() == null:
+		return
+	var parent := legacy_grid.get_parent()
+	var insert_index := legacy_grid.get_index()
+	var edit_grid := GridContainer.new()
+	edit_grid.name = "SelectionEditButtons"
+	edit_grid.columns = 3
+	edit_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for button in [_selection_replace_button, _selection_rotate_button, _selection_delete_button]:
+		if button == null or button.get_parent() == null:
+			continue
+		button.get_parent().remove_child(button)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		edit_grid.add_child(button)
+	var clipboard_row := HBoxContainer.new()
+	clipboard_row.name = "SelectionClipboardButtons"
+	clipboard_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for button in [_selection_copy_button, _selection_paste_button]:
+		if button == null or button.get_parent() == null:
+			continue
+		button.get_parent().remove_child(button)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		clipboard_row.add_child(button)
+	parent.add_child(edit_grid)
+	parent.move_child(edit_grid, insert_index)
+	parent.add_child(clipboard_row)
+	parent.move_child(clipboard_row, insert_index + 1)
+	legacy_grid.queue_free()
+	_selection_replace_button.text = "替换"
+	_selection_rotate_button.text = "旋转"
+	_selection_delete_button.text = "删除"
+
+
+func _remove_legacy_selection_move_controls() -> void:
+	if not _is_valid_control(_selection_actions_panel):
+		return
+	var legacy_grid := _selection_actions_panel.find_child("SelectionMoveButtons", true, false)
+	if legacy_grid != null:
+		legacy_grid.visible = false
+	for child in _selection_actions_panel.get_children():
+		if child is Label and String((child as Label).text).strip_edges() == "移动":
+			(child as Label).visible = false
+
 func _ensure_tool_option() -> bool:
 	if not _is_valid_control(_tool_option):
 		var named := find_child("ToolOption", true, false)
@@ -1036,6 +1252,15 @@ func _ensure_tool_option() -> bool:
 	if not _is_valid_control(_tool_option):
 		_tool_option = _find_tool_option(self)
 	return _is_valid_control(_tool_option)
+
+
+func _remove_legacy_rotate_tool_item() -> void:
+	if not _is_valid_control(_tool_option):
+		return
+	for index in range(_tool_option.item_count - 1, -1, -1):
+		if _tool_option.get_item_id(index) == TacticalMapEditSession.Tool.ROTATE:
+			_tool_option.remove_item(index)
+
 
 func _find_tool_option(root: Node) -> OptionButton:
 	for child in root.get_children():
@@ -1050,12 +1275,14 @@ func _looks_like_tool_option(option: OptionButton) -> bool:
 	var has_paint := false
 	var has_erase := false
 	var has_rotate := false
+	var has_select := false
 	for index in range(option.item_count):
 		var text := option.get_item_text(index).to_lower()
 		has_paint = has_paint or text == "paint"
 		has_erase = has_erase or text == "erase"
 		has_rotate = has_rotate or text == "rotate"
-	return has_paint and has_erase and has_rotate
+		has_select = has_select or option.get_item_id(index) == TacticalMapEditSession.Tool.SELECT
+	return has_paint and has_erase and (has_rotate or has_select)
 
 func _ensure_select_tool_item() -> void:
 	if not _is_valid_control(_tool_option):
