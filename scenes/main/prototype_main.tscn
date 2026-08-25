@@ -48,6 +48,8 @@ map_definition = ExtResource("2_jn53a")
 
 [node name="TacticalCameraRig" parent="." unique_id=1467212329 instance=ExtResource("3_camera")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11, 0, 9)
+zoom_distance = 20.0
+zoom_max = 30.0
 
 [node name="Units" type="Node3D" parent="." unique_id=478476774]
 

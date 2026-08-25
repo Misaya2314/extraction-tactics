@@ -8,6 +8,6 @@ script = ExtResource("1_archetype")
 archetype_id = &"rifleman"
 display_name = "步枪兵"
 max_hp = 8
-move_range = 3
+move_range = 8
 vision_range = 12
 default_weapon = ExtResource("2_weapon")
