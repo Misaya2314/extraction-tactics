@@ -149,7 +149,7 @@ mesh_library = SubResource("MeshLibrary_naoqe")
 collision_layer = 2
 collision_mask = 0
 data = {
-"cells": PackedInt32Array(4, 1, 2, 4, 2, 2, 4, 3, 2, 4, 5, 2, 4, 6, 2, 4, 7, 2, 8, 3, 2, 8, 4, 2, 8, 5, 2, 2, 4, 3, 6, 2, 3, 6, 6, 3, 9, 7, 3)
+"cells": PackedInt32Array(4, 1, 2, 4, 2, 2, 4, 3, 2, 4, 5, 2, 4, 6, 2, 4, 7, 2, 8, 3, 2, 8, 4, 2, 8, 5, 2, 2, 4, 3, 6, 2, 3, 6, 6, 3, 9, 7, 3, 2, 6, 1048579, 1, 5, 655363, 1, 7, 3)
 }
 
 [node name="DecorationGrid" type="GridMap" parent="." unique_id=1466287506]

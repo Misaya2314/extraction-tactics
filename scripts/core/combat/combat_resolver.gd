@@ -38,4 +38,5 @@ static func _copy_result(source: ActionResult) -> ActionResult:
 	result.ap_cost = source.ap_cost
 	result.damage = source.damage
 	result.killed = source.killed
+	result.metadata = source.metadata.duplicate(true)
 	return result

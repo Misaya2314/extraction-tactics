@@ -140,3 +140,141 @@ static func disable_collisions(node: Node) -> void:
 		(node as CollisionPolygon3D).disabled = true
 	for child in node.get_children():
 		disable_collisions(child)
+
+
+## Convert local Structure edge contributions into editor-only protected-side
+## arrows. The input is plain dictionaries so this helper stays independent of
+## Baker and is directly testable in headless mode.
+static func build_local_cover_preview_records(contributions: Array, rotation_quarters: int) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for contribution_value in contributions:
+		if not contribution_value is Dictionary:
+			continue
+		var contribution: Dictionary = contribution_value
+		if not bool(contribution.get(&"enabled", true)):
+			continue
+		var world_direction := rotate_cardinal_direction(int(contribution.get(&"local_direction", 0)), rotation_quarters)
+		for side in [&"A", &"B"]:
+			var profile: Dictionary = contribution.get(&"profile_%s" % String(side).to_lower(), {})
+			if not profile is Dictionary or int(profile.get(&"level", 0)) <= 0:
+				continue
+			var protected_direction := world_direction if side == &"B" else -world_direction
+			var level := int(profile.get(&"level", 0))
+			result.append({
+				&"side": side,
+				&"direction": protected_direction,
+				&"profile_id": profile.get(&"id", &""),
+				&"level": level,
+				&"reduction": float(profile.get(&"reduction", profile.get(&"damage_reduction_ratio", 0.0))),
+				&"color": profile.get(&"debug_color", Color(0.95, 0.72, 0.18, 0.9)),
+				&"length_factor": 0.46 if level >= 2 else 0.32,
+				&"width": 0.11 if level >= 2 else 0.065,
+			})
+	return result
+
+
+## Build pure line/arrow records for baked cover edges. The caller supplies
+## center_a/center_b in author-local space; no scene nodes or resources are
+## created here.
+static func build_cover_edge_visual_records(edges: Array, dimensions: Vector3) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if dimensions.x <= 0.0 or dimensions.z <= 0.0:
+		return result
+	for edge_value in edges:
+		if not edge_value is Dictionary:
+			continue
+		var edge: Dictionary = edge_value
+		var diagnostic_only := bool(edge.get(&"diagnostic_only", false))
+		if diagnostic_only:
+			var diagnostic_position = edge.get(&"center_a", edge.get(&"position", Vector3.ZERO))
+			if diagnostic_position is Vector3:
+				result.append({
+					&"edge_key": edge.get(&"edge_key", ""),
+					&"diagnostic_only": true,
+					&"invalid": true,
+					&"position": diagnostic_position,
+					&"color": Color(0.95, 0.05, 0.15, 0.92),
+				})
+			continue
+		var center_a_value = edge.get(&"center_a", null)
+		var center_b_value = edge.get(&"center_b", null)
+		if not center_a_value is Vector3 or not center_b_value is Vector3:
+			continue
+		var center_a: Vector3 = center_a_value
+		var center_b: Vector3 = center_b_value
+		var delta: Vector3 = center_b - center_a
+		delta.y = 0.0
+		if delta.length_squared() <= 0.0001:
+			continue
+		var normal := delta.normalized()
+		var is_cardinal := absf(normal.x) > 0.99 or absf(normal.z) > 0.99
+		if not is_cardinal:
+			continue
+		var edge_center := (center_a + center_b) * 0.5
+		var tangent := Vector3(-normal.z, 0.0, normal.x)
+		var span := dimensions.x * 0.88 if absf(normal.z) > absf(normal.x) else dimensions.z * 0.88
+		var line_from := edge_center - tangent * (span * 0.5)
+		var line_to := edge_center + tangent * (span * 0.5)
+		line_from.y += dimensions.y * 0.48
+		line_to.y += dimensions.y * 0.48
+		var profile_a: Dictionary = edge.get(&"profile_a", {})
+		var profile_b: Dictionary = edge.get(&"profile_b", {})
+		var level_a := int(profile_a.get(&"level", 0)) if profile_a is Dictionary else 0
+		var level_b := int(profile_b.get(&"level", 0)) if profile_b is Dictionary else 0
+		var invalid := bool(edge.get(&"invalid_or_conflict", false))
+		if not invalid and level_a <= 0 and level_b <= 0:
+			continue
+		var strongest_level := maxi(level_a, level_b)
+		var line_color := Color(0.95, 0.05, 0.15, 0.92) if invalid else _cover_profile_color(profile_b if level_b >= level_a else profile_a)
+		var arrows: Array[Dictionary] = []
+		if not invalid:
+			if level_a > 0:
+				arrows.append(_cover_arrow_record(edge_center, -normal, profile_a, dimensions))
+			if level_b > 0:
+				arrows.append(_cover_arrow_record(edge_center, normal, profile_b, dimensions))
+		else:
+			# Keep a red direction cue for profiles that survived a conflicting
+			# source merge; invalid/no-profile diagnostics are represented by the
+			# red boundary/marker instead.
+			if level_a > 0:
+				arrows.append(_cover_arrow_record(edge_center, -normal, profile_a, dimensions, true))
+			if level_b > 0:
+				arrows.append(_cover_arrow_record(edge_center, normal, profile_b, dimensions, true))
+		result.append({
+			&"edge_key": edge.get(&"edge_key", ""),
+			&"diagnostic_only": false,
+			&"invalid": invalid,
+			&"line": {&"from": line_from, &"to": line_to, &"width": 0.10 if strongest_level >= 2 else 0.055, &"color": line_color},
+			&"arrows": arrows,
+			&"source": edge.get(&"source_type", &""),
+		})
+	return result
+
+
+static func rotate_cardinal_direction(local_direction: int, rotation_quarters: int) -> Vector2i:
+	var directions: Array[Vector2i] = [Vector2i(0, -1), Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0)]
+	return directions[posmod(clampi(local_direction, 0, 3) - posmod(rotation_quarters, 4), 4)]
+
+
+static func _cover_arrow_record(edge_center: Vector3, direction: Vector3, profile: Dictionary, dimensions: Vector3, invalid: bool = false) -> Dictionary:
+	var normalized_direction := Vector3(direction.x, 0.0, direction.z).normalized()
+	var level := int(profile.get(&"level", 0))
+	var length := minf(dimensions.x, dimensions.z) * (0.46 if level >= 2 else 0.32)
+	var from := edge_center + normalized_direction * 0.05
+	from.y += dimensions.y * 0.52
+	var to := from + normalized_direction * length
+	return {
+		&"from": from,
+		&"to": to,
+		&"direction": Vector2i(roundi(normalized_direction.x), roundi(normalized_direction.z)),
+		&"width": 0.11 if level >= 2 else 0.065,
+		&"color": Color(0.95, 0.05, 0.15, 0.92) if invalid else _cover_profile_color(profile),
+		&"profile_id": profile.get(&"id", &""),
+		&"level": level,
+		&"reduction": float(profile.get(&"reduction", profile.get(&"damage_reduction_ratio", 0.0))),
+	}
+
+
+static func _cover_profile_color(profile: Dictionary) -> Color:
+	var color = profile.get(&"debug_color", Color(0.95, 0.72, 0.18, 0.9)) if profile is Dictionary else Color(0.95, 0.72, 0.18, 0.9)
+	return color if color is Color else Color(0.95, 0.72, 0.18, 0.9)

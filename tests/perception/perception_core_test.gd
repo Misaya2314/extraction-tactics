@@ -2,6 +2,7 @@ extends SceneTree
 
 const GridVisibilityScript = preload("res://scripts/core/perception/grid_visibility.gd")
 const DetectionRulesScript = preload("res://scripts/core/perception/detection_rules.gd")
+const GridModelScript = preload("res://scripts/core/grid/grid_model.gd")
 const AlertStateScript = preload("res://scripts/core/encounter/alert_state.gd")
 const PatrolRouteScript = preload("res://scripts/core/encounter/patrol_route.gd")
 
@@ -48,6 +49,37 @@ func _test_detection_rules() -> void:
 	_expect(not DetectionRulesScript.can_detect(observer, _c(2, 0), Vector2i.UP, 4, {_c(2, 1): true}), "detect: LOS blocker should prevent detection")
 	_expect(DetectionRulesScript.can_player_see(observer, _c(2, 4), 4, {}), "player: vision should remain 360 degrees")
 
+	var edge_grid := GridModelScript.new(Vector2i(5, 1))
+	var sight_edge := _edge(_c(1, 0), _c(2, 0), 1.0, 0.0)
+	_expect(edge_grid.edge_index.configure([sight_edge]), "detect: explicit sight edge should index")
+	var edge_observer := _c(0, 0)
+	var edge_target := _c(4, 0)
+	_expect(not DetectionRulesScript.can_detect(
+		edge_observer, edge_target, Vector2i.RIGHT, 4, {}, 60.0,
+		edge_grid, edge_grid.get_edge_index()
+	), "detect: explicit sight edge should block enemy detection")
+	_expect(not DetectionRulesScript.can_player_see(
+		edge_observer, edge_target, 4, {}, edge_grid, edge_grid.get_edge_index()
+	), "player: explicit sight edge should block player visibility")
+
+	var projectile_edge := _edge(_c(1, 0), _c(2, 0), 0.0, 1.0)
+	_expect(edge_grid.edge_index.configure([projectile_edge]), "detect: explicit projectile edge should index")
+	_expect(DetectionRulesScript.can_detect(
+		edge_observer, edge_target, Vector2i.RIGHT, 4, {}, 60.0,
+		edge_grid, edge_grid.get_edge_index()
+	), "detect: projectile-only edge must not block enemy detection")
+	_expect(DetectionRulesScript.can_player_see(
+		edge_observer, edge_target, 4, {}, edge_grid, edge_grid.get_edge_index()
+	), "player: projectile-only edge must not block player visibility")
+
+	var empty_grid := GridModelScript.new(Vector2i(5, 1))
+	var legacy_result := DetectionRulesScript.can_player_see(edge_observer, edge_target, 4, {})
+	var compatible_result := DetectionRulesScript.can_player_see(edge_observer, edge_target, 4, {}, empty_grid, empty_grid.get_edge_index())
+	_expect(legacy_result == compatible_result, "detect: legacy call without GridModel must retain its result")
+	var legacy_negative := DetectionRulesScript.can_player_see(edge_observer, edge_target, -1, {})
+	var compatible_negative := DetectionRulesScript.can_player_see(edge_observer, edge_target, -1, {}, empty_grid, empty_grid.get_edge_index())
+	_expect(not legacy_negative and not compatible_negative, "player: negative vision range must remain rejected on old and GridModel paths")
+
 
 func _test_alert_state() -> void:
 	var state = AlertStateScript.new()
@@ -77,6 +109,16 @@ func _test_patrol_route() -> void:
 
 func _c(x: int, z: int, level: int = 0) -> Vector3i:
 	return Vector3i(x, level, z)
+
+
+func _edge(cell_a: Vector3i, cell_b: Vector3i, sight_block: float, projectile_block: float) -> MapEdgeData:
+	var edge := MapEdgeData.new()
+	var key := TacticalEdgeKey.from_cells(cell_a, cell_b)
+	edge.cell_a = key.cell_a
+	edge.cell_b = key.cell_b
+	edge.sight_block = sight_block
+	edge.projectile_block = projectile_block
+	return edge
 
 
 func _record_level_change(previous: int, current: int) -> void:

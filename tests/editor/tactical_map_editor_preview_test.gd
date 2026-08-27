@@ -11,6 +11,7 @@ var _failures: Array[String] = []
 
 func _init() -> void:
 	_test_cell_preview_grid_mapping()
+	_test_cover_preview_geometry()
 	call_deferred("_run")
 
 
@@ -22,6 +23,61 @@ func _test_cell_preview_grid_mapping() -> void:
 	_expect(EditorPluginScript._cell_preview_grid_name(4).is_empty(), "preview: Spawner must not use a GridMap preview")
 	_expect(EditorPluginScript._cell_preview_grid_name(5).is_empty(), "preview: Object must not use a GridMap preview")
 	_expect(EditorPluginScript._cell_preview_grid_name(6).is_empty(), "preview: AI must not use a GridMap preview")
+
+
+func _test_cover_preview_geometry() -> void:
+	var half := {&"id": &"cover.half", &"level": 1, &"reduction": 0.5, &"debug_color": Color("f0b52a")}
+	var none := {&"id": &"cover.none", &"level": 0, &"reduction": 0.0, &"debug_color": Color("999999")}
+	var local_north := {&"local_direction": 0, &"enabled": true, &"profile_a": none, &"profile_b": half}
+	var expected_directions := [Vector2i(0, -1), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(1, 0)]
+	for quarter in range(4):
+		var arrows := Builder.build_local_cover_preview_records([local_north], quarter)
+		_expect(arrows.size() == 1, "cover preview: one-sided contribution should expose one protected arrow")
+		if arrows.size() == 1:
+			_expect(arrows[0].get(&"direction", Vector2i.ZERO) == expected_directions[quarter], "cover preview: local direction should rotate with the four quarter turns")
+	var double_sided := local_north.duplicate(true)
+	double_sided[&"profile_a"] = half
+	var local_arrows := Builder.build_local_cover_preview_records([double_sided], 0)
+	_expect(local_arrows.size() == 2, "cover preview: both profile sides should produce two arrows")
+	var four_sided: Array[Dictionary] = []
+	for local_direction in range(4):
+		four_sided.append({&"local_direction": local_direction, &"enabled": true, &"profile_a": none, &"profile_b": half})
+	var four_arrows := Builder.build_local_cover_preview_records(four_sided, 2)
+	_expect(four_arrows.size() == 4, "cover preview: four local contributions should expose four rotated arrows")
+	var visual_edges := [{
+		&"edge_key": "0,0,0|1,0,0",
+		&"cell_a": Vector3i(0, 0, 0),
+		&"cell_b": Vector3i(1, 0, 0),
+		&"center_a": Vector3(0, 0, 0),
+		&"center_b": Vector3(2, 0, 0),
+		&"profile_a": half,
+		&"profile_b": half,
+		&"invalid_or_conflict": false,
+	}]
+	var visual_records := Builder.build_cover_edge_visual_records(visual_edges, Vector3(2, 2, 2))
+	_expect(visual_records.size() == 1, "cover preview: one valid edge should produce one visual record")
+	if visual_records.size() == 1:
+		_expect((visual_records[0].get(&"arrows", []) as Array).size() == 2, "cover preview: valid two-sided edge should expose A/B arrows")
+		_expect(float((visual_records[0].get(&"line", {}) as Dictionary).get(&"width", 0.0)) > 0.0, "cover preview: edge boundary should expose a visible width")
+	var center_author := TacticalMapAuthor.new()
+	center_author.cell_dimensions = Vector3(2, 2, 2)
+	var adapted_edge := EditorPluginScript._cover_edge_visual_input(visual_edges[0], center_author)
+	_expect(adapted_edge.get(&"center_a", Vector3.INF) == center_author.cell_to_local(Vector3i(0, 0, 0)), "cover preview: plugin adapter should provide center_a")
+	_expect(adapted_edge.get(&"center_b", Vector3.INF) == center_author.cell_to_local(Vector3i(1, 0, 0)), "cover preview: plugin adapter should provide center_b")
+	center_author.free()
+	var missing_center_b: Dictionary = visual_edges[0].duplicate(true)
+	missing_center_b.erase(&"center_b")
+	_expect(Builder.build_cover_edge_visual_records([missing_center_b], Vector3(2, 2, 2)).is_empty(), "cover preview: an ordinary edge without center_b must not be rendered")
+	var no_profile: Dictionary = visual_edges[0].duplicate(true)
+	no_profile[&"profile_a"] = {}
+	no_profile[&"profile_b"] = {}
+	_expect(Builder.build_cover_edge_visual_records([no_profile], Vector3(2, 2, 2)).is_empty(), "cover preview: edges without profiles should not draw normally")
+	var invalid: Dictionary = visual_edges[0].duplicate(true)
+	invalid[&"profile_a"] = {}
+	invalid[&"profile_b"] = {}
+	invalid[&"invalid_or_conflict"] = true
+	var invalid_records := Builder.build_cover_edge_visual_records([invalid], Vector3(2, 2, 2))
+	_expect(invalid_records.size() == 1 and bool(invalid_records[0].get(&"invalid", false)), "cover preview: invalid source should remain visible as a diagnostic record")
 
 
 func _run() -> void:

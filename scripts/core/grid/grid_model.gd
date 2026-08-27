@@ -9,6 +9,7 @@ extends RefCounted
 
 const DEFAULT_CELL_SIZE: float = 2.0
 const DEFAULT_LEVEL_HEIGHT: float = 2.0
+const TacticalEdgeIndexScript = preload("res://scripts/core/map/tactical_edge_index.gd")
 const CARDINAL_DIRECTIONS: Array[Vector3i] = [
 	Vector3i(0, 0, -1),
 	Vector3i(1, 0, 0),
@@ -23,6 +24,8 @@ var _origin: Vector3 = Vector3.ZERO
 var _cells: Dictionary = {}
 var _transitions: Dictionary = {}
 var _occupants: Dictionary = {}
+var _cell_blockers: Dictionary = {}
+var edge_index: TacticalEdgeIndex = TacticalEdgeIndexScript.new()
 var _initialized: bool = false
 
 
@@ -63,7 +66,15 @@ func configure_from_definition(definition: TacticalMapDefinition) -> bool:
 	for cell_data in definition.cells:
 		if cell_data == null or not _coordinate_in_volume(cell_data.coordinate):
 			continue
-		add_cell(cell_data.coordinate, cell_data.walkable, cell_data.move_cost)
+		add_cell(
+			cell_data.coordinate,
+			cell_data.walkable,
+			cell_data.move_cost,
+			cell_data.blocks_los or cell_data.sight_block >= 1.0,
+			cell_data.projectile_block >= 1.0
+		)
+	if not edge_index.configure(definition.edges if definition.edges != null else []):
+		return false
 	for transition in definition.transitions:
 		if transition == null or not transition.enabled:
 			continue
@@ -85,6 +96,10 @@ func _reset(grid_size: Vector2i, level_count: int, cell_size: Vector3, origin: V
 	_cells.clear()
 	_transitions.clear()
 	_occupants.clear()
+	_cell_blockers.clear()
+	if edge_index == null:
+		edge_index = TacticalEdgeIndexScript.new()
+	edge_index.clear()
 	_initialized = false
 
 
@@ -169,12 +184,22 @@ func world_to_existing_cell(world_position: Vector3, vertical_tolerance: float =
 	return best
 
 
-func add_cell(cell: Vector3i, walkable: bool = true, move_cost: int = 1) -> bool:
+func add_cell(
+	cell: Vector3i,
+	walkable: bool = true,
+	move_cost: int = 1,
+	blocks_los: bool = false,
+	blocks_projectile: bool = false
+) -> bool:
 	if not _coordinate_in_volume(cell) or move_cost <= 0:
 		return false
 	_cells[cell] = {
 		&"walkable": walkable,
 		&"move_cost": move_cost,
+	}
+	_cell_blockers[cell] = {
+		&"los": blocks_los,
+		&"projectile": blocks_projectile,
 	}
 	return true
 
@@ -225,6 +250,43 @@ func is_walkable(cell: Variant) -> bool:
 	return has_cell(coordinate) and bool((_cells[coordinate] as Dictionary).get(&"walkable", false))
 
 
+func set_cell_blockers(cell: Variant, blocks_los: bool, blocks_projectile: bool) -> bool:
+	var coordinate := _as_cell3(cell)
+	if not has_cell(coordinate):
+		return false
+	_cell_blockers[coordinate] = {
+		&"los": blocks_los,
+		&"projectile": blocks_projectile,
+	}
+	return true
+
+
+func cell_blocks_los(cell: Variant) -> bool:
+	var coordinate := _as_cell3(cell)
+	return bool((_cell_blockers.get(coordinate, {}) as Dictionary).get(&"los", false))
+
+
+func cell_blocks_projectile(cell: Variant) -> bool:
+	var coordinate := _as_cell3(cell)
+	return bool((_cell_blockers.get(coordinate, {}) as Dictionary).get(&"projectile", false))
+
+
+func get_edge_index() -> TacticalEdgeIndex:
+	return edge_index
+
+
+func get_edge(cell_a: Vector3i, cell_b: Vector3i) -> MapEdgeData:
+	return edge_index.get_edge(cell_a, cell_b) if edge_index != null else null
+
+
+func has_edge(cell_a: Vector3i, cell_b: Vector3i) -> bool:
+	return get_edge(cell_a, cell_b) != null
+
+
+func is_movement_blocked(cell_a: Vector3i, cell_b: Vector3i) -> bool:
+	return edge_index != null and edge_index.is_movement_blocked(cell_a, cell_b)
+
+
 ## Returns same-level horizontal neighbors plus explicit transitions.
 func get_neighbors(cell: Variant) -> Array[Vector3i]:
 	var coordinate := _as_cell3(cell)
@@ -233,7 +295,7 @@ func get_neighbors(cell: Variant) -> Array[Vector3i]:
 		return neighbors
 	for direction in CARDINAL_DIRECTIONS:
 		var neighbor := coordinate + direction
-		if has_cell(neighbor):
+		if has_cell(neighbor) and not is_movement_blocked(coordinate, neighbor):
 			neighbors.append(neighbor)
 	for edge_value in _transitions.get(coordinate, []):
 		var edge: Dictionary = edge_value
@@ -270,12 +332,16 @@ func set_transition_enabled(from_cell: Vector3i, to_cell: Vector3i, enabled: boo
 
 
 func get_edge_cost(from_cell: Vector3i, to_cell: Vector3i) -> int:
-	if from_cell.y == to_cell.y and _is_horizontal_neighbor(from_cell, to_cell):
-		return get_move_cost(to_cell)
+	# Explicit TraversalLinks are authoritative when present, including a
+	# same-level link that intentionally crosses a blocked ordinary edge.
 	for edge_value in _transitions.get(from_cell, []):
-		var edge: Dictionary = edge_value
-		if edge[&"to"] == to_cell:
-			return int(edge[&"cost"])
+		var transition: Dictionary = edge_value
+		if transition[&"to"] == to_cell:
+			return int(transition[&"cost"])
+	if from_cell.y == to_cell.y and _is_horizontal_neighbor(from_cell, to_cell):
+		if is_movement_blocked(from_cell, to_cell):
+			return -1
+		return get_move_cost(to_cell)
 	return -1
 
 

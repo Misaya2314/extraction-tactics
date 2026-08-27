@@ -446,6 +446,7 @@ func _add_debug_view_items(option: OptionButton) -> void:
 		["Projectile Block", TacticalMapEditSession.DebugView.PROJECTILE_BLOCK],
 		["Occluder Height", TacticalMapEditSession.DebugView.OCCLUDER_HEIGHT],
 		["Validation", TacticalMapEditSession.DebugView.VALIDATION],
+		["Cover / 掩体", TacticalMapEditSession.DebugView.COVER],
 	]
 	for item in items:
 		var found := false

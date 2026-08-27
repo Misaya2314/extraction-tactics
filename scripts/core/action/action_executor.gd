@@ -187,6 +187,8 @@ func _coerce_execution_result(raw_result: Variant, request: Variant) -> ActionRe
 		accepted.reason = _dictionary_string_name(dictionary_result, &"reason", &"accepted")
 		accepted.damage = _dictionary_int(dictionary_result, KEY_DAMAGE, 0)
 		accepted.killed = _dictionary_bool(dictionary_result, &"killed", false)
+		var raw_metadata: Variant = dictionary_result.get(&"metadata", {})
+		accepted.metadata = raw_metadata.duplicate(true) if raw_metadata is Dictionary else {}
 		return accepted
 	if raw_result is bool and not raw_result:
 		return ActionResultScript.rejected(REASON_EXECUTION_FAILED, request.actor_id, request.target_id, request.action_type)
@@ -224,6 +226,7 @@ func _copy_result(source: ActionResult) -> ActionResult:
 	result.ap_cost = source.ap_cost
 	result.damage = source.damage
 	result.killed = source.killed
+	result.metadata = source.metadata.duplicate(true)
 	return result
 
 

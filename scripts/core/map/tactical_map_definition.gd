@@ -6,14 +6,18 @@ extends Resource
 ## this resource is rebuilt by TacticalMapBaker and treated as read-only at run time.
 
 ## Schema 1 is the original GridMap/Catalog bake. Schema 2 adds optional
-## first-class edges while retaining every legacy field and cover_mask.
+## first-class edges. Schema 3 adds cover Profiles and pure provenance while
+## retaining every legacy field and cover_mask.
 const MIN_SUPPORTED_SCHEMA_VERSION: int = 1
-const CURRENT_SCHEMA_VERSION: int = 2
+const CURRENT_SCHEMA_VERSION: int = 3
 ## Authoring accepts a bounded non-negative level range.  Horizontal bounds
 ## are derived by the Baker from the content that was actually authored.
 const MAX_LEVEL_COUNT: int = 32
 
-@export var schema_version: int = CURRENT_SCHEMA_VERSION
+## Resources written before schema_version was introduced have no serialized
+## field. Keep their in-memory default at the oldest supported baseline so a
+## future CURRENT_SCHEMA_VERSION bump cannot silently reinterpret them.
+@export var schema_version: int = MIN_SUPPORTED_SCHEMA_VERSION
 @export var map_id: StringName = &"tactical_map"
 @export var footprint_size: Vector2i = Vector2i.ZERO
 @export var level_count: int = 1

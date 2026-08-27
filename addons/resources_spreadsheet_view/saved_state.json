@@ -1,5 +1,16 @@
 {
   "column_properties": {
+    "res://resources/combat/": {
+      "metadata/_custom_type_script": {
+        "visibility": 0.0
+      },
+      "resource_local_to_scene": {
+        "visibility": 0.0
+      },
+      "resource_name": {
+        "visibility": 0.0
+      }
+    },
     "res://resources/map_tiles/definitions/objects/": {
       "metadata/_custom_type_script": {
         "visibility": 0.0
@@ -49,7 +60,8 @@
     "res://resources/map_tiles/definitions/objects/",
     "res://resources/map_tiles/definitions/structure/",
     "res://resources/units/",
-    "res://resources/map_tiles/definitions/terrain/"
+    "res://resources/map_tiles/definitions/terrain/",
+    "res://resources/combat/"
   ],
   "table_functions": {
     "filter": [

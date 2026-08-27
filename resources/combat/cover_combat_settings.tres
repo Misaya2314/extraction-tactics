@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CoverCombatSettings" format=3]
+
+[ext_resource type="Script" uid="uid://duts1o5x1qr0" path="res://scripts/core/cover/cover_combat_settings.gd" id="1_settings"]
+[ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_none.tres" id="2_none"]
+[ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_half.tres" id="3_half"]
+[ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_full.tres" id="4_full"]
+
+[resource]
+script = ExtResource("1_settings")
+legacy_none_profile = ExtResource("2_none")
+legacy_half_profile = ExtResource("3_half")
+legacy_full_profile = ExtResource("4_full")
+minimum_damage_after_cover = 0
+allow_zero_damage = true

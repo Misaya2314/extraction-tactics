@@ -12,6 +12,7 @@ extends TacticalPlaceableDefinition
 @export var mesh_library: MeshLibrary
 @export var footprint: Vector3i = Vector3i.ONE
 @export var rule_contribution: TacticalCellRules
+@export var edge_contributions: Array[TacticalLocalEdgeContribution] = []
 
 
 func _init() -> void:
@@ -19,8 +20,13 @@ func _init() -> void:
 
 
 func is_valid() -> bool:
-	return super.is_valid() \
+	if not (super.is_valid() \
 		and placement_kind == PlacementKind.CELL \
 		and mesh_item_id >= 0 \
 		and footprint.x > 0 and footprint.y > 0 and footprint.z > 0 \
-		and (rule_contribution == null or rule_contribution.is_valid())
+		and (rule_contribution == null or rule_contribution.is_valid())):
+		return false
+	for contribution in edge_contributions:
+		if contribution == null or not contribution.is_valid():
+			return false
+	return true

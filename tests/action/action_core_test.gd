@@ -9,12 +9,14 @@ var _failures: Array[String] = []
 var _executed_actions: Array[StringName] = []
 var _commit_calls: int = 0
 var _commit_should_fail: bool = false
+var _last_handler_metadata: Dictionary = {}
 
 
 func _init() -> void:
 	_test_four_actions_share_one_executor()
 	_test_validation_and_execution_fail_without_ap_commit()
 	_test_unknown_action_and_ap_shortage()
+	_test_metadata_copy_paths()
 	_finish()
 
 
@@ -180,6 +182,42 @@ func _test_unknown_action_and_ap_shortage() -> void:
 	_expect(not unknown_result.success and unknown_result.reason == &"unknown_action", "action: unknown action should reject explicitly")
 	_expect(unknown_result.action_type == &"teleport" and unknown_result.actor_id == &"player_1" and unknown_result.ap_cost == 1, "action: unknown result metadata")
 	_expect(context.get_commit_count() == 0, "action: unknown action must not commit")
+
+
+func _test_metadata_copy_paths() -> void:
+	var executor = ActionExecutorScript.new()
+	executor.register_handler(&"interact", Callable(self, "_handle_result_with_metadata"))
+	var context = _new_context(3)
+	var request := ActionRequestScript.new(
+		&"interact",
+		&"player_1",
+		&"door_metadata",
+		1,
+		{
+			ActionExecutorScript.KEY_ACTOR_CELL: Vector3i.ZERO,
+			ActionExecutorScript.KEY_TARGET_CELL: Vector3i(1, 0, 0),
+			ActionExecutorScript.KEY_INTERACTION_RANGE: 1,
+		}
+	)
+	var result := executor.execute(request, context)
+	_expect(result.success and result.metadata.get(&"effective_damage", -1) == 4, "action: ActionResult handler metadata should survive executor copies")
+	result.metadata[&"effective_damage"] = 99
+	_expect(_last_handler_metadata.get(&"effective_damage", -1) == 4, "action: metadata copy must not alias handler result")
+
+	var dictionary_executor = ActionExecutorScript.new()
+	dictionary_executor.register_handler(&"interact", Callable(self, "_handle_dictionary_metadata"))
+	var dictionary_result := dictionary_executor.execute(request, _new_context(3))
+	_expect(dictionary_result.success and dictionary_result.metadata.get(&"cover_level", -1) == 2, "action: dictionary handler metadata should be coerced")
+
+
+func _handle_result_with_metadata(request, _context) -> ActionResult:
+	_last_handler_metadata = {&"effective_damage": 4}
+	var result := ActionResultScript.accepted(request.actor_id, request.target_id, request.ap_cost, request.action_type, _last_handler_metadata)
+	return result
+
+
+func _handle_dictionary_metadata(_request, _context) -> Dictionary:
+	return {&"success": true, &"metadata": {&"cover_level": 2}}
 
 
 func _new_context(initial_ap: int):

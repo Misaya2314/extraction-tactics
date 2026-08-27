@@ -10,6 +10,9 @@ const GameStateManagerScript = preload("res://scripts/core/session/game_state_ma
 const SquadInventoryScript = preload("res://scripts/core/inventory/squad_inventory.gd")
 const LootContainerScript = preload("res://scripts/core/loot/loot_container_model.gd")
 const LootSettlementScript = preload("res://scripts/core/loot/loot_settlement.gd")
+const CoverQueryScript = preload("res://scripts/core/cover/cover_query.gd")
+const CoverResolverScript = preload("res://scripts/core/cover/cover_resolver.gd")
+const CoverCombatSettingsScript = preload("res://scripts/core/cover/cover_combat_settings.gd")
 const InventoryGridScript = preload("res://scripts/gameplay/ui/inventory_grid_control.gd")
 const LootGridScript = preload("res://scripts/gameplay/ui/loot_grid_control.gd")
 const MOVE_ACTION_COST := 1
@@ -34,12 +37,15 @@ const EXTRACTION_HIGHLIGHT_COLOR := Color(0.2, 0.95, 0.42, 0.56)
 const MOVE_HIGHLIGHT_SURFACE_OFFSET := 0.025
 
 @export var map_definition: TacticalMapDefinition
+@export var cover_combat_settings: CoverCombatSettings
 
 var grid: GridModel
 var _environment_root: Node3D
 var turn_manager: TurnManager
 var action_executor: ActionExecutor
 var last_action_result: ActionResult
+var last_cover_query: CoverQueryResult
+var last_cover_damage: Dictionary = {}
 var session_manager
 var squad_inventory
 var loot_settlement
@@ -134,6 +140,8 @@ func _ready() -> void:
 		push_error("Failed to configure grid from map definition.")
 		return
 	_apply_camera_bounds()
+	if cover_combat_settings == null:
+		cover_combat_settings = CoverCombatSettingsScript.load_default()
 	session_manager = GameStateManagerScript.new()
 	_configure_action_executor()
 	squad_inventory = SquadInventoryScript.new()
@@ -220,9 +228,13 @@ func _handle_attack_action(request: Variant, _context: Variant) -> Variant:
 		return _action_rejected(&"wrong_phase", ACTION_ATTACK, attacker.unit_id, target.unit_id)
 	attacker.set_facing(target.grid_cell - attacker.grid_cell)
 	var accepted := ActionResultScript.accepted(request.actor_id, request.target_id, request.ap_cost, ACTION_ATTACK)
-	var resolved := CombatResolver.resolve_attack(accepted, target.current_hp, attacker.attack_damage)
+	var requested_damage := int(payload.get(ActionExecutorScript.KEY_DAMAGE, attacker.attack_damage))
+	var resolved := CombatResolver.resolve_attack(accepted, target.current_hp, requested_damage)
+	var cover_metadata: Variant = payload.get(&"cover_metadata", {})
+	if cover_metadata is Dictionary:
+		resolved.metadata = cover_metadata.duplicate(true)
 	var applied := target.take_damage(resolved.damage)
-	return {&"success": true, &"damage": applied, &"killed": resolved.killed}
+	return resolved
 
 
 func _handle_interact_action(request: Variant, _context: Variant) -> Variant:
@@ -952,9 +964,18 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 		return _action_rejected(&"wrong_phase", ACTION_ATTACK, attacker.unit_id, target.unit_id)
 	if turn_manager.is_enemy_turn() and attacker.faction != &"enemy":
 		return _action_rejected(&"wrong_phase", ACTION_ATTACK, attacker.unit_id, target.unit_id)
-	var has_los := GridVisibility.has_line_of_sight(
-		attacker.grid_cell, target.grid_cell, opaque_cells, attacker.attack_range
+	var cover_query := query_attack_cover(attacker.grid_cell, target.grid_cell)
+	last_cover_query = cover_query
+	var cover_damage := CoverResolverScript.resolve_damage(
+		attacker.attack_damage,
+		cover_query.profile,
+		cover_combat_settings,
+		cover_query.source_edge
 	)
+	var cover_summary := CoverResolverScript.build_debug_summary(cover_query, cover_damage)
+	cover_damage[&"cover_debug_summary"] = cover_summary
+	last_cover_damage = cover_damage.duplicate(true)
+	var has_los := cover_query.can_attack()
 	var request := ActionRequestScript.new(
 		ACTION_ATTACK,
 		attacker.unit_id,
@@ -970,6 +991,8 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 			ActionExecutorScript.KEY_TARGET_ALIVE: target.is_alive(),
 			ActionExecutorScript.KEY_HOSTILE: attacker.faction != target.faction,
 			ActionExecutorScript.KEY_HAS_LOS: has_los,
+			ActionExecutorScript.KEY_DAMAGE: int(cover_damage.get(&"effective_damage", attacker.attack_damage)),
+			&"cover_metadata": cover_damage,
 		}
 	)
 	var previous_input_locked := input_locked
@@ -978,21 +1001,108 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 	_clear_highlights()
 	var result := _execute_runtime_action(request, attacker)
 	if not result.success:
+		# Preserve the executor's stable ActionResult.reason.  Cover-specific
+		# diagnostics are presentation metadata, not a second action taxonomy.
+		result.metadata = cover_damage.duplicate(true)
 		input_locked = previous_input_locked
 		_refresh_highlights()
-		_update_hud("无法攻击：%s。" % result.reason)
+		if cover_query.is_blocked():
+			var block_reason: StringName = StringName(cover_summary.get(&"block_reason", result.reason))
+			_update_hud(_action_message("无法攻击", block_reason))
+			_log("%s 攻击 %s 被阻挡：%s；%s" % [
+				attacker.name,
+				target.name,
+				_action_message("原因", block_reason).trim_suffix("。"),
+				CoverResolverScript.format_debug_summary(cover_summary),
+			])
+		else:
+			_update_hud(_action_message("无法攻击", result.reason))
 		return result
+	result.metadata = cover_damage.duplicate(true)
 	await attacker.play_attack_feedback()
 	input_locked = previous_input_locked
 	var applied := result.damage
-	_update_hud("%s 命中 %s，造成 %d 伤害%s。" % [
-		attacker.name, target.name, applied, "并击杀目标" if result.killed else ""
-	])
-	_log("%s 攻击 %s：造成 %d 伤害%s。" % [
-		attacker.name, target.name, applied, "，目标阵亡" if result.killed else ""
+	var cover_level_name := String(cover_summary.get(&"cover_level_name", &"NONE"))
+	var reduction_percent := int(cover_summary.get(&"damage_reduction_percent", 0))
+	if bool(cover_summary.get(&"has_cover", false)):
+		_update_hud("%s 命中 %s：基础 %d → %s（减伤 %d%%）→ 最终 %d%s。" % [
+			attacker.name,
+			target.name,
+			int(cover_summary.get(&"base_damage", attacker.attack_damage)),
+			cover_level_name,
+			reduction_percent,
+			applied,
+			"，击杀目标" if result.killed else "",
+		])
+	else:
+		_update_hud("%s 命中 %s，造成 %d 伤害%s。" % [
+			attacker.name, target.name, applied, "并击杀目标" if result.killed else ""
+		])
+	_log("%s 攻击 %s：%s；实际造成 %d 伤害%s。" % [
+		attacker.name,
+		target.name,
+		CoverResolverScript.format_debug_summary(cover_summary),
+		applied,
+		"，目标阵亡" if result.killed else "",
 	])
 	_refresh_highlights()
 	return result
+
+
+## Public debug/test entry and the single authority used by player, AI and
+## attack highlighting.  It deliberately delegates to the shared line query;
+## callers must not recreate LOS or edge-cover rules.
+func query_attack_cover(attacker_cell: Vector3i, target_cell: Vector3i) -> CoverQueryResult:
+	if grid == null:
+		return CoverQueryResult.new()
+	return CoverQueryScript.query(
+		attacker_cell,
+		target_cell,
+		grid,
+		grid.get_edge_index(),
+		cover_combat_settings,
+		opaque_cells
+	)
+
+
+func _perception_edge_index() -> TacticalEdgeIndex:
+	return null if grid == null else grid.get_edge_index()
+
+
+func _can_detect_with_grid(
+	observer: Vector3i,
+	target: Vector3i,
+	facing: Vector2i,
+	vision_range: int,
+	half_angle_degrees: float = 60.0
+) -> bool:
+	return DetectionRules.can_detect(
+		observer,
+		target,
+		facing,
+		vision_range,
+		opaque_cells,
+		half_angle_degrees,
+		grid,
+		_perception_edge_index()
+	)
+
+
+func _can_player_see_with_grid(observer: Vector3i, target: Vector3i, vision_range: int) -> bool:
+	return DetectionRules.can_player_see(
+		observer,
+		target,
+		vision_range,
+		opaque_cells,
+		grid,
+		_perception_edge_index()
+	)
+
+
+func can_attack_line(attacker_cell: Vector3i, target_cell: Vector3i, attack_range: int) -> bool:
+	if attack_range < 0 or _manhattan(attacker_cell, target_cell) > attack_range:
+		return false
+	return query_attack_cover(attacker_cell, target_cell).can_attack()
 
 
 func _run_exploration_tick() -> void:
@@ -1028,9 +1138,9 @@ func _evaluate_detection() -> bool:
 			var player := _unit_by_id(player_id)
 			if not is_instance_valid(player):
 				continue
-			if DetectionRules.can_detect(
+			if _can_detect_with_grid(
 				enemy.grid_cell, player.grid_cell, enemy.facing,
-				enemy.vision_range, opaque_cells
+				enemy.vision_range
 			):
 				_start_combat(true, enemy, player.grid_cell, player.unit_id, "发现玩家")
 				return true
@@ -1086,11 +1196,7 @@ func _run_enemy_turn() -> void:
 			var target := _nearest_living_player(enemy.grid_cell)
 			if not is_instance_valid(target):
 				break
-			var has_los := GridVisibility.has_line_of_sight(
-				enemy.grid_cell, target.grid_cell, opaque_cells, enemy.attack_range
-			)
-			var distance := _manhattan(enemy.grid_cell, target.grid_cell)
-			if distance <= enemy.attack_range and has_los:
+			if can_attack_line(enemy.grid_cell, target.grid_cell, enemy.attack_range):
 				var attack_result := await _attack_with_unit(enemy, target)
 				if not attack_result.success:
 					# A failed action, especially no_ap after a move, cannot change
@@ -1187,9 +1293,7 @@ func _can_attack_target(target: PrototypeUnit) -> bool:
 		return false
 	if not selected_unit.can_spend_action_points(selected_unit.attack_ap_cost):
 		return false
-	return GridVisibility.has_line_of_sight(
-		selected_unit.grid_cell, target.grid_cell, opaque_cells, selected_unit.attack_range
-	)
+	return can_attack_line(selected_unit.grid_cell, target.grid_cell, selected_unit.attack_range)
 
 
 ## When an enemy unit is selected, tints the cells it can actually detect
@@ -1204,7 +1308,7 @@ func _refresh_enemy_range_overlays(enemy: PrototypeUnit) -> void:
 				var cell := Vector3i(x, level, z)
 				if not grid.has_cell(cell) or cell == origin:
 					continue
-				if DetectionRules.can_detect(origin, cell, enemy.facing, enemy.vision_range, opaque_cells):
+				if _can_detect_with_grid(origin, cell, enemy.facing, enemy.vision_range):
 					_add_highlight(vision_highlights_root, cell, ENEMY_VISION_COLOR, 0.045)
 
 
@@ -1332,7 +1436,7 @@ func _refresh_vision_overlay() -> void:
 					continue
 				var visible := false
 				for observer in observers:
-					if GridVisibility.has_line_of_sight(observer[0], cell, opaque_cells, observer[1]):
+					if _can_player_see_with_grid(observer[0], cell, observer[1]):
 						visible = true
 						break
 				if not visible:
@@ -1676,6 +1780,8 @@ func _action_message(prefix: String, reason: StringName) -> String:
 		&"out_of_range": "距离过远",
 		&"inventory_full": "背包空间不足",
 		&"wrong_phase": "当前阶段不可操作",
+		&"sight_blocked": "视线被掩体阻挡",
+		&"projectile_blocked": "弹道被掩体阻挡",
 	}
 	return "%s：%s。" % [prefix, messages.get(reason, String(reason))]
 
@@ -1692,8 +1798,8 @@ func _update_enemy_visibility() -> void:
 			if visible_to_player:
 				break
 			var player := _unit_by_id(player_id)
-			if is_instance_valid(player) and DetectionRules.can_player_see(
-				player.grid_cell, enemy.grid_cell, player.vision_range, opaque_cells
+			if is_instance_valid(player) and _can_player_see_with_grid(
+				player.grid_cell, enemy.grid_cell, player.vision_range
 			):
 				visible_to_player = true
 				break
@@ -1711,8 +1817,8 @@ func _update_object_visibility() -> void:
 			if visible_to_player:
 				break
 			var player := _unit_by_id(player_id)
-			if is_instance_valid(player) and DetectionRules.can_player_see(
-				player.grid_cell, placement.cell, player.vision_range, opaque_cells
+			if is_instance_valid(player) and _can_player_see_with_grid(
+				player.grid_cell, placement.cell, player.vision_range
 			):
 				visible_to_player = true
 				break

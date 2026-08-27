@@ -31,6 +31,7 @@ enum DebugView {
 	PROJECTILE_BLOCK = 4,
 	OCCLUDER_HEIGHT = 5,
 	VALIDATION = 6,
+	COVER = 7,
 }
 
 enum TargetLayer {
@@ -45,6 +46,7 @@ enum TargetLayer {
 
 const MARKER_SCRIPT_PATH := "res://scripts/map_authoring/map_object_marker_3d.gd"
 const PROPERTY_SERVICE_SCRIPT := preload("res://scripts/map_authoring/tactical_map_property_service.gd")
+const BAKER_SCRIPT := preload("res://scripts/map_authoring/tactical_map_baker.gd")
 const FLOOR_GRID_NAME := "FloorGrid"
 const STRUCTURE_GRID_NAME := "StructureGrid"
 const DECORATION_GRID_NAME := "DecorationGrid"
@@ -74,6 +76,8 @@ var _selection_clipboard: Dictionary = {}
 var debug_view: int = DebugView.NORMAL
 var debug_focus_cell: Vector3i = Vector3i(-1, -1, -1)
 var _property_service: TacticalMapPropertyService = PROPERTY_SERVICE_SCRIPT.new()
+var _cover_debug_snapshot_cache: Dictionary = {}
+var _cover_debug_snapshot_cache_valid: bool = false
 var _default_baselines: Dictionary = {}
 
 var stroke_active: bool = false
@@ -519,7 +523,7 @@ func get_last_status() -> Dictionary:
 
 
 func set_debug_view(value: int) -> void:
-	var next_view := clampi(value, DebugView.NORMAL, DebugView.VALIDATION)
+	var next_view := clampi(value, DebugView.NORMAL, DebugView.COVER)
 	if debug_view == next_view:
 		return
 	debug_view = next_view
@@ -547,6 +551,8 @@ func debug_view_name(value: int = debug_view) -> String:
 			return "Occluder Height"
 		DebugView.VALIDATION:
 			return "Validation"
+		DebugView.COVER:
+			return "Cover / 掩体"
 	return "Normal"
 
 
@@ -566,6 +572,8 @@ func debug_view_legend(value: int = debug_view) -> String:
 			return "按遮挡高度由低到高渐变。"
 		DebugView.VALIDATION:
 			return "红色=错误，黄色=警告；点击列表可定位。"
+		DebugView.COVER:
+			return "边界线=掩体边；箭头指向受保护侧；颜色/长度区分 HALF 与 FULL。红色表示冲突或非法来源。"
 	return ""
 
 
@@ -620,6 +628,203 @@ func inspect_debug_cells() -> Dictionary:
 	return _merge_validation_debug_cells(_property_service.inspect_all_cells(map_author), get_validation_diagnostics())
 
 
+## Read-only cover view contract. The Baker remains the sole source of final
+## Edge data; this adapter only copies the in-memory result into stable plain
+## dictionaries for the editor overlay and diagnostics panel.
+func get_cover_debug_snapshot() -> Dictionary:
+	var map_author := author as TacticalMapAuthor
+	var empty_snapshot := {
+		&"floor_level": floor_level,
+		&"author_grid_origin": Vector3.ZERO,
+		&"definition_origin": Vector3.ZERO,
+		&"cell_size": Vector3.ZERO,
+		&"edges": [],
+		&"diagnostics": [],
+		&"errors": [],
+		&"warnings": [],
+	}
+	if map_author == null or not has_author():
+		return empty_snapshot
+	if _cover_debug_snapshot_cache_valid:
+		return _cover_debug_snapshot_cache.duplicate(true)
+	var build_result: Dictionary = BAKER_SCRIPT.build(map_author)
+	var definition := build_result.get(&"definition", null) as TacticalMapDefinition
+	if definition == null:
+		return empty_snapshot
+	var raw_diagnostics: Array = build_result.get(&"diagnostics", [])
+	var diagnostics: Array[Dictionary] = []
+	for value in raw_diagnostics:
+		if value is Dictionary and _cover_diagnostic_on_floor(value as Dictionary):
+			diagnostics.append((value as Dictionary).duplicate(true))
+	var edges: Array[Dictionary] = []
+	var matched_diagnostic_indices: Dictionary = {}
+	for edge in definition.edges:
+		if edge == null:
+			continue
+		if edge.cell_a.y != floor_level and edge.cell_b.y != floor_level:
+			continue
+		var author_a := runtime_cell_to_author_cell(edge.cell_a, definition, map_author)
+		var author_b := runtime_cell_to_author_cell(edge.cell_b, definition, map_author)
+		var author_source := runtime_cell_to_author_cell(edge.source_cell, definition, map_author)
+		var edge_diagnostics: Array[Dictionary] = []
+		for diagnostic_index in range(diagnostics.size()):
+			var diagnostic: Dictionary = diagnostics[diagnostic_index]
+			if _cover_diagnostic_matches_edge(diagnostic, edge, author_a, author_b, author_source):
+				edge_diagnostics.append(diagnostic.duplicate(true))
+				matched_diagnostic_indices[diagnostic_index] = true
+		edges.append(_cover_debug_edge_record(edge, author_a, author_b, author_source, edge_diagnostics))
+	for diagnostic_index in range(diagnostics.size()):
+		if matched_diagnostic_indices.has(diagnostic_index):
+			continue
+		var diagnostic: Dictionary = diagnostics[diagnostic_index]
+		var code := String(diagnostic.get(&"code", diagnostic.get(&"id", "")))
+		if code not in ["TMB-067", "TMB-068"]:
+			continue
+		var coordinate := diagnostic.get(&"coordinate", null)
+		if not coordinate is Vector3i:
+			continue
+		var author_cell: Vector3i = coordinate
+		edges.append({
+			&"edge_key": "diagnostic:%s:%s" % [code, author_cell],
+			&"runtime_edge_key": "",
+			&"cell_a": author_cell,
+			&"cell_b": null,
+			&"source_cell": author_cell,
+			&"source_type": &"diagnostic",
+			&"source_layer": &"",
+			&"source_placeable_id": &"",
+			&"source_mesh_item_id": -1,
+			&"runtime_source_cell": null,
+			&"profile_a": {},
+			&"profile_b": {},
+			&"diagnostics": [diagnostic.duplicate(true)],
+			&"invalid_or_conflict": true,
+			&"diagnostic_only": true,
+		})
+	edges.sort_custom(_cover_debug_edge_less)
+	var snapshot := {
+		&"floor_level": floor_level,
+		&"author_grid_origin": map_author.grid_origin,
+		&"definition_origin": definition.origin,
+		&"cell_size": definition.cell_size,
+		&"edges": edges,
+		&"diagnostics": diagnostics,
+		&"errors": Array(build_result.get(&"errors", [])).duplicate(),
+		&"warnings": Array(build_result.get(&"warnings", [])).duplicate(),
+	}
+	_cover_debug_snapshot_cache = snapshot.duplicate(true)
+	_cover_debug_snapshot_cache_valid = true
+	return snapshot
+
+
+## Baker normalizes X/Z coordinates but moves the definition origin by the
+## same physical amount. Recovering the integer authoring shift from those two
+## origins avoids assuming a particular map minimum or fixed layout.
+static func runtime_cell_to_author_cell(runtime_cell: Vector3i, definition: TacticalMapDefinition, map_author: TacticalMapAuthor) -> Vector3i:
+	if definition == null or map_author == null:
+		return runtime_cell
+	var cell_size := definition.cell_size
+	if cell_size.x <= 0.0 or cell_size.z <= 0.0:
+		cell_size = map_author.cell_dimensions
+	if cell_size.x <= 0.0 or cell_size.z <= 0.0:
+		return runtime_cell
+	var origin_delta := definition.origin - map_author.grid_origin
+	var shift := Vector3i(
+		int(roundf(origin_delta.x / cell_size.x)),
+		0,
+		int(roundf(origin_delta.z / cell_size.z))
+	)
+	return runtime_cell + shift
+
+
+func _cover_debug_edge_record(edge: MapEdgeData, author_a: Vector3i, author_b: Vector3i, author_source: Vector3i, edge_diagnostics: Array[Dictionary]) -> Dictionary:
+	var profile_a := _cover_debug_profile(edge.cover_profile_a)
+	var profile_b := _cover_debug_profile(edge.cover_profile_b)
+	var invalid_or_conflict := false
+	for diagnostic in edge_diagnostics:
+		var code := String(diagnostic.get(&"code", diagnostic.get(&"id", "")))
+		if code in ["TMB-063", "TMB-067", "TMB-068"]:
+			invalid_or_conflict = true
+			break
+	return {
+		&"edge_key": _cover_edge_key(author_a, author_b),
+		&"runtime_edge_key": edge.key_string(),
+		&"cell_a": author_a,
+		&"cell_b": author_b,
+		&"runtime_cell_a": edge.cell_a,
+		&"runtime_cell_b": edge.cell_b,
+		&"source_cell": author_source,
+		&"runtime_source_cell": edge.source_cell,
+		&"source_type": edge.source_type,
+		&"source_layer": edge.source_layer,
+		&"source_placeable_id": edge.source_placeable_id,
+		&"source_mesh_item_id": edge.source_mesh_item_id,
+		&"cover_a": int(edge.cover_a),
+		&"cover_b": int(edge.cover_b),
+		&"profile_a": profile_a,
+		&"profile_b": profile_b,
+		&"blocks_movement": edge.blocks_movement,
+		&"sight_block": edge.sight_block,
+		&"projectile_block": edge.projectile_block,
+		&"height": edge.height,
+		&"destructible": edge.destructible,
+		&"runtime_state_id": edge.runtime_state_id,
+		&"diagnostics": edge_diagnostics,
+		&"invalid_or_conflict": invalid_or_conflict,
+		&"diagnostic_only": false,
+	}
+
+
+func _cover_debug_profile(profile: TacticalCoverProfile) -> Dictionary:
+	if profile == null:
+		return {}
+	return {
+		&"id": profile.cover_id,
+		&"display_name": profile.display_name,
+		&"level": profile.cover_level,
+		&"level_name": profile.get_level_name(),
+		&"reduction": profile.damage_reduction_ratio,
+		&"damage_reduction_ratio": profile.damage_reduction_ratio,
+		&"debug_color": profile.debug_color,
+		&"tags": profile.tags.duplicate(),
+		&"valid": profile.is_valid(),
+	}
+
+
+func _cover_diagnostic_on_floor(diagnostic: Dictionary) -> bool:
+	var coordinate := diagnostic.get(&"coordinate", null)
+	return not coordinate is Vector3i or (coordinate as Vector3i).y == floor_level
+
+
+func _cover_diagnostic_matches_edge(diagnostic: Dictionary, edge: MapEdgeData, author_a: Vector3i, author_b: Vector3i, author_source: Vector3i) -> bool:
+	var coordinate := diagnostic.get(&"coordinate", null)
+	var message := String(diagnostic.get(&"message", diagnostic.get(&"text", "")))
+	if coordinate is Vector3i and (coordinate == edge.source_cell or coordinate == author_a or coordinate == author_b or coordinate == author_source):
+		return true
+	return message.contains(edge.key_string()) or message.contains(_cover_edge_key(author_a, author_b))
+
+
+static func _cover_edge_key(cell_a: Vector3i, cell_b: Vector3i) -> String:
+	var first := cell_a
+	var second := cell_b
+	if _cover_cell_less(second, first):
+		first = cell_b
+		second = cell_a
+	return "%d,%d,%d|%d,%d,%d" % [first.x, first.y, first.z, second.x, second.y, second.z]
+
+
+static func _cover_cell_less(first: Vector3i, second: Vector3i) -> bool:
+	if first.y != second.y:
+		return first.y < second.y
+	if first.z != second.z:
+		return first.z < second.z
+	return first.x < second.x
+
+
+static func _cover_debug_edge_less(first: Dictionary, second: Dictionary) -> bool:
+	return String(first.get(&"edge_key", "")) < String(second.get(&"edge_key", ""))
+
+
 func get_debug_cells() -> Array:
 	return get_debug_cells_for_view(debug_view)
 
@@ -628,7 +833,9 @@ func get_debug_cells_for_view(view: int = debug_view) -> Array[Dictionary]:
 	## Return only records that are drawable for the requested debug view.
 	## Validation-only coordinates are diagnostic locations, not compiled Floor
 	## cells, so heatmap views must never render them as ordinary terrain.
-	var requested_view := clampi(view, DebugView.NORMAL, DebugView.VALIDATION)
+	var requested_view := clampi(view, DebugView.NORMAL, DebugView.COVER)
+	if requested_view == DebugView.COVER:
+		return []
 	var result: Array[Dictionary] = []
 	for value in inspect_debug_cells().get(&"cells", []):
 		if not value is Dictionary:
@@ -3173,4 +3380,6 @@ func _set_status(message: String, valid: bool) -> void:
 
 
 func _emit_changed() -> void:
+	_cover_debug_snapshot_cache.clear()
+	_cover_debug_snapshot_cache_valid = false
 	changed.emit()

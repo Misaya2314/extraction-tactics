@@ -2,6 +2,26 @@
 
 [ext_resource type="Script" uid="uid://dg7mgs6ut3kbt" path="res://scripts/core/map/tactical_cell_tile_definition.gd" id="1_cell"]
 [ext_resource type="Script" uid="uid://d1esqxh8ro8fi" path="res://scripts/core/map/tactical_cell_rules.gd" id="2_rules"]
+[ext_resource type="Script" uid="uid://k1gheyegnqdk" path="res://scripts/core/map/tactical_edge_rules.gd" id="3_edge_rules"]
+[ext_resource type="Script" uid="uid://hr4gjpevci62" path="res://scripts/core/map/tactical_local_edge_contribution.gd" id="4_local_edge"]
+[ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_none.tres" id="5_none"]
+[ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_half.tres" id="6_half"]
+
+[sub_resource type="Resource" id="TacticalEdgeRules_low_cover"]
+script = ExtResource("3_edge_rules")
+cover_b = 1
+cover_profile_a = ExtResource("5_none")
+cover_profile_b = ExtResource("6_half")
+height = 0.7
+
+[sub_resource type="Resource" id="TacticalLocalEdgeContribution_low_cover"]
+script = ExtResource("4_local_edge")
+edge_rules = SubResource("TacticalEdgeRules_low_cover")
+
+[sub_resource type="Resource" id="TacticalLocalEdgeContribution_low_cover_south"]
+script = ExtResource("4_local_edge")
+local_direction = 2
+edge_rules = SubResource("TacticalEdgeRules_low_cover")
 
 [sub_resource type="Resource" id="TacticalCellRules_low_cover"]
 script = ExtResource("2_rules")
@@ -15,6 +35,7 @@ tile_id = &"low_cover"
 target_layer = 1
 mesh_item_id = 3
 rule_contribution = SubResource("TacticalCellRules_low_cover")
+edge_contributions = Array[ExtResource("4_local_edge")]([SubResource("TacticalLocalEdgeContribution_low_cover"), SubResource("TacticalLocalEdgeContribution_low_cover_south")])
 placeable_id = &"tile.structure.low_cover"
 display_name = "Low Cover"
 tags = PackedStringArray()

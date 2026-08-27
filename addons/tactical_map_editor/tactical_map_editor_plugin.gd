@@ -24,6 +24,7 @@ var _box_overlay_root: Node3D
 var _box_overlay: MeshInstance3D
 var _debug_overlay_root: Node3D
 var _debug_overlay: MultiMeshInstance3D
+var _cover_overlay_root: Node3D
 var _special_overlay_root: Node3D
 var _wizard: TacticalPlaceableWizard
 var _placeable_file_dialog: FileDialog
@@ -97,6 +98,7 @@ func _exit_tree() -> void:
 	_clear_selection_overlay()
 	_clear_box_overlay()
 	_clear_debug_overlay()
+	_clear_cover_overlay()
 	_clear_special_overlay()
 	if _wizard != null and is_instance_valid(_wizard):
 		_wizard.queue_free()
@@ -521,6 +523,7 @@ func _bind_author(next_author: Node) -> bool:
 	_clear_selection_overlay()
 	_clear_box_overlay()
 	_clear_debug_overlay()
+	_clear_cover_overlay()
 	_clear_special_overlay()
 	# Repair a Library before the Session builds its palette. This covers a
 	# Definition deleted while the editor was closed, before any filesystem
@@ -547,6 +550,7 @@ func _clear_author_binding(reason: String, valid: bool = false) -> void:
 	_clear_selection_overlay()
 	_clear_box_overlay()
 	_clear_debug_overlay()
+	_clear_cover_overlay()
 	_clear_special_overlay()
 	if _session != null:
 		if _session.edit_mode:
@@ -572,6 +576,7 @@ func _leave_edit_mode_keep_author() -> void:
 	_clear_preview()
 	_clear_selection_overlay()
 	_clear_box_overlay()
+	_clear_cover_overlay()
 	_clear_special_overlay()
 	_active_author = null
 	if _session.edit_mode:
@@ -657,8 +662,7 @@ func _on_placeable_selected(index: int) -> void:
 	_session.select_placeable(index)
 
 func _on_session_changed() -> void:
-	if _dock != null and _session != null:
-		_dock.set_validation_diagnostics(_session.get_validation_diagnostics())
+	_refresh_debug_validation_diagnostics()
 	_update_selection_overlay()
 	_update_debug_overlay()
 	_update_special_overlay()
@@ -822,7 +826,18 @@ func _on_debug_view_changed(view: int) -> void:
 	if _session == null:
 		return
 	_session.set_debug_view(view)
+	_refresh_debug_validation_diagnostics()
 	_update_debug_overlay()
+
+
+func _refresh_debug_validation_diagnostics() -> void:
+	if _dock == null or _session == null:
+		return
+	if _session.get_debug_view() == TacticalMapEditSession.DebugView.COVER and _session.has_method("get_cover_debug_snapshot"):
+		var snapshot: Dictionary = _session.call("get_cover_debug_snapshot")
+		_dock.set_validation_diagnostics(snapshot.get(&"diagnostics", []))
+		return
+	_dock.set_validation_diagnostics(_session.get_validation_diagnostics())
 
 func _on_validation_location_requested(diagnostic: Dictionary) -> void:
 	if _session == null:
@@ -1123,7 +1138,17 @@ func _clear_box_overlay() -> void:
 	_box_overlay = null
 
 func _update_debug_overlay() -> void:
-	if _session == null or not _session.has_author() or _session.get_debug_view() == TacticalMapEditSession.DebugView.NORMAL:
+	if _session == null or not _session.has_author():
+		_clear_debug_overlay()
+		_clear_cover_overlay()
+		return
+	var current_view := _session.get_debug_view()
+	if current_view == TacticalMapEditSession.DebugView.COVER:
+		_clear_debug_overlay()
+		_update_cover_overlay()
+		return
+	_clear_cover_overlay()
+	if current_view == TacticalMapEditSession.DebugView.NORMAL:
 		_clear_debug_overlay()
 		return
 	var author := _session.author as Node3D
@@ -1250,6 +1275,198 @@ func _clear_debug_overlay() -> void:
 		_debug_overlay_root.free()
 	_debug_overlay_root = null
 	_debug_overlay = null
+
+
+func _update_cover_overlay() -> void:
+	if _session == null or not _session.has_method("get_cover_debug_snapshot"):
+		_clear_cover_overlay()
+		return
+	var author := _session.author as Node3D
+	if author == null or not author.has_method("cell_to_local"):
+		_clear_cover_overlay()
+		return
+	var dimensions: Vector3 = author.get("cell_dimensions")
+	if dimensions.x <= 0.0 or dimensions.z <= 0.0:
+		_clear_cover_overlay()
+		return
+	var snapshot: Dictionary = _session.call("get_cover_debug_snapshot")
+	var snapshot_edges: Array = snapshot.get(&"edges", [])
+	if snapshot_edges.is_empty():
+		_clear_cover_overlay()
+		return
+	var edge_inputs: Array[Dictionary] = []
+	for edge_value in snapshot_edges:
+		if not edge_value is Dictionary:
+			continue
+		edge_inputs.append(_cover_edge_visual_input(edge_value as Dictionary, author))
+	var visual_records := PREVIEW_BUILDER.build_cover_edge_visual_records(edge_inputs, dimensions)
+	if visual_records.is_empty():
+		_clear_cover_overlay()
+		return
+	_ensure_cover_overlay(author)
+	if _cover_overlay_root == null:
+		return
+	for child in _cover_overlay_root.get_children():
+		child.free()
+	_add_cover_boundary_lines(visual_records)
+	_add_cover_arrows(visual_records)
+	_add_cover_diagnostic_markers(visual_records, dimensions)
+
+
+static func _cover_edge_visual_input(edge: Dictionary, author: Node3D) -> Dictionary:
+	var result: Dictionary = edge.duplicate(true)
+	if author == null or not author.has_method("cell_to_local"):
+		return result
+	var cell_a := result.get(&"cell_a", null)
+	var cell_b := result.get(&"cell_b", null)
+	if cell_a is Vector3i:
+		result[&"center_a"] = author.call("cell_to_local", cell_a)
+	if not bool(result.get(&"diagnostic_only", false)) and cell_b is Vector3i:
+		result[&"center_b"] = author.call("cell_to_local", cell_b)
+	return result
+
+
+func _ensure_cover_overlay(author: Node3D) -> void:
+	if _cover_overlay_root != null and is_instance_valid(_cover_overlay_root):
+		return
+	if author == null:
+		return
+	_cover_overlay_root = Node3D.new()
+	_cover_overlay_root.name = "__TacticalMapEditorCoverOverlay"
+	_cover_overlay_root.set_meta("tactical_map_editor_preview", true)
+	author.add_child(_cover_overlay_root)
+	_cover_overlay_root.owner = null
+
+
+func _add_cover_boundary_lines(records: Array[Dictionary]) -> void:
+	var lines: Array[Dictionary] = []
+	for record in records:
+		if record.get(&"diagnostic_only", false):
+			continue
+		var line = record.get(&"line", null)
+		if line is Dictionary:
+			lines.append(line)
+	if _cover_overlay_root == null or lines.is_empty():
+		return
+	var multi_mesh := MultiMesh.new()
+	multi_mesh.transform_format = MultiMesh.TRANSFORM_3D
+	multi_mesh.use_colors = true
+	var box := BoxMesh.new()
+	box.size = Vector3.ONE
+	multi_mesh.mesh = box
+	multi_mesh.instance_count = lines.size()
+	for index in range(lines.size()):
+		var line: Dictionary = lines[index]
+		var from: Vector3 = line.get(&"from", Vector3.ZERO)
+		var to: Vector3 = line.get(&"to", Vector3.ZERO)
+		var delta := to - from
+		var length := maxf(delta.length(), 0.01)
+		var x_axis := delta.normalized()
+		var z_axis := x_axis.cross(Vector3.UP).normalized()
+		var basis := Basis(x_axis, Vector3.UP, z_axis)
+		var width := float(line.get(&"width", 0.055))
+		multi_mesh.set_instance_transform(index, Transform3D(basis.scaled(Vector3(length, width, width)), (from + to) * 0.5))
+		multi_mesh.set_instance_color(index, line.get(&"color", Color.WHITE))
+	var instance := MultiMeshInstance3D.new()
+	instance.name = "CoverBoundaries"
+	instance.multimesh = multi_mesh
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.albedo_color = Color.WHITE
+	instance.material_override = material
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_cover_overlay_root.add_child(instance)
+	instance.owner = null
+
+
+func _add_cover_arrows(records: Array[Dictionary]) -> void:
+	var arrows: Array[Dictionary] = []
+	for record in records:
+		for arrow_value in record.get(&"arrows", []):
+			if arrow_value is Dictionary:
+				arrows.append(arrow_value)
+	if _cover_overlay_root == null or arrows.is_empty():
+		return
+	var multi_mesh := MultiMesh.new()
+	multi_mesh.transform_format = MultiMesh.TRANSFORM_3D
+	multi_mesh.use_colors = true
+	var needle := CylinderMesh.new()
+	needle.top_radius = 0.12
+	needle.bottom_radius = 1.0
+	needle.height = 1.0
+	needle.radial_segments = 8
+	multi_mesh.mesh = needle
+	multi_mesh.instance_count = arrows.size()
+	for index in range(arrows.size()):
+		var arrow: Dictionary = arrows[index]
+		var from: Vector3 = arrow.get(&"from", Vector3.ZERO)
+		var to: Vector3 = arrow.get(&"to", Vector3.UP)
+		var delta := to - from
+		var length := maxf(delta.length(), 0.01)
+		var direction := delta.normalized() if delta.length_squared() > 0.000001 else Vector3(0.0, 0.0, 1.0)
+		var facing := Vector2i(roundi(direction.x), roundi(direction.z))
+		if facing == Vector2i.ZERO:
+			facing = Vector2i.DOWN
+		var basis := PREVIEW_BUILDER.facing_basis(facing)
+		var width := float(arrow.get(&"width", 0.065))
+		multi_mesh.set_instance_transform(index, Transform3D(basis.scaled(Vector3(width, length, width)), (from + to) * 0.5))
+		multi_mesh.set_instance_color(index, arrow.get(&"color", Color.WHITE))
+	var instance := MultiMeshInstance3D.new()
+	instance.name = "CoverProtectionArrows"
+	instance.multimesh = multi_mesh
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.albedo_color = Color.WHITE
+	instance.material_override = material
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_cover_overlay_root.add_child(instance)
+	instance.owner = null
+
+
+func _add_cover_diagnostic_markers(records: Array[Dictionary], dimensions: Vector3) -> void:
+	var positions: Array[Vector3] = []
+	for record in records:
+		if not record.get(&"diagnostic_only", false):
+			continue
+		var position = record.get(&"position", null)
+		if position is Vector3:
+			positions.append(position)
+	if _cover_overlay_root == null or positions.is_empty():
+		return
+	var multi_mesh := MultiMesh.new()
+	multi_mesh.transform_format = MultiMesh.TRANSFORM_3D
+	multi_mesh.mesh = SphereMesh.new()
+	var sphere := multi_mesh.mesh as SphereMesh
+	sphere.radius = maxf(minf(dimensions.x, dimensions.z) * 0.12, 0.08)
+	sphere.height = sphere.radius * 2.0
+	multi_mesh.instance_count = positions.size()
+	for index in range(positions.size()):
+		var position := positions[index]
+		position.y += dimensions.y * 0.55
+		multi_mesh.set_instance_transform(index, Transform3D(Basis.IDENTITY, position))
+	var instance := MultiMeshInstance3D.new()
+	instance.name = "CoverDiagnosticMarkers"
+	instance.multimesh = multi_mesh
+	var material := StandardMaterial3D.new()
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color(0.95, 0.05, 0.15, 0.92)
+	instance.material_override = material
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_cover_overlay_root.add_child(instance)
+	instance.owner = null
+
+
+func _clear_cover_overlay() -> void:
+	if _cover_overlay_root != null and is_instance_valid(_cover_overlay_root):
+		if _cover_overlay_root.get_parent() != null:
+			_cover_overlay_root.get_parent().remove_child(_cover_overlay_root)
+		_cover_overlay_root.free()
+	_cover_overlay_root = null
 
 func _best_effort_focus_validation_cell(cell: Vector3i) -> void:
 	# Godot 4.7 editor viewport focus APIs differ between minor builds.  Use a
@@ -1491,11 +1708,68 @@ func _rebuild_preview_content(author: Node3D) -> void:
 		_preview_mesh = _build_fallback_preview(author)
 		if _preview_mesh != null:
 			tintable.append(_preview_mesh)
+	if selected_kind == "cell":
+		_build_preview_cover_directions(selected, author)
 	if selected_kind == "spawn":
 		_build_preview_facing_needle(selected, author)
 	for visual_node in tintable:
 		if visual_node != null and is_instance_valid(visual_node):
 			_apply_preview_visual_defaults(visual_node)
+
+
+func _build_preview_cover_directions(selected: Dictionary, author: Node3D) -> void:
+	if _preview_root == null or author == null or _session == null:
+		return
+	var definition := selected.get(&"definition", null) as Resource
+	if definition == null:
+		return
+	var raw_contributions = definition.get(&"edge_contributions") if definition.has_method("get") else []
+	if not raw_contributions is Array or raw_contributions.is_empty():
+		return
+	var contributions: Array[Dictionary] = []
+	for contribution_value in raw_contributions:
+		var contribution := contribution_value as TacticalLocalEdgeContribution
+		if contribution == null or not contribution.is_active():
+			continue
+		var rules := contribution.edge_rules
+		if rules == null:
+			continue
+		contributions.append({
+			&"local_direction": int(contribution.local_direction),
+			&"enabled": contribution.enabled,
+			&"profile_a": _preview_cover_profile(rules.resolve_profile(0)),
+			&"profile_b": _preview_cover_profile(rules.resolve_profile(1)),
+		})
+	var arrows := PREVIEW_BUILDER.build_local_cover_preview_records(contributions, _session.rotation_quarters)
+	if arrows.is_empty():
+		return
+	var dimensions: Vector3 = author.get("cell_dimensions")
+	var base_length := minf(dimensions.x, dimensions.z)
+	var raise := dimensions.y * 0.42
+	for arrow in arrows:
+		var direction: Vector2i = arrow.get(&"direction", Vector2i.DOWN)
+		var length := base_length * float(arrow.get(&"length_factor", 0.32))
+		var width := float(arrow.get(&"width", 0.065))
+		var color: Color = arrow.get(&"color", Color(0.95, 0.72, 0.18, 0.9))
+		var needle := PREVIEW_BUILDER.build_facing_needle(length, width, color)
+		var facing := Vector3(float(direction.x), 0.0, float(direction.y)).normalized()
+		needle.transform = Transform3D(
+			PREVIEW_BUILDER.facing_basis(direction),
+			facing * (length * 0.5) + Vector3.UP * raise
+		)
+		_preview_root.add_child(needle)
+		needle.owner = null
+
+
+func _preview_cover_profile(profile: TacticalCoverProfile) -> Dictionary:
+	if profile == null:
+		return {}
+	return {
+		&"id": profile.cover_id,
+		&"level": profile.cover_level,
+		&"reduction": profile.damage_reduction_ratio,
+		&"debug_color": profile.debug_color,
+	}
 
 func _build_preview_facing_needle(selected: Dictionary, author: Node3D) -> void:
 	if _preview_root == null or author == null or _session == null:

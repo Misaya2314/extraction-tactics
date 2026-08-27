@@ -2,6 +2,39 @@
 
 [ext_resource type="Script" uid="uid://dg7mgs6ut3kbt" path="res://scripts/core/map/tactical_cell_tile_definition.gd" id="1_cell"]
 [ext_resource type="Script" uid="uid://d1esqxh8ro8fi" path="res://scripts/core/map/tactical_cell_rules.gd" id="2_rules"]
+[ext_resource type="Script" uid="uid://k1gheyegnqdk" path="res://scripts/core/map/tactical_edge_rules.gd" id="3_edge_rules"]
+[ext_resource type="Script" uid="uid://hr4gjpevci62" path="res://scripts/core/map/tactical_local_edge_contribution.gd" id="4_local_edge"]
+[ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_none.tres" id="5_none"]
+[ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_full.tres" id="6_full"]
+
+[sub_resource type="Resource" id="TacticalEdgeRules_wall"]
+script = ExtResource("3_edge_rules")
+cover_b = 2
+cover_profile_a = ExtResource("5_none")
+cover_profile_b = ExtResource("6_full")
+blocks_movement = true
+sight_block = 1.0
+projectile_block = 1.0
+height = 1.6
+
+[sub_resource type="Resource" id="TacticalLocalEdgeContribution_wall"]
+script = ExtResource("4_local_edge")
+edge_rules = SubResource("TacticalEdgeRules_wall")
+
+[sub_resource type="Resource" id="TacticalLocalEdgeContribution_wall_east"]
+script = ExtResource("4_local_edge")
+local_direction = 1
+edge_rules = SubResource("TacticalEdgeRules_wall")
+
+[sub_resource type="Resource" id="TacticalLocalEdgeContribution_wall_south"]
+script = ExtResource("4_local_edge")
+local_direction = 2
+edge_rules = SubResource("TacticalEdgeRules_wall")
+
+[sub_resource type="Resource" id="TacticalLocalEdgeContribution_wall_west"]
+script = ExtResource("4_local_edge")
+local_direction = 3
+edge_rules = SubResource("TacticalEdgeRules_wall")
 
 [sub_resource type="Resource" id="TacticalCellRules_wall"]
 script = ExtResource("2_rules")
@@ -17,6 +50,7 @@ tile_id = &"wall"
 target_layer = 1
 mesh_item_id = 2
 rule_contribution = SubResource("TacticalCellRules_wall")
+edge_contributions = Array[ExtResource("4_local_edge")]([SubResource("TacticalLocalEdgeContribution_wall"), SubResource("TacticalLocalEdgeContribution_wall_east"), SubResource("TacticalLocalEdgeContribution_wall_south"), SubResource("TacticalLocalEdgeContribution_wall_west")])
 placeable_id = &"tile.structure.wall"
 display_name = "Wall"
 tags = PackedStringArray()

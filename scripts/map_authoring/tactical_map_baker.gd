@@ -9,6 +9,7 @@ const STRUCTURE_GRID_NAME := &"StructureGrid"
 
 static func build(author: TacticalMapAuthor) -> Dictionary:
 	var definition := TacticalMapDefinition.new()
+	definition.schema_version = TacticalMapDefinition.CURRENT_SCHEMA_VERSION
 	if author == null:
 		var missing_author_message := "Missing TacticalMapAuthor."
 		return {
@@ -42,8 +43,7 @@ static func build(author: TacticalMapAuthor) -> Dictionary:
 			&"diagnostics": TacticalMapDiagnostics.sort_diagnostics(diagnostics),
 		}
 
-	if author.authoring_data != null:
-		_collect_edges(author.authoring_data, definition, errors, warnings, diagnostics)
+	_collect_edges(author, cell_compile, definition, errors, warnings, diagnostics)
 
 	_collect_markers(author, definition, errors, diagnostics)
 	_normalize_definition_coordinates(definition, author)
@@ -71,6 +71,7 @@ static func compile_cells(author: TacticalMapAuthor, apply_overrides: bool = tru
 		&"effective_rules": {},
 		&"floor_content": {},
 		&"structure_content": {},
+		&"structure_edge_candidates": [],
 		&"errors": errors,
 		&"warnings": warnings,
 		&"diagnostics": diagnostics,
@@ -98,6 +99,7 @@ static func compile_cells(author: TacticalMapAuthor, apply_overrides: bool = tru
 	var effective_rules_by_coordinate: Dictionary = {}
 	var floor_content: Dictionary = {}
 	var structure_content: Dictionary = {}
+	var structure_edge_candidates: Array[Dictionary] = []
 	var floor_cells := floor_grid.get_used_cells()
 	floor_cells.sort_custom(_cell_less)
 	for coordinate in floor_cells:
@@ -148,6 +150,17 @@ static func compile_cells(author: TacticalMapAuthor, apply_overrides: bool = tru
 				cell_data.cover_mask | structure_cover
 			))
 			base_rules_by_coordinate[coordinate] = merged_rules
+			var cell_definition := resolved.get(&"cell_definition") as TacticalCellTileDefinition
+			if cell_definition != null:
+				for contribution in cell_definition.edge_contributions:
+					if contribution != null and contribution.enabled:
+						structure_edge_candidates.append({
+							&"source_cell": coordinate,
+							&"item_id": item_id,
+							&"placeable_id": resolved.get(&"placeable_id", &""),
+							&"contribution": contribution,
+							&"basis": structure_grid.get_cell_item_basis(coordinate),
+						})
 			structure_content[coordinate] = {
 				&"layer": MapTileRule.Layer.STRUCTURE,
 				&"item_id": item_id,
@@ -188,6 +201,7 @@ static func compile_cells(author: TacticalMapAuthor, apply_overrides: bool = tru
 		&"effective_rules": effective_rules_by_coordinate,
 		&"floor_content": floor_content,
 		&"structure_content": structure_content,
+		&"structure_edge_candidates": structure_edge_candidates,
 		&"errors": errors,
 		&"warnings": warnings,
 		&"diagnostics": TacticalMapDiagnostics.sort_diagnostics(diagnostics),
@@ -210,63 +224,77 @@ static func save(author: TacticalMapAuthor) -> Dictionary:
 		TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-060", invalid_output_message)
 		result[&"diagnostics"] = TacticalMapDiagnostics.sort_diagnostics(diagnostics)
 		return result
-	# Read existing UID before save so we can restore it after
-	var existing_uid := _read_existing_uid(output_path)
+	# Capture the registered UID before overwriting. ResourceSaver.save() does
+	# not preserve it on its own, while ResourceSaver.set_uid() updates both the
+	# resource header and Godot's UID cache through the supported API.
+	var existing_uid := _existing_resource_uid(output_path)
 	var save_error := ResourceSaver.save(result[&"definition"], output_path)
 	if save_error != OK:
 		var save_failure_message := "ResourceSaver failed for %s (error %d)." % [output_path, save_error]
 		TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-061", save_failure_message)
 		result[&"diagnostics"] = TacticalMapDiagnostics.sort_diagnostics(diagnostics)
 		return result
-	# ResourceSaver may generate a new UID; restore the original to avoid
-	# breaking ext_resource references in .tscn files.
-	if existing_uid != "":
-		_restore_uid_in_file(output_path, existing_uid)
+	var uid_error := _ensure_saved_uid(output_path, existing_uid)
+	if uid_error != OK:
+		var uid_failure_message := "ResourceSaver.set_uid failed for %s (error %d)." % [output_path, uid_error]
+		TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-061", uid_failure_message)
+		result[&"diagnostics"] = TacticalMapDiagnostics.sort_diagnostics(diagnostics)
+		return result
 	return result
 
 
-static func _read_existing_uid(path: String) -> String:
+static func _ensure_saved_uid(path: String, prior_uid: int) -> Error:
+	var uid := prior_uid
+	if uid == ResourceUID.INVALID_ID:
+		uid = ResourceUID.create_id()
+	var save_uid_error := ResourceSaver.set_uid(path, uid)
+	if save_uid_error != OK:
+		return save_uid_error
+	# ResourceSaver.set_uid persists the UID in the file. Keep the in-process
+	# ResourceUID registry in sync as well; this matters for subsequent saves
+	# in the same editor session and for UID-based scene references.
+	if ResourceUID.has_id(uid):
+		ResourceUID.set_id(uid, path)
+	else:
+		ResourceUID.add_id(uid, path)
+	return OK
+
+
+static func _existing_resource_uid(path: String) -> int:
 	if not FileAccess.file_exists(path):
-		return ""
+		return ResourceUID.INVALID_ID
+	var registered_uid := ResourceLoader.get_resource_uid(path)
+	if registered_uid != ResourceUID.INVALID_ID:
+		return registered_uid
+	# A freshly created/imported file may not be present in the UID cache yet.
+	# Read its declared UID only as a lookup fallback; all persistence still
+	# goes through ResourceSaver.set_uid(), never through text rewriting.
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
-		return ""
+		return ResourceUID.INVALID_ID
 	var first_line := file.get_line()
 	file.close()
-	# Format: [gd_resource ... uid="uid://xxxxx" ...]
-	var uid_start := first_line.find("uid=\"uid://")
-	if uid_start < 0:
-		return ""
-	uid_start += 5  # skip uid="
-	var uid_end := first_line.find("\"", uid_start)
-	if uid_end < 0:
-		return ""
-	return first_line.substr(uid_start, uid_end - uid_start)
-
-
-static func _restore_uid_in_file(path: String, uid: String) -> void:
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		return
-	var content := file.get_as_text()
-	file.close()
-	# Replace uid="uid://new" with uid="uid://old" on the first line
-	var new_uid_start := content.find("uid=\"uid://")
-	if new_uid_start < 0:
-		return
-	var new_uid_value_start := new_uid_start + 5
-	var new_uid_end := content.find("\"", new_uid_value_start)
-	if new_uid_end < 0:
-		return
-	var old_uid := content.substr(new_uid_value_start, new_uid_end - new_uid_value_start)
-	if old_uid == uid:
-		return  # already correct
-	content = content.substr(0, new_uid_value_start) + uid + content.substr(new_uid_end)
-	var write_file := FileAccess.open(path, FileAccess.WRITE)
-	if write_file == null:
-		return
-	write_file.store_string(content)
-	write_file.close()
+	var marker := "uid=\""
+	var marker_start := first_line.find(marker)
+	if marker_start < 0:
+		return ResourceUID.INVALID_ID
+	var value_start := marker_start + marker.length()
+	var value_end := first_line.find("\"", value_start)
+	if value_end < 0:
+		return ResourceUID.INVALID_ID
+	var text_uid := first_line.substr(value_start, value_end - value_start)
+	if not text_uid.begins_with("uid://"):
+		return ResourceUID.INVALID_ID
+	var declared_uid := ResourceUID.text_to_id(text_uid)
+	if declared_uid == ResourceUID.INVALID_ID:
+		return ResourceUID.INVALID_ID
+	if ResourceUID.has_id(declared_uid):
+		var registered_path := ResourceUID.get_id_path(declared_uid)
+		if registered_path != "" and registered_path != path:
+			return ResourceUID.INVALID_ID
+	else:
+		ResourceUID.add_id(declared_uid, path)
+	return declared_uid
 
 
 static func _resolve_cell_rule(
@@ -289,6 +317,7 @@ static func _resolve_cell_rule(
 				&"terrain_id": placeable.tile_id,
 				&"cover_mask": 0,
 				&"placeable_id": placeable.placeable_id,
+				&"cell_definition": placeable,
 				&"source": &"placeable_library",
 			}
 	if catalog != null:
@@ -302,6 +331,7 @@ static func _resolve_cell_rule(
 				&"terrain_id": legacy_rule.tile_id,
 				&"cover_mask": legacy_rule.cover_mask,
 				&"placeable_id": &"",
+				&"cell_definition": null,
 				&"source": &"legacy_catalog",
 			}
 	var layer_name := "Floor" if layer == MapTileRule.Layer.FLOOR else "Structure"
@@ -336,32 +366,229 @@ static func _apply_cell_overrides(
 
 
 static func _collect_edges(
-	data: TacticalMapAuthoringData,
+	author: TacticalMapAuthor,
+	cell_compile: Dictionary,
 	definition: TacticalMapDefinition,
-	_errors: Array[String],
-	_warnings: Array[String],
+	errors: Array[String],
+	warnings: Array[String],
 	diagnostics: Array[Dictionary]
 ) -> void:
-	if data == null:
+	if author == null or definition == null:
 		return
-	var ordered: Array[TacticalEdgePlacement] = []
-	for placement in data.edge_placements:
-		if placement != null and placement.enabled:
-			ordered.append(placement)
-	ordered.sort_custom(func(a: TacticalEdgePlacement, b: TacticalEdgePlacement) -> bool:
-		return a.key_string() < b.key_string()
-	)
-	var seen: Dictionary = {}
-	for placement in ordered:
-		if not placement.is_valid():
+	var settings := CoverCombatSettings.load_default()
+	var candidates: Array[Dictionary] = []
+	var data := author.authoring_data
+	var cells: Dictionary = cell_compile.get(&"cells", {})
+	if data != null:
+		for placement in data.edge_placements:
+			if placement == null or not placement.enabled or not placement.is_valid():
+				continue
+			var edge := MapEdgeData.from_placement(placement)
+			_prepare_edge_profiles(edge, settings, errors, warnings, diagnostics)
+			candidates.append(_edge_candidate(edge, 3))
+
+	var structure_candidates: Array = cell_compile.get(&"structure_edge_candidates", [])
+	for source in structure_candidates:
+		if not source is Dictionary:
 			continue
-		var key := placement.key_string()
-		if seen.has(key):
-			var duplicate_message := "TMB-003: Duplicate edge key '%s'." % key
-			TacticalMapDiagnostics.append_error(_errors, diagnostics, &"TMB-003", duplicate_message, placement.edge_key.cell_a if placement.edge_key != null else null)
+		var contribution := source.get(&"contribution") as TacticalLocalEdgeContribution
+		if contribution == null or not contribution.is_active():
 			continue
-		seen[key] = true
-		definition.edges.append(MapEdgeData.from_placement(placement))
+		var source_cell: Vector3i = source.get(&"source_cell", Vector3i.ZERO)
+		var basis: Basis = source.get(&"basis", Basis.IDENTITY)
+		var direction := _rotated_local_edge_direction(contribution.local_direction, basis)
+		if direction == Vector3i.ZERO:
+			continue
+		var neighbor_cell := source_cell + direction
+		var provenance := {
+			&"source_type": &"structure_derived",
+			&"source_layer": &"structure",
+			&"source_cell": source_cell,
+			&"source_placeable_id": StringName(source.get(&"placeable_id", &"")),
+			&"source_mesh_item_id": int(source.get(&"item_id", -1)),
+		}
+		var edge := MapEdgeData.from_rules(source_cell, neighbor_cell, contribution.edge_rules, provenance)
+		# A shared boundary inside a solid Structure mass is not a usable cover
+		# edge: neither side can host a standing unit. Use the final compiled cell
+		# rules (including overrides), while preserving boundary/standable edges.
+		if not _edge_has_walkable_endpoint(edge, cells):
+			continue
+		_prepare_edge_profiles(edge, settings, errors, warnings, diagnostics)
+		candidates.append(_edge_candidate(edge, 2))
+
+	var floor_content: Dictionary = cell_compile.get(&"floor_content", {})
+	var ordered_cells: Array = cells.keys()
+	ordered_cells.sort_custom(_cell_less)
+	for coordinate in ordered_cells:
+		var cell_data := cells[coordinate] as MapCellData
+		if cell_data == null or cell_data.cover_mask == 0:
+			continue
+		var content: Dictionary = floor_content.get(coordinate, {})
+		for direction_index in range(4):
+			if cell_data.cover_mask & (1 << direction_index) == 0:
+				continue
+			var source_cell: Vector3i = coordinate
+			var neighbor_cell := source_cell + _cardinal_cell_vector(direction_index)
+			var rules := TacticalEdgeRules.new()
+			rules.cover_a = TacticalEdgeRules.CoverLevel.HALF
+			rules.cover_b = TacticalEdgeRules.CoverLevel.NONE
+			rules.cover_profile_a = settings.get_profile_for_level(int(TacticalEdgeRules.CoverLevel.HALF))
+			rules.cover_profile_b = settings.get_profile_for_level(int(TacticalEdgeRules.CoverLevel.NONE))
+			var provenance := {
+				&"source_type": &"legacy_cover_mask",
+				&"source_layer": &"legacy",
+				&"source_cell": source_cell,
+				&"source_placeable_id": StringName(content.get(&"placeable_id", &"")),
+				&"source_mesh_item_id": -1,
+			}
+			var edge := MapEdgeData.from_rules(source_cell, neighbor_cell, rules, provenance)
+			_prepare_edge_profiles(edge, settings, errors, warnings, diagnostics)
+			candidates.append(_edge_candidate(edge, 1))
+
+	var grouped: Dictionary = {}
+	for candidate in candidates:
+		var edge := candidate.get(&"edge") as MapEdgeData
+		if edge == null:
+			continue
+		var key := edge.key_string()
+		if not grouped.has(key):
+			grouped[key] = []
+		(grouped[key] as Array).append(candidate)
+	var ordered_keys: Array = grouped.keys()
+	ordered_keys.sort()
+	for key in ordered_keys:
+		var entries: Array = grouped[key]
+		entries.sort_custom(_edge_candidate_less)
+		if entries.is_empty():
+			continue
+		var winner := entries[0] as Dictionary
+		var winner_edge := winner[&"edge"] as MapEdgeData
+		if winner_edge == null or not winner_edge.get_key().is_valid():
+			var invalid_message := "TMB-067: Invalid derived EdgeKey '%s'." % key
+			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-067", invalid_message, winner_edge.source_cell if winner_edge != null else null)
+			continue
+		for index in range(1, entries.size()):
+			var other := entries[index] as Dictionary
+			var other_edge := other[&"edge"] as MapEdgeData
+			if int(other[&"priority"]) == int(winner[&"priority"]):
+				if other_edge.semantic_key() == winner_edge.semantic_key():
+					TacticalMapDiagnostics.append_existing(
+						diagnostics,
+						&"info",
+						&"TMB-066",
+						"TMB-066: Equivalent Edge rules were deduplicated for '%s'." % key,
+						winner_edge.source_cell
+					)
+				else:
+					var conflict_message := "TMB-068: Same-priority Edge rules conflict for '%s'." % key
+					TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-068", conflict_message, other_edge.source_cell)
+			else:
+				var override_message := "TMB-062: Higher-priority Edge source kept '%s' over %s." % [key, other_edge.source_type]
+				TacticalMapDiagnostics.append_existing(diagnostics, &"info", &"TMB-062", override_message, winner_edge.source_cell)
+		definition.edges.append(winner_edge)
+	definition.edges.sort_custom(_edge_data_less)
+
+
+static func _edge_has_walkable_endpoint(edge: MapEdgeData, cells: Dictionary) -> bool:
+	if edge == null:
+		return false
+	return _cell_is_walkable(cells, edge.cell_a) or _cell_is_walkable(cells, edge.cell_b)
+
+
+static func _cell_is_walkable(cells: Dictionary, coordinate: Vector3i) -> bool:
+	var cell := cells.get(coordinate) as MapCellData
+	return cell != null and cell.walkable
+
+
+static func _edge_candidate(edge: MapEdgeData, priority: int) -> Dictionary:
+	return {&"edge": edge, &"priority": priority}
+
+
+static func _edge_candidate_less(first: Dictionary, second: Dictionary) -> bool:
+	var first_priority := int(first.get(&"priority", 0))
+	var second_priority := int(second.get(&"priority", 0))
+	if first_priority != second_priority:
+		return first_priority > second_priority
+	var first_edge := first.get(&"edge") as MapEdgeData
+	var second_edge := second.get(&"edge") as MapEdgeData
+	if first_edge.source_type != second_edge.source_type:
+		return String(first_edge.source_type) < String(second_edge.source_type)
+	if first_edge.source_cell != second_edge.source_cell:
+		return _cell_less(first_edge.source_cell, second_edge.source_cell)
+	if first_edge.source_placeable_id != second_edge.source_placeable_id:
+		return String(first_edge.source_placeable_id) < String(second_edge.source_placeable_id)
+	if first_edge.source_mesh_item_id != second_edge.source_mesh_item_id:
+		return first_edge.source_mesh_item_id < second_edge.source_mesh_item_id
+	return first_edge.semantic_key() < second_edge.semantic_key()
+
+
+static func _edge_data_less(first: MapEdgeData, second: MapEdgeData) -> bool:
+	if first.cell_a != second.cell_a:
+		return _cell_less(first.cell_a, second.cell_a)
+	return _cell_less(first.cell_b, second.cell_b)
+
+
+static func _prepare_edge_profiles(
+	edge: MapEdgeData,
+	settings: CoverCombatSettings,
+	errors: Array[String],
+	warnings: Array[String],
+	diagnostics: Array[Dictionary]
+) -> void:
+	if edge == null:
+		return
+	var profile_a := _resolve_edge_profile(edge.cover_profile_a, edge.cover_a, settings, edge, &"A", errors, warnings, diagnostics)
+	var profile_b := _resolve_edge_profile(edge.cover_profile_b, edge.cover_b, settings, edge, &"B", errors, warnings, diagnostics)
+	_append_profile_warnings(profile_a, edge, &"A", warnings, diagnostics)
+	_append_profile_warnings(profile_b, edge, &"B", warnings, diagnostics)
+	edge.cover_profile_a = profile_a
+	edge.cover_profile_b = profile_b
+	if profile_a != null and profile_a.is_valid():
+		edge.cover_a = profile_a.cover_level
+	if profile_b != null and profile_b.is_valid():
+		edge.cover_b = profile_b.cover_level
+
+
+static func _resolve_edge_profile(
+	authored_profile: TacticalCoverProfile,
+	legacy_level: TacticalEdgeRules.CoverLevel,
+	settings: CoverCombatSettings,
+	edge: MapEdgeData,
+	side: StringName,
+	errors: Array[String],
+	warnings: Array[String],
+	diagnostics: Array[Dictionary]
+) -> TacticalCoverProfile:
+	if authored_profile != null and authored_profile.is_valid():
+		return authored_profile
+	var fallback := settings.resolve_profile(authored_profile, int(legacy_level))
+	if fallback != null and fallback.is_valid():
+		if authored_profile != null:
+			TacticalMapDiagnostics.append_warning(
+				warnings,
+				diagnostics,
+				&"TMB-063",
+				"TMB-063: Invalid %s-side CoverProfile on Edge '%s'; legacy CoverLevel fallback was used." % [side, edge.key_string()],
+				edge.source_cell
+			)
+		return fallback
+	var invalid_message := "TMB-063: Edge '%s' has no valid %s-side CoverProfile or legacy fallback." % [edge.key_string(), side]
+	TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-063", invalid_message, edge.source_cell)
+	return null
+
+
+static func _append_profile_warnings(
+	profile: TacticalCoverProfile,
+	edge: MapEdgeData,
+	side: StringName,
+	warnings: Array[String],
+	diagnostics: Array[Dictionary]
+) -> void:
+	if profile == null or edge == null:
+		return
+	for profile_warning in profile.validation_warnings():
+		var warning_message := "TMB-065: %s-side CoverProfile '%s' on Edge '%s': %s" % [side, profile.cover_id, edge.key_string(), profile_warning]
+		TacticalMapDiagnostics.append_warning(warnings, diagnostics, &"TMB-065", warning_message, edge.source_cell)
 
 
 static func _collect_markers(author: TacticalMapAuthor, definition: TacticalMapDefinition, errors: Array[String], diagnostics: Array[Dictionary]) -> void:
@@ -433,6 +660,44 @@ static func _validate_definition(definition: TacticalMapDefinition, errors: Arra
 		cells[cell_data.coordinate] = cell_data
 	if cells.is_empty():
 		TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-040", "Map has no floor cells.")
+	for edge in definition.edges:
+		if edge == null:
+			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-067", "TMB-067: Map contains a null Edge entry.")
+			continue
+		var edge_key := edge.get_key()
+		if edge_key == null or not edge_key.is_valid():
+			TacticalMapDiagnostics.append_error(
+				errors,
+				diagnostics,
+				&"TMB-067",
+				"TMB-067: Edge '%s' is not a valid horizontal adjacent EdgeKey." % edge.key_string(),
+				edge.source_cell
+			)
+			continue
+		if not cells.has(edge.cell_a) and not cells.has(edge.cell_b):
+			TacticalMapDiagnostics.append_warning(
+				warnings,
+				diagnostics,
+				&"TMB-064",
+				"TMB-064: Edge '%s' has no valid map Cell on either side." % edge.key_string(),
+				edge.source_cell
+			)
+		if edge.cover_profile_a == null or not edge.cover_profile_a.is_valid():
+			TacticalMapDiagnostics.append_error(
+				errors,
+				diagnostics,
+				&"TMB-063",
+				"TMB-063: Edge '%s' has no valid A-side CoverProfile." % edge.key_string(),
+				edge.source_cell
+			)
+		if edge.cover_profile_b == null or not edge.cover_profile_b.is_valid():
+			TacticalMapDiagnostics.append_error(
+				errors,
+				diagnostics,
+				&"TMB-063",
+				"TMB-063: Edge '%s' has no valid B-side CoverProfile." % edge.key_string(),
+				edge.source_cell
+			)
 	var occupied_spawn_cells: Dictionary = {}
 	var player_spawn_count := 0
 	for spawn in definition.spawns:
@@ -547,6 +812,7 @@ static func _normalize_definition_coordinates(definition: TacticalMapDefinition,
 		if edge != null:
 			edge.cell_a += shift
 			edge.cell_b += shift
+			edge.source_cell += shift
 
 
 static func _definition_bounds(definition: TacticalMapDefinition) -> Dictionary:
@@ -622,13 +888,25 @@ static func _rotated_cover_mask(mask: int, basis: Basis) -> int:
 		if mask & (1 << index) == 0:
 			continue
 		var rotated: Vector3 = basis * directions[index]
-		var target_index := 0
-		if absf(rotated.x) > absf(rotated.z):
-			target_index = 1 if rotated.x > 0.0 else 3
-		else:
-			target_index = 2 if rotated.z > 0.0 else 0
+		var target_index := _cardinal_direction_index(rotated)
 		result |= 1 << target_index
 	return result
+
+
+static func _rotated_local_edge_direction(local_direction: int, basis: Basis) -> Vector3i:
+	var directions: Array[Vector3] = [Vector3(0, 0, -1), Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(-1, 0, 0)]
+	var local_index := clampi(local_direction, 0, 3)
+	return _cardinal_cell_vector(_cardinal_direction_index(basis * directions[local_index]))
+
+
+static func _cardinal_direction_index(direction: Vector3) -> int:
+	if absf(direction.x) > absf(direction.z):
+		return 1 if direction.x > 0.0 else 3
+	return 2 if direction.z > 0.0 else 0
+
+
+static func _cardinal_cell_vector(direction_index: int) -> Vector3i:
+	return [Vector3i(0, 0, -1), Vector3i(1, 0, 0), Vector3i(0, 0, 1), Vector3i(-1, 0, 0)][clampi(direction_index, 0, 3)]
 
 
 static func _cell_less(a: Vector3i, b: Vector3i) -> bool:

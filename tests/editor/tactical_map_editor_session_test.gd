@@ -26,6 +26,7 @@ func _init() -> void:
 	_test_selection_content_operations_and_undo()
 	_test_property_override_batch_undo_and_inherit()
 	_test_debug_views_validation_and_focus()
+	_test_cover_debug_snapshot_and_coordinate_restore()
 	_test_legacy_default_descriptor_constraints()
 	_test_default_property_service_undo_and_null_restore()
 	_test_special_spawn_configuration_and_state()
@@ -744,6 +745,105 @@ func _test_debug_views_validation_and_focus() -> void:
 	_expect(not heatmap_missing_found, "debug: heatmap views must exclude validation-only coordinates")
 	floor_grid.set_cell_item(Vector3i(0, 0, 0), old_item)
 	author.free()
+
+
+func _test_cover_debug_snapshot_and_coordinate_restore() -> void:
+	var author := _make_cover_author()
+	var session = SessionScript.new()
+	_expect(session.begin_for_author(author, author), "cover debug: synthetic author should bind")
+	for view in range(SessionScript.DebugView.NORMAL, SessionScript.DebugView.COVER + 1):
+		session.set_debug_view(view)
+		_expect(session.get_debug_view() == view, "cover debug: appended view ID should remain selectable")
+	var snapshot: Dictionary = session.get_cover_debug_snapshot()
+	var edges: Array = snapshot.get(&"edges", [])
+	_expect(snapshot.get(&"floor_level", -1) == 0, "cover debug: snapshot should report the current floor")
+	_expect(snapshot.get(&"definition_origin", Vector3.ZERO) == Vector3(-16.0, 0.0, -28.0), "cover debug: definition origin should preserve Baker normalization offset for negative author coordinates")
+	_expect(edges.size() >= 1, "cover debug: Baker-derived edge should be exposed")
+	var found_derived := false
+	for edge_value in edges:
+		if not edge_value is Dictionary or bool((edge_value as Dictionary).get(&"diagnostic_only", false)):
+			continue
+		var edge: Dictionary = edge_value
+		if edge.get(&"source_type", &"") != &"structure_derived":
+			continue
+		found_derived = true
+		_expect(edge.get(&"source_cell", Vector3i.ZERO) == Vector3i(-3, 0, -3), "cover debug: provenance source cell should be restored to negative author coordinates")
+		_expect(edge.get(&"runtime_source_cell", Vector3i(-1, -1, -1)) == Vector3i(0, 0, 1), "cover debug: runtime provenance source cell should remain available separately")
+		_expect(edge.get(&"cell_a", Vector3i.ZERO) == Vector3i(-3, 0, -4) and edge.get(&"cell_b", Vector3i.ZERO) == Vector3i(-3, 0, -3), "cover debug: canonical edge endpoints should be restored to negative author coordinates")
+		var profile_a: Dictionary = edge.get(&"profile_a", {})
+		var profile_b: Dictionary = edge.get(&"profile_b", {})
+		_expect(int(profile_a.get(&"level", 0)) == 1 or int(profile_b.get(&"level", 0)) == 1, "cover debug: final edge snapshot should expose the HALF profile")
+	_expect(found_derived, "cover debug: structure provenance should be visible in the snapshot")
+	var baked := TacticalMapBaker.build(author)
+	var definition := baked.get(&"definition", null) as TacticalMapDefinition
+	_expect(definition != null and not definition.edges.is_empty(), "cover debug: synthetic Baker output should contain an edge")
+	if definition != null and not definition.edges.is_empty():
+		var runtime_cell := definition.edges[0].cell_a
+		var restored := SessionScript.runtime_cell_to_author_cell(runtime_cell, definition, author)
+		_expect(restored == Vector3i(-3, 0, -4), "cover debug: public coordinate helper should restore negative runtime X/Z")
+	author.free()
+
+
+func _make_cover_author() -> TacticalMapAuthor:
+	var author := TacticalMapAuthor.new()
+	author.map_id = &"editor_cover_synthetic"
+	author.footprint_size = Vector2i(8, 8)
+	author.level_count = 1
+	author.cell_dimensions = Vector3(2.0, 2.0, 2.0)
+	author.grid_origin = Vector3(-10.0, 0.0, -20.0)
+	var mesh_library := MeshLibrary.new()
+	mesh_library.create_item(0)
+	mesh_library.create_item(1)
+	var floor_grid := GridMap.new()
+	floor_grid.name = "FloorGrid"
+	floor_grid.mesh_library = mesh_library
+	floor_grid.cell_size = author.cell_dimensions
+	floor_grid.set_cell_item(Vector3i(-3, 0, -4), 0)
+	floor_grid.set_cell_item(Vector3i(-3, 0, -3), 0)
+	author.add_child(floor_grid)
+	var structure_grid := GridMap.new()
+	structure_grid.name = "StructureGrid"
+	structure_grid.mesh_library = mesh_library
+	structure_grid.cell_size = author.cell_dimensions
+	structure_grid.set_cell_item(Vector3i(-3, 0, -3), 1)
+	author.add_child(structure_grid)
+	var floor_definition := TacticalCellTileDefinition.new()
+	floor_definition.placeable_id = &"test.cover.floor"
+	floor_definition.display_name = "Synthetic Floor"
+	floor_definition.target_layer = MapTileRule.Layer.FLOOR
+	floor_definition.mesh_item_id = 0
+	floor_definition.mesh_library = mesh_library
+	var structure_definition := TacticalCellTileDefinition.new()
+	structure_definition.placeable_id = &"test.cover.structure"
+	structure_definition.display_name = "Synthetic Cover"
+	structure_definition.target_layer = MapTileRule.Layer.STRUCTURE
+	structure_definition.mesh_item_id = 1
+	structure_definition.mesh_library = mesh_library
+	var rules := TacticalEdgeRules.new()
+	rules.cover_a = TacticalEdgeRules.CoverLevel.NONE
+	rules.cover_b = TacticalEdgeRules.CoverLevel.HALF
+	rules.cover_profile_a = TacticalCoverProfile.default_for_level(0)
+	rules.cover_profile_b = TacticalCoverProfile.default_for_level(1)
+	var contribution := TacticalLocalEdgeContribution.new()
+	contribution.local_direction = TacticalLocalEdgeContribution.LocalDirection.NORTH
+	contribution.edge_rules = rules
+	structure_definition.edge_contributions = [contribution]
+	var library := TacticalPlaceableLibrary.new()
+	library.generated_mesh_library = mesh_library
+	library.definitions = [floor_definition, structure_definition]
+	var floor_binding := MeshItemBinding.new()
+	floor_binding.placeable_id = floor_definition.placeable_id
+	floor_binding.target_layer = MapTileRule.Layer.FLOOR
+	floor_binding.mesh_item_id = 0
+	floor_binding.mesh_library = mesh_library
+	var structure_binding := MeshItemBinding.new()
+	structure_binding.placeable_id = structure_definition.placeable_id
+	structure_binding.target_layer = MapTileRule.Layer.STRUCTURE
+	structure_binding.mesh_item_id = 1
+	structure_binding.mesh_library = mesh_library
+	library.item_bindings = [floor_binding, structure_binding]
+	author.placeable_library = library
+	return author
 
 
 func _test_legacy_default_descriptor_constraints() -> void:
