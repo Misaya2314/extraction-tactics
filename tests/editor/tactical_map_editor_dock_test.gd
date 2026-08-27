@@ -184,7 +184,35 @@ func _run() -> void:
 	session.set_debug_view(SessionScript.DebugView.COVER)
 	dock.call("_refresh")
 	_expect(debug_legend != null and debug_legend.text.contains("掩体"), "dock: Cover view should expose a Chinese legend")
+	var cover_inspection_panel := dock.find_child("CoverInspectionPanel", true, false) as VBoxContainer
+	var cover_inspection_summary := dock.find_child("CoverInspectionSummary", true, false) as Label
+	var cover_inspection_details := dock.find_child("CoverInspectionDetails", true, false) as Label
+	var clear_cover_edge_button := dock.find_child("ClearCoverEdgeButton", true, false) as Button
+	_expect(cover_inspection_panel != null and cover_inspection_panel.visible, "dock: Cover view should reveal the cover edge inspector")
+	_expect(cover_inspection_summary != null and cover_inspection_summary.text == "未选中掩体边", "dock: cover inspector should explain that no edge is selected")
+	_expect(cover_inspection_details != null and cover_inspection_details.text.contains("左键点击掩体边"), "dock: empty cover inspector should describe the selection gesture")
+	_expect(clear_cover_edge_button != null and clear_cover_edge_button.disabled, "dock: clear cover edge should be disabled without a selection")
+	var inspection_text := String(dock.call("_format_cover_edge_inspection", {
+		&"cell_a": Vector3i(1, 0, 2),
+		&"cell_b": Vector3i(2, 0, 2),
+		&"source_cell": Vector3i(1, 0, 2),
+		&"source_type": &"structure_derived",
+		&"source_layer": &"structure",
+		&"source_placeable_id": &"tile.cover.synthetic",
+		&"source_mesh_item_id": 4,
+		&"profile_a": {&"id": &"cover.none", &"level_name": "NONE", &"reduction": 0.0},
+		&"profile_b": {&"id": &"cover.half", &"level_name": "HALF", &"reduction": 0.5},
+		&"blocks_movement": true,
+		&"sight_block": 1.0,
+		&"projectile_block": 0.75,
+		&"height": 1.0,
+		&"destructible": false,
+	}))
+	_expect(inspection_text.contains("来源地块：(1, 0, 2)") and inspection_text.contains("Structure 地块自动派生"), "dock: cover inspector should show source provenance")
+	_expect(inspection_text.contains("A 侧 Profile") and inspection_text.contains("减伤 50%"), "dock: cover inspector should show both Profile and reduction")
+	_expect(inspection_text.contains("移动阻挡：是") and inspection_text.contains("投射物阻挡：0.75"), "dock: cover inspector should show blocking properties")
 	session.set_debug_view(SessionScript.DebugView.NORMAL)
+	_expect(cover_inspection_panel != null and not cover_inspection_panel.visible, "dock: cover inspector should hide outside Cover view")
 	var validation_list := dock.find_child("ValidationList", true, false) as ItemList
 	_expect(validation_list != null, "dock: structured validation list should be present")
 	if validation_list != null:

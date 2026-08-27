@@ -25,6 +25,7 @@ signal add_placeable_requested
 signal new_map_requested
 signal special_edit_finish_requested
 signal debug_view_changed(view: int)
+signal cover_edge_clear_requested
 signal validation_location_requested(diagnostic: Dictionary)
 
 ## TargetLayer is an ordered public contract shared with the Session.  Keep
@@ -79,6 +80,10 @@ var _content: VBoxContainer
 var _debug_panel: VBoxContainer
 var _debug_option: OptionButton
 var _debug_legend: Label
+var _cover_inspection_panel: VBoxContainer
+var _cover_inspection_summary: Label
+var _cover_inspection_details: Label
+var _cover_inspection_clear_button: Button
 var _validation_panel: VBoxContainer
 var _validation_summary: Label
 var _validation_list: ItemList
@@ -434,6 +439,39 @@ func _build_debug_panel(content: VBoxContainer) -> void:
 	_debug_legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_debug_legend.text = "正常模型；调试覆盖已关闭。"
 	_debug_panel.add_child(_debug_legend)
+	_build_cover_inspection_panel(_debug_panel)
+
+func _build_cover_inspection_panel(parent: VBoxContainer) -> void:
+	if parent == null:
+		return
+	_cover_inspection_panel = VBoxContainer.new()
+	_cover_inspection_panel.name = "CoverInspectionPanel"
+	_cover_inspection_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(_cover_inspection_panel)
+	var separator := HSeparator.new()
+	separator.name = "CoverInspectionSeparator"
+	_cover_inspection_panel.add_child(separator)
+	var heading := Label.new()
+	heading.name = "CoverInspectionHeading"
+	heading.text = "掩体边检查器"
+	heading.add_theme_font_size_override("font_size", 14)
+	_cover_inspection_panel.add_child(heading)
+	_cover_inspection_summary = Label.new()
+	_cover_inspection_summary.name = "CoverInspectionSummary"
+	_cover_inspection_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_cover_inspection_panel.add_child(_cover_inspection_summary)
+	_cover_inspection_details = Label.new()
+	_cover_inspection_details.name = "CoverInspectionDetails"
+	_cover_inspection_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_cover_inspection_details.add_theme_color_override("font_color", Color("d7dce5"))
+	_cover_inspection_panel.add_child(_cover_inspection_details)
+	_cover_inspection_clear_button = Button.new()
+	_cover_inspection_clear_button.name = "ClearCoverEdgeButton"
+	_cover_inspection_clear_button.text = "清除选中的掩体边"
+	_cover_inspection_clear_button.tooltip_text = "清除当前掩体边检查结果和视口高亮。"
+	_cover_inspection_clear_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cover_inspection_clear_button.pressed.connect(func() -> void: cover_edge_clear_requested.emit())
+	_cover_inspection_panel.add_child(_cover_inspection_clear_button)
 
 func _add_debug_view_items(option: OptionButton) -> void:
 	if option == null:
@@ -499,6 +537,7 @@ func _refresh() -> void:
 	_refreshing = true
 	if session == null:
 		_refresh_debug_panel()
+		_refresh_cover_inspection()
 		_refresh_special_edit_panel()
 		_refresh_spawn_configuration_panel()
 	_refresh_validation_panel()
@@ -543,6 +582,7 @@ func _refresh() -> void:
 	_refresh_palette()
 	_refresh_selection_actions()
 	_refresh_debug_panel()
+	_refresh_cover_inspection()
 	_refresh_special_edit_panel()
 	_refresh_spawn_configuration_panel()
 	var status := session.get_last_status()
@@ -833,6 +873,134 @@ func _refresh_debug_panel() -> void:
 			break
 	_debug_legend.text = session.debug_view_legend(current_view) if has_session else "选择地图作者后可查看规则调试覆盖。"
 
+
+func _refresh_cover_inspection() -> void:
+	if not _is_valid_control(_cover_inspection_panel) or not _is_valid_control(_cover_inspection_summary) or not _is_valid_control(_cover_inspection_details) or not _is_valid_control(_cover_inspection_clear_button):
+		return
+	var in_cover_view := session != null and session.get_debug_view() == TacticalMapEditSession.DebugView.COVER
+	_cover_inspection_panel.visible = in_cover_view
+	if not in_cover_view:
+		return
+	var edge: Dictionary = {}
+	if session.has_method("get_selected_cover_edge"):
+		var value = session.call("get_selected_cover_edge")
+		if value is Dictionary:
+			edge = value as Dictionary
+	if edge.is_empty():
+		_cover_inspection_summary.text = "未选中掩体边"
+		_cover_inspection_details.text = "悬停可预览，左键点击掩体边后查看来源、方向、Profile 和阻挡属性。"
+		_cover_inspection_clear_button.disabled = true
+		return
+	_cover_inspection_summary.text = "已选中：%s" % String(edge.get(&"edge_key", "未知边"))
+	_cover_inspection_details.text = _format_cover_edge_inspection(edge)
+	_cover_inspection_clear_button.disabled = false
+
+
+func _format_cover_edge_inspection(edge: Dictionary) -> String:
+	var lines: Array[String] = []
+	var cell_a := _format_cover_coordinate(edge.get(&"cell_a", null))
+	var cell_b := _format_cover_coordinate(edge.get(&"cell_b", null))
+	lines.append("端点：A %s  ↔  B %s" % [cell_a, cell_b])
+	lines.append("来源：%s" % _cover_source_label(edge))
+	var source_cell := _format_cover_coordinate(edge.get(&"source_cell", null))
+	var source_placeable := String(edge.get(&"source_placeable_id", ""))
+	var source_mesh := int(edge.get(&"source_mesh_item_id", -1))
+	lines.append("来源地块：%s" % source_cell)
+	lines.append("来源层：%s" % _cover_source_layer_label(edge))
+	lines.append("素材 ID：%s    Mesh item：%s" % [source_placeable if not source_placeable.is_empty() else "未记录", str(source_mesh) if source_mesh >= 0 else "未记录"])
+	lines.append("方向：%s" % _cover_edge_direction(edge))
+	lines.append("")
+	lines.append(_format_cover_profile_inspection("A 侧 Profile", edge.get(&"profile_a", {})))
+	lines.append(_format_cover_profile_inspection("B 侧 Profile", edge.get(&"profile_b", {})))
+	lines.append("")
+	lines.append("移动阻挡：%s" % ("是" if bool(edge.get(&"blocks_movement", false)) else "否"))
+	lines.append("视线阻挡：%.2f%s" % [float(edge.get(&"sight_block", 0.0)), "（完全阻挡）" if float(edge.get(&"sight_block", 0.0)) >= 1.0 else ""])
+	lines.append("投射物阻挡：%.2f%s" % [float(edge.get(&"projectile_block", 0.0)), "（完全阻挡）" if float(edge.get(&"projectile_block", 0.0)) >= 1.0 else ""])
+	lines.append("高度：%.2f    可破坏：%s" % [float(edge.get(&"height", 0.0)), "是" if bool(edge.get(&"destructible", false)) else "否"])
+	var runtime_state := String(edge.get(&"runtime_state_id", ""))
+	if not runtime_state.is_empty():
+		lines.append("运行时状态：%s" % runtime_state)
+	var diagnostics: Array = edge.get(&"diagnostics", [])
+	if not diagnostics.is_empty():
+		lines.append("")
+		lines.append("诊断：%d 条" % diagnostics.size())
+		for diagnostic_value in diagnostics.slice(0, 3):
+			if diagnostic_value is Dictionary:
+				var diagnostic := diagnostic_value as Dictionary
+				lines.append("· %s：%s" % [String(diagnostic.get(&"code", "诊断")), String(diagnostic.get(&"message", diagnostic.get(&"text", "")))])
+	return "\n".join(lines)
+
+
+func _format_cover_profile_inspection(label: String, value: Variant) -> String:
+	if not value is Dictionary or (value as Dictionary).is_empty():
+		return "%s：未配置" % label
+	var profile := value as Dictionary
+	var profile_id := String(profile.get(&"id", ""))
+	var display_name := String(profile.get(&"display_name", ""))
+	var level_name := String(profile.get(&"level_name", ""))
+	var reduction := float(profile.get(&"reduction", profile.get(&"damage_reduction_ratio", 0.0)))
+	var identity := profile_id if display_name.is_empty() else "%s / %s" % [display_name, profile_id]
+	return "%s：%s [%s] · 减伤 %.0f%%" % [label, identity if not identity.is_empty() else "未命名", level_name if not level_name.is_empty() else "UNKNOWN", reduction * 100.0]
+
+
+func _format_cover_coordinate(value: Variant) -> String:
+	if value is Vector3i:
+		var coordinate := value as Vector3i
+		return "(%d, %d, %d)" % [coordinate.x, coordinate.y, coordinate.z]
+	return "—"
+
+
+func _cover_source_label(edge: Dictionary) -> String:
+	var source_type := String(edge.get(&"source_type", ""))
+	match source_type:
+		"structure_derived":
+			return "Structure 地块自动派生"
+		"explicit":
+			return "地图显式 Edge"
+		"legacy_cover_mask":
+			return "旧版 Cover Mask"
+		"diagnostic":
+			return "诊断记录"
+	return source_type if not source_type.is_empty() else "未知来源"
+
+
+func _cover_source_layer_label(edge: Dictionary) -> String:
+	var source_layer := String(edge.get(&"source_layer", ""))
+	match source_layer:
+		"floor":
+			return "Floor"
+		"structure":
+			return "Structure"
+		"decoration":
+			return "Decoration"
+		"traversal":
+			return "Traversal"
+		"spawner":
+			return "Spawner"
+		"ai":
+			return "AI"
+	return source_layer if not source_layer.is_empty() else "未记录"
+
+
+func _cover_edge_direction(edge: Dictionary) -> String:
+	var cell_a := edge.get(&"cell_a", null)
+	var cell_b := edge.get(&"cell_b", null)
+	if not cell_a is Vector3i or not cell_b is Vector3i:
+		return "—"
+	var delta := (cell_b as Vector3i) - (cell_a as Vector3i)
+	var direction := ""
+	if delta.x > 0:
+		direction = "东"
+	elif delta.x < 0:
+		direction = "西"
+	elif delta.z > 0:
+		direction = "南"
+	elif delta.z < 0:
+		direction = "北"
+	else:
+		direction = "重合"
+	return "A → B：%s（Δ %d, %d, %d）" % [direction, delta.x, delta.y, delta.z]
+
 func _refresh_validation_panel() -> void:
 	if not _is_valid_control(_validation_list) or not _is_valid_control(_validation_summary):
 		return
@@ -988,6 +1156,10 @@ func _has_ui_ready() -> bool:
 		and _is_valid_control(_play_button) \
 		and _is_valid_control(_debug_option) \
 		and _is_valid_control(_debug_legend) \
+		and _is_valid_control(_cover_inspection_panel) \
+		and _is_valid_control(_cover_inspection_summary) \
+		and _is_valid_control(_cover_inspection_details) \
+		and _is_valid_control(_cover_inspection_clear_button) \
 		and _is_valid_control(_validation_list) \
 		and _is_valid_control(_validation_summary) \
 		and _is_valid_control(_special_state_label) \
@@ -1073,7 +1245,25 @@ func _ensure_debug_panel() -> bool:
 		var legend := _debug_panel.find_child("DebugLegend", true, false)
 		if legend is Label:
 			_debug_legend = legend as Label
-	if not _is_valid_control(_debug_option) or not _is_valid_control(_debug_legend):
+	if not _is_valid_control(_cover_inspection_panel):
+		var inspection := _debug_panel.find_child("CoverInspectionPanel", true, false)
+		if inspection is VBoxContainer:
+			_cover_inspection_panel = inspection as VBoxContainer
+	if not _is_valid_control(_cover_inspection_panel):
+		_build_cover_inspection_panel(_debug_panel)
+	if not _is_valid_control(_cover_inspection_summary):
+		var summary := _cover_inspection_panel.find_child("CoverInspectionSummary", true, false)
+		if summary is Label:
+			_cover_inspection_summary = summary as Label
+	if not _is_valid_control(_cover_inspection_details):
+		var details := _cover_inspection_panel.find_child("CoverInspectionDetails", true, false)
+		if details is Label:
+			_cover_inspection_details = details as Label
+	if not _is_valid_control(_cover_inspection_clear_button):
+		var clear_button := _cover_inspection_panel.find_child("ClearCoverEdgeButton", true, false)
+		if clear_button is Button:
+			_cover_inspection_clear_button = clear_button as Button
+	if not _is_valid_control(_debug_option) or not _is_valid_control(_debug_legend) or not _is_valid_control(_cover_inspection_panel) or not _is_valid_control(_cover_inspection_summary) or not _is_valid_control(_cover_inspection_details) or not _is_valid_control(_cover_inspection_clear_button):
 		return false
 	_add_debug_view_items(_debug_option)
 	if not _debug_option.item_selected.is_connected(_on_debug_view_selected):

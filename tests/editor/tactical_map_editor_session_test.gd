@@ -760,6 +760,7 @@ func _test_cover_debug_snapshot_and_coordinate_restore() -> void:
 	_expect(snapshot.get(&"definition_origin", Vector3.ZERO) == Vector3(-16.0, 0.0, -28.0), "cover debug: definition origin should preserve Baker normalization offset for negative author coordinates")
 	_expect(edges.size() >= 1, "cover debug: Baker-derived edge should be exposed")
 	var found_derived := false
+	var derived_edge_key := ""
 	for edge_value in edges:
 		if not edge_value is Dictionary or bool((edge_value as Dictionary).get(&"diagnostic_only", false)):
 			continue
@@ -767,6 +768,8 @@ func _test_cover_debug_snapshot_and_coordinate_restore() -> void:
 		if edge.get(&"source_type", &"") != &"structure_derived":
 			continue
 		found_derived = true
+		if derived_edge_key.is_empty():
+			derived_edge_key = String(edge.get(&"edge_key", ""))
 		_expect(edge.get(&"source_cell", Vector3i.ZERO) == Vector3i(-3, 0, -3), "cover debug: provenance source cell should be restored to negative author coordinates")
 		_expect(edge.get(&"runtime_source_cell", Vector3i(-1, -1, -1)) == Vector3i(0, 0, 1), "cover debug: runtime provenance source cell should remain available separately")
 		_expect(edge.get(&"cell_a", Vector3i.ZERO) == Vector3i(-3, 0, -4) and edge.get(&"cell_b", Vector3i.ZERO) == Vector3i(-3, 0, -3), "cover debug: canonical edge endpoints should be restored to negative author coordinates")
@@ -774,6 +777,12 @@ func _test_cover_debug_snapshot_and_coordinate_restore() -> void:
 		var profile_b: Dictionary = edge.get(&"profile_b", {})
 		_expect(int(profile_a.get(&"level", 0)) == 1 or int(profile_b.get(&"level", 0)) == 1, "cover debug: final edge snapshot should expose the HALF profile")
 	_expect(found_derived, "cover debug: structure provenance should be visible in the snapshot")
+	_expect(not derived_edge_key.is_empty() and session.select_cover_edge(derived_edge_key), "cover debug: a baked edge should be selectable by its stable key")
+	var selected_edge: Dictionary = session.get_selected_cover_edge()
+	_expect(String(selected_edge.get(&"edge_key", "")) == derived_edge_key, "cover debug: selected edge getter should expose a detached matching snapshot")
+	_expect(session.get_selected_cover_edge_key() == derived_edge_key, "cover debug: selected edge key should remain stable")
+	_expect(session.clear_cover_edge_selection(), "cover debug: selected edge should be clearable")
+	_expect(session.get_selected_cover_edge().is_empty(), "cover debug: clearing selection should remove the inspection snapshot")
 	var baked := TacticalMapBaker.build(author)
 	var definition := baked.get(&"definition", null) as TacticalMapDefinition
 	_expect(definition != null and not definition.edges.is_empty(), "cover debug: synthetic Baker output should contain an edge")

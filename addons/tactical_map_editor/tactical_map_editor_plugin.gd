@@ -25,6 +25,7 @@ var _box_overlay: MeshInstance3D
 var _debug_overlay_root: Node3D
 var _debug_overlay: MultiMeshInstance3D
 var _cover_overlay_root: Node3D
+var _cover_hover_edge_key: String = ""
 var _special_overlay_root: Node3D
 var _wizard: TacticalPlaceableWizard
 var _placeable_file_dialog: FileDialog
@@ -79,6 +80,7 @@ func _enter_tree() -> void:
 	_dock.new_map_requested.connect(_open_new_map_dialog)
 	_dock.special_edit_finish_requested.connect(_finish_special_edit)
 	_dock.debug_view_changed.connect(_on_debug_view_changed)
+	_dock.cover_edge_clear_requested.connect(_on_cover_edge_clear_requested)
 	_dock.validation_location_requested.connect(_on_validation_location_requested)
 	set_input_event_forwarding_always_enabled()
 	set_process(true)
@@ -197,12 +199,20 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 			_cancel_active_edit_input()
 			_session.cancel_stroke()
 			_session.clear_selection()
+			_cover_hover_edge_key = ""
+			if _session.has_method("clear_cover_edge_selection"):
+				_session.call("clear_cover_edge_selection")
 			_clear_preview()
 			_update_selection_overlay()
 			return AFTER_GUI_INPUT_STOP
 		return AFTER_GUI_INPUT_PASS
 
-	if not _session.edit_mode:
+	# Cover inspection is read-only and remains available while edit mode is
+	# closed. Painting/placement still requires edit mode, but an author-bound
+	# map should not force the user to mutate editing state just to inspect a
+	# baked edge.
+	var cover_inspection_mode := _session.has_author() and _session.get_debug_view() == TacticalMapEditSession.DebugView.COVER
+	if not _session.edit_mode and not cover_inspection_mode:
 		return AFTER_GUI_INPUT_PASS
 	if viewport_camera == null:
 		return AFTER_GUI_INPUT_PASS
@@ -213,6 +223,10 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 			# Let Godot's 3D editor consume RMB/MMB navigation and all native
 			# modifiers.  A ghost under the moving camera is misleading, so pause
 			# it until the next ordinary cursor motion.
+			_clear_preview()
+			return AFTER_GUI_INPUT_PASS
+		if _session.get_debug_view() == TacticalMapEditSession.DebugView.COVER:
+			_update_cover_edge_hover(viewport_camera, motion.position)
 			_clear_preview()
 			return AFTER_GUI_INPUT_PASS
 		var box_target_tool := TacticalMapEditSession.Tool.ERASE if _box_drag_active and _box_erase_mode else -1
@@ -236,6 +250,16 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
+		if _session.get_debug_view() == TacticalMapEditSession.DebugView.COVER and mouse.button_index == MOUSE_BUTTON_LEFT:
+			if mouse.pressed:
+				var picked_edge_key := _pick_cover_edge_key(viewport_camera, mouse.position)
+				_cover_hover_edge_key = picked_edge_key
+				if _session.has_method("select_cover_edge") and not picked_edge_key.is_empty():
+					_session.call("select_cover_edge", picked_edge_key)
+				elif _session.has_method("clear_cover_edge_selection"):
+					_session.call("clear_cover_edge_selection")
+				_update_cover_overlay()
+			return AFTER_GUI_INPUT_STOP
 		var mouse_action := INPUT_STRATEGY.classify_mouse_button(mouse, true, _session.tool, TacticalMapEditSession.Tool.SELECT, TacticalMapEditSession.Tool.PICK)
 		if mouse_action == INPUT_STRATEGY.Action.NATIVE_NAVIGATION:
 			_clear_preview()
@@ -826,8 +850,19 @@ func _on_debug_view_changed(view: int) -> void:
 	if _session == null:
 		return
 	_session.set_debug_view(view)
+	if view != TacticalMapEditSession.DebugView.COVER:
+		_cover_hover_edge_key = ""
+		if _session.has_method("clear_cover_edge_selection"):
+			_session.call("clear_cover_edge_selection")
 	_refresh_debug_validation_diagnostics()
 	_update_debug_overlay()
+
+
+func _on_cover_edge_clear_requested() -> void:
+	_cover_hover_edge_key = ""
+	if _session != null and _session.has_method("clear_cover_edge_selection"):
+		_session.call("clear_cover_edge_selection")
+	_update_cover_overlay()
 
 
 func _refresh_debug_validation_diagnostics() -> void:
@@ -1295,10 +1330,15 @@ func _update_cover_overlay() -> void:
 		_clear_cover_overlay()
 		return
 	var edge_inputs: Array[Dictionary] = []
+	var selected_edge_key := String(_session.call("get_selected_cover_edge_key")) if _session.has_method("get_selected_cover_edge_key") else ""
 	for edge_value in snapshot_edges:
 		if not edge_value is Dictionary:
 			continue
-		edge_inputs.append(_cover_edge_visual_input(edge_value as Dictionary, author))
+		var edge_input := _cover_edge_visual_input(edge_value as Dictionary, author)
+		var edge_key := String(edge_input.get(&"edge_key", ""))
+		edge_input[&"selected"] = not selected_edge_key.is_empty() and edge_key == selected_edge_key
+		edge_input[&"hovered"] = not _cover_hover_edge_key.is_empty() and edge_key == _cover_hover_edge_key
+		edge_inputs.append(edge_input)
 	var visual_records := PREVIEW_BUILDER.build_cover_edge_visual_records(edge_inputs, dimensions)
 	if visual_records.is_empty():
 		_clear_cover_overlay()
@@ -1311,6 +1351,65 @@ func _update_cover_overlay() -> void:
 	_add_cover_boundary_lines(visual_records)
 	_add_cover_arrows(visual_records)
 	_add_cover_diagnostic_markers(visual_records, dimensions)
+
+
+func _update_cover_edge_hover(viewport_camera: Camera3D, screen_position: Vector2) -> void:
+	if _session == null or not _session.has_author() or viewport_camera == null:
+		return
+	var next_key := _pick_cover_edge_key(viewport_camera, screen_position)
+	if next_key == _cover_hover_edge_key:
+		return
+	_cover_hover_edge_key = next_key
+	_update_cover_overlay()
+
+
+func _pick_cover_edge_key(viewport_camera: Camera3D, screen_position: Vector2) -> String:
+	if _session == null or not _session.has_author() or viewport_camera == null:
+		return ""
+	var author := _session.author as Node3D
+	if author == null or not author.has_method("cell_to_local"):
+		return ""
+	var dimensions: Vector3 = author.get("cell_dimensions")
+	if dimensions.x <= 0.0 or dimensions.z <= 0.0:
+		return ""
+	var snapshot: Dictionary = _session.call("get_cover_debug_snapshot") if _session.has_method("get_cover_debug_snapshot") else {}
+	var projected_records := _project_cover_visual_records(viewport_camera, snapshot.get(&"edges", []), author, dimensions)
+	var picked := PREVIEW_BUILDER.pick_cover_edge_screen_record(projected_records, screen_position, 18.0)
+	return String(picked.get(&"edge_key", ""))
+
+
+func _project_cover_visual_records(viewport_camera: Camera3D, snapshot_edges: Array, author: Node3D, dimensions: Vector3) -> Array[Dictionary]:
+	var edge_inputs: Array[Dictionary] = []
+	for edge_value in snapshot_edges:
+		if not edge_value is Dictionary:
+			continue
+		edge_inputs.append(_cover_edge_visual_input(edge_value as Dictionary, author))
+	var visual_records := PREVIEW_BUILDER.build_cover_edge_visual_records(edge_inputs, dimensions)
+	var projected: Array[Dictionary] = []
+	for record_value in visual_records:
+		if not record_value is Dictionary:
+			continue
+		var record := record_value as Dictionary
+		var line := record.get(&"line", null)
+		if not line is Dictionary:
+			continue
+		var local_from := (line as Dictionary).get(&"from", null)
+		var local_to := (line as Dictionary).get(&"to", null)
+		if not local_from is Vector3 or not local_to is Vector3:
+			continue
+		var world_from := author.to_global(local_from as Vector3)
+		var world_to := author.to_global(local_to as Vector3)
+		if viewport_camera.is_position_behind(world_from) and viewport_camera.is_position_behind(world_to):
+			continue
+		var screen_from := viewport_camera.unproject_position(world_from)
+		var screen_to := viewport_camera.unproject_position(world_to)
+		if not screen_from.is_finite() or not screen_to.is_finite():
+			continue
+		var projected_record := record.duplicate(true)
+		projected_record[&"screen_from"] = screen_from
+		projected_record[&"screen_to"] = screen_to
+		projected.append(projected_record)
+	return projected
 
 
 static func _cover_edge_visual_input(edge: Dictionary, author: Node3D) -> Dictionary:
@@ -1462,6 +1561,7 @@ func _add_cover_diagnostic_markers(records: Array[Dictionary], dimensions: Vecto
 
 
 func _clear_cover_overlay() -> void:
+	_cover_hover_edge_key = ""
 	if _cover_overlay_root != null and is_instance_valid(_cover_overlay_root):
 		if _cover_overlay_root.get_parent() != null:
 			_cover_overlay_root.get_parent().remove_child(_cover_overlay_root)

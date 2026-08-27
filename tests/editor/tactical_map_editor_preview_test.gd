@@ -78,6 +78,21 @@ func _test_cover_preview_geometry() -> void:
 	invalid[&"invalid_or_conflict"] = true
 	var invalid_records := Builder.build_cover_edge_visual_records([invalid], Vector3(2, 2, 2))
 	_expect(invalid_records.size() == 1 and bool(invalid_records[0].get(&"invalid", false)), "cover preview: invalid source should remain visible as a diagnostic record")
+	var selected_edge: Dictionary = visual_edges[0].duplicate(true)
+	selected_edge[&"selected"] = true
+	var selected_records := Builder.build_cover_edge_visual_records([selected_edge], Vector3(2, 2, 2))
+	if selected_records.size() == 1:
+		var selected_line: Dictionary = selected_records[0].get(&"line", {})
+		_expect(bool(selected_records[0].get(&"selected", false)), "cover preview: selected edge state should reach the visual record")
+		_expect(selected_line.get(&"color", Color.BLACK) == Color(1.0, 0.86, 0.18, 1.0), "cover preview: selected edge should use the inspection highlight color")
+		_expect(float(selected_line.get(&"width", 0.0)) >= 0.16, "cover preview: selected edge should be wider than the normal boundary")
+	var projected_records := [
+		{&"edge_key": "far", &"screen_from": Vector2(100, 0), &"screen_to": Vector2(100, 100)},
+		{&"edge_key": "near", &"screen_from": Vector2(0, 0), &"screen_to": Vector2(80, 0)},
+	]
+	var picked := Builder.pick_cover_edge_screen_record(projected_records, Vector2(32, 4), 12.0)
+	_expect(String(picked.get(&"edge_key", "")) == "near", "cover preview: screen picking should return the closest cover edge")
+	_expect(Builder.pick_cover_edge_screen_record(projected_records, Vector2(32, 20), 12.0).is_empty(), "cover preview: screen picking should reject lines outside the hit radius")
 
 
 func _run() -> void:

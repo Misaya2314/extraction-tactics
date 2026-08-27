@@ -75,6 +75,7 @@ var selected_cells: Array[Vector3i] = []
 var _selection_clipboard: Dictionary = {}
 var debug_view: int = DebugView.NORMAL
 var debug_focus_cell: Vector3i = Vector3i(-1, -1, -1)
+var selected_cover_edge_key: String = ""
 var _property_service: TacticalMapPropertyService = PROPERTY_SERVICE_SCRIPT.new()
 var _cover_debug_snapshot_cache: Dictionary = {}
 var _cover_debug_snapshot_cache_valid: bool = false
@@ -124,6 +125,7 @@ func begin_for_author(new_author: Node, new_scene_root: Node = null) -> bool:
 	rotation_quarters = 0
 	debug_view = DebugView.NORMAL
 	debug_focus_cell = Vector3i(-1, -1, -1)
+	selected_cover_edge_key = ""
 	_default_baselines.clear()
 	edit_mode = false
 	placeables.clear()
@@ -150,6 +152,7 @@ func clear_author() -> void:
 	_active_patrol_route_id = &""
 	debug_view = DebugView.NORMAL
 	debug_focus_cell = Vector3i(-1, -1, -1)
+	selected_cover_edge_key = ""
 	_default_baselines.clear()
 	edit_mode = false
 	_set_status("选择一个 TacticalMapAuthor 开始编辑。", true)
@@ -177,6 +180,7 @@ func set_floor_level(value: int) -> void:
 	cancel_stroke()
 	_clear_selection_internal()
 	debug_focus_cell = Vector3i(-1, -1, -1)
+	selected_cover_edge_key = ""
 	floor_level = next_level
 	_set_status("当前编辑楼层：%d。" % floor_level, true)
 	_emit_changed()
@@ -527,6 +531,8 @@ func set_debug_view(value: int) -> void:
 	if debug_view == next_view:
 		return
 	debug_view = next_view
+	if debug_view != DebugView.COVER:
+		selected_cover_edge_key = ""
 	_set_status("调试视图：%s。" % debug_view_name(), true)
 	_emit_changed()
 
@@ -715,6 +721,61 @@ func get_cover_debug_snapshot() -> Dictionary:
 	_cover_debug_snapshot_cache = snapshot.duplicate(true)
 	_cover_debug_snapshot_cache_valid = true
 	return snapshot
+
+
+## Return the currently selected baked edge as a detached dictionary. The
+## selection stores only the stable canonical edge key so a map rebuild cannot
+## leave the Dock holding a stale Resource reference.
+func get_selected_cover_edge() -> Dictionary:
+	if selected_cover_edge_key.is_empty():
+		return {}
+	var snapshot := get_cover_debug_snapshot()
+	for edge_value in snapshot.get(&"edges", []):
+		if not edge_value is Dictionary:
+			continue
+		var edge := edge_value as Dictionary
+		if String(edge.get(&"edge_key", "")) == selected_cover_edge_key:
+			return edge.duplicate(true)
+	# A bake/resource refresh may remove the selected edge. Drop the key as soon
+	# as that happens so the inspector cannot keep pointing at a phantom edge or
+	# unexpectedly reselect it if a resource later comes back.
+	selected_cover_edge_key = ""
+	return {}
+
+
+func get_selected_cover_edge_key() -> String:
+	return selected_cover_edge_key
+
+
+func select_cover_edge(edge_key: String) -> bool:
+	if not has_author():
+		_set_status("无法选择掩体边：没有活动的 TacticalMapAuthor。", false)
+		return false
+	var requested_key := edge_key.strip_edges()
+	if requested_key.is_empty():
+		return clear_cover_edge_selection()
+	var snapshot := get_cover_debug_snapshot()
+	for edge_value in snapshot.get(&"edges", []):
+		if not edge_value is Dictionary:
+			continue
+		var edge := edge_value as Dictionary
+		if String(edge.get(&"edge_key", "")) != requested_key:
+			continue
+		selected_cover_edge_key = requested_key
+		_set_status("已选中掩体边：%s。" % requested_key, true)
+		_emit_changed()
+		return true
+	_set_status("未找到掩体边：%s。" % requested_key, false)
+	return false
+
+
+func clear_cover_edge_selection() -> bool:
+	if selected_cover_edge_key.is_empty():
+		return false
+	selected_cover_edge_key = ""
+	_set_status("已清除掩体边选择。", true)
+	_emit_changed()
+	return true
 
 
 ## Baker normalizes X/Z coordinates but moves the definition origin by the

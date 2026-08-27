@@ -222,33 +222,81 @@ static func build_cover_edge_visual_records(edges: Array, dimensions: Vector3) -
 		var level_a := int(profile_a.get(&"level", 0)) if profile_a is Dictionary else 0
 		var level_b := int(profile_b.get(&"level", 0)) if profile_b is Dictionary else 0
 		var invalid := bool(edge.get(&"invalid_or_conflict", false))
+		var selected := bool(edge.get(&"selected", false))
+		var hovered := bool(edge.get(&"hovered", false))
 		if not invalid and level_a <= 0 and level_b <= 0:
 			continue
 		var strongest_level := maxi(level_a, level_b)
 		var line_color := Color(0.95, 0.05, 0.15, 0.92) if invalid else _cover_profile_color(profile_b if level_b >= level_a else profile_a)
+		var line_width := 0.10 if strongest_level >= 2 else 0.055
+		if hovered:
+			line_color = Color(0.22, 0.88, 1.0, 0.98)
+			line_width = maxf(line_width, 0.12)
+		if selected:
+			line_color = Color(1.0, 0.86, 0.18, 1.0)
+			line_width = maxf(line_width, 0.16)
 		var arrows: Array[Dictionary] = []
 		if not invalid:
 			if level_a > 0:
-				arrows.append(_cover_arrow_record(edge_center, -normal, profile_a, dimensions))
+				arrows.append(_cover_arrow_record(edge_center, -normal, profile_a, dimensions, false, selected, hovered))
 			if level_b > 0:
-				arrows.append(_cover_arrow_record(edge_center, normal, profile_b, dimensions))
+				arrows.append(_cover_arrow_record(edge_center, normal, profile_b, dimensions, false, selected, hovered))
 		else:
 			# Keep a red direction cue for profiles that survived a conflicting
 			# source merge; invalid/no-profile diagnostics are represented by the
 			# red boundary/marker instead.
 			if level_a > 0:
-				arrows.append(_cover_arrow_record(edge_center, -normal, profile_a, dimensions, true))
+				arrows.append(_cover_arrow_record(edge_center, -normal, profile_a, dimensions, true, selected, hovered))
 			if level_b > 0:
-				arrows.append(_cover_arrow_record(edge_center, normal, profile_b, dimensions, true))
+				arrows.append(_cover_arrow_record(edge_center, normal, profile_b, dimensions, true, selected, hovered))
 		result.append({
 			&"edge_key": edge.get(&"edge_key", ""),
 			&"diagnostic_only": false,
 			&"invalid": invalid,
-			&"line": {&"from": line_from, &"to": line_to, &"width": 0.10 if strongest_level >= 2 else 0.055, &"color": line_color},
+			&"selected": selected,
+			&"hovered": hovered,
+			&"line": {&"from": line_from, &"to": line_to, &"width": line_width, &"color": line_color},
 			&"arrows": arrows,
 			&"source": edge.get(&"source_type", &""),
 		})
 	return result
+
+
+## Pick the closest projected cover line. The editor plugin supplies
+## screen_from/screen_to so this helper remains independent of Camera3D and is
+## straightforward to exercise in headless tests.
+static func pick_cover_edge_screen_record(records: Array, screen_position: Vector2, max_distance: float = 16.0) -> Dictionary:
+	var best: Dictionary = {}
+	var best_distance := maxf(max_distance, 0.0)
+	for record_value in records:
+		if not record_value is Dictionary:
+			continue
+		var record := record_value as Dictionary
+		if bool(record.get(&"diagnostic_only", false)):
+			continue
+		var from_value := record.get(&"screen_from", null)
+		var to_value := record.get(&"screen_to", null)
+		if not from_value is Vector2 or not to_value is Vector2:
+			continue
+		var distance := _point_segment_distance(screen_position, from_value as Vector2, to_value as Vector2)
+		var edge_key := String(record.get(&"edge_key", ""))
+		var best_key := String(best.get(&"edge_key", ""))
+		if distance > best_distance:
+			continue
+		if not best.is_empty() and is_equal_approx(distance, best_distance) and edge_key >= best_key:
+			continue
+		best_distance = distance
+		best = record.duplicate(true)
+	return best
+
+
+static func _point_segment_distance(point: Vector2, from: Vector2, to: Vector2) -> float:
+	var segment := to - from
+	var length_squared := segment.length_squared()
+	if length_squared <= 0.000001:
+		return point.distance_to(from)
+	var factor := clampf((point - from).dot(segment) / length_squared, 0.0, 1.0)
+	return point.distance_to(from + segment * factor)
 
 
 static func rotate_cardinal_direction(local_direction: int, rotation_quarters: int) -> Vector2i:
@@ -256,22 +304,29 @@ static func rotate_cardinal_direction(local_direction: int, rotation_quarters: i
 	return directions[posmod(clampi(local_direction, 0, 3) - posmod(rotation_quarters, 4), 4)]
 
 
-static func _cover_arrow_record(edge_center: Vector3, direction: Vector3, profile: Dictionary, dimensions: Vector3, invalid: bool = false) -> Dictionary:
+static func _cover_arrow_record(edge_center: Vector3, direction: Vector3, profile: Dictionary, dimensions: Vector3, invalid: bool = false, selected: bool = false, hovered: bool = false) -> Dictionary:
 	var normalized_direction := Vector3(direction.x, 0.0, direction.z).normalized()
 	var level := int(profile.get(&"level", 0))
 	var length := minf(dimensions.x, dimensions.z) * (0.46 if level >= 2 else 0.32)
 	var from := edge_center + normalized_direction * 0.05
 	from.y += dimensions.y * 0.52
 	var to := from + normalized_direction * length
+	var color := Color(0.95, 0.05, 0.15, 0.92) if invalid else _cover_profile_color(profile)
+	if hovered:
+		color = Color(0.22, 0.88, 1.0, 0.98)
+	if selected:
+		color = Color(1.0, 0.86, 0.18, 1.0)
 	return {
 		&"from": from,
 		&"to": to,
 		&"direction": Vector2i(roundi(normalized_direction.x), roundi(normalized_direction.z)),
 		&"width": 0.11 if level >= 2 else 0.065,
-		&"color": Color(0.95, 0.05, 0.15, 0.92) if invalid else _cover_profile_color(profile),
+		&"color": color,
 		&"profile_id": profile.get(&"id", &""),
 		&"level": level,
 		&"reduction": float(profile.get(&"reduction", profile.get(&"damage_reduction_ratio", 0.0))),
+		&"selected": selected,
+		&"hovered": hovered,
 	}
 
 
