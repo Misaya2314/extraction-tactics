@@ -39,8 +39,9 @@ const CURSOR_HIGHLIGHT_COLOR := Color(1.0, 1.0, 1.0, 0.45)
 const CURSOR_SURFACE_OFFSET := 0.035
 const HALF_COVER_TEXTURE: Texture2D = preload("res://assets/textures/half_cover.png")
 const FULL_COVER_TEXTURE: Texture2D = preload("res://assets/textures/full_cover.png")
+const CURSOR_HIGHLIGHT_DISTANCE: int = 1
 const COVER_PREVIEW_DISTANCE: int = 2
-const CURSOR_DISTANCE_ALPHA_FACTORS: Array[float] = [1.0, 0.55, 0.22]
+const CURSOR_DISTANCE_ALPHA_FACTORS: Array[float] = [1.0, 0.45]
 const COVER_DISTANCE_ALPHA_FACTORS: Array[float] = [1.0, 0.65, 0.35]
 const COVER_ICON_SURFACE_OFFSET: float = 0.55
 const COVER_ICON_EDGE_OFFSET_RATIO: float = 0.40
@@ -1411,10 +1412,10 @@ func _update_cursor_highlights(center_cell: Vector3i) -> void:
 
 	var mesh_index := 0
 	var level := center_cell.y
-	for dx in range(-COVER_PREVIEW_DISTANCE, COVER_PREVIEW_DISTANCE + 1):
-		for dz in range(-COVER_PREVIEW_DISTANCE, COVER_PREVIEW_DISTANCE + 1):
+	for dx in range(-CURSOR_HIGHLIGHT_DISTANCE, CURSOR_HIGHLIGHT_DISTANCE + 1):
+		for dz in range(-CURSOR_HIGHLIGHT_DISTANCE, CURSOR_HIGHLIGHT_DISTANCE + 1):
 			var dist := absi(dx) + absi(dz)
-			if dist > COVER_PREVIEW_DISTANCE:
+			if dist > CURSOR_HIGHLIGHT_DISTANCE:
 				continue
 			var cell := Vector3i(center_cell.x + dx, level, center_cell.z + dz)
 			if not grid.has_cell(cell):
@@ -1422,7 +1423,7 @@ func _update_cursor_highlights(center_cell: Vector3i) -> void:
 			if dist > 0 and not grid.is_walkable(cell):
 				continue
 
-			var alpha_factor: float = CURSOR_DISTANCE_ALPHA_FACTORS[dist] if dist < CURSOR_DISTANCE_ALPHA_FACTORS.size() else 0.2
+			var alpha_factor: float = CURSOR_DISTANCE_ALPHA_FACTORS[dist] if dist < CURSOR_DISTANCE_ALPHA_FACTORS.size() else 0.45
 			var color := Color(
 				CURSOR_HIGHLIGHT_COLOR.r,
 				CURSOR_HIGHLIGHT_COLOR.g,

@@ -63,7 +63,7 @@ func _test_distance_based_cursor_highlights() -> void:
 	controller.grid = grid
 	controller._init_hover_cursor()
 
-	# Center at (2, 0, 2) on a 5x5 grid -> 13 cells within Manhattan distance 2
+	# Center at (2, 0, 2) on a 5x5 grid -> 5 cells within Manhattan distance 1 (center + 4 cardinal neighbors)
 	controller._update_cursor_highlights(Vector3i(2, 0, 2))
 
 	var visible_highlights: Array[MeshInstance3D] = []
@@ -71,7 +71,7 @@ func _test_distance_based_cursor_highlights() -> void:
 		if mesh.visible:
 			visible_highlights.append(mesh)
 
-	_expect(visible_highlights.size() == 13, "cursor_highlight: should show 13 cells within Manhattan distance 2 (got %d)" % visible_highlights.size())
+	_expect(visible_highlights.size() == 5, "cursor_highlight: should show 5 cells within Manhattan distance 1 (got %d)" % visible_highlights.size())
 
 	# Find center mesh (distance 0) and check alpha
 	var center_pos: Vector3 = grid.cell_to_world(Vector3i(2, 0, 2)) + Vector3.UP * controller.CURSOR_SURFACE_OFFSET
