@@ -35,6 +35,8 @@ const ATTACK_HIGHLIGHT_COLOR := Color(1.0, 0.23, 0.16, 0.48)
 const LOOT_HIGHLIGHT_COLOR := Color(1.0, 0.82, 0.16, 0.56)
 const EXTRACTION_HIGHLIGHT_COLOR := Color(0.2, 0.95, 0.42, 0.56)
 const MOVE_HIGHLIGHT_SURFACE_OFFSET := 0.025
+const CURSOR_HIGHLIGHT_COLOR := Color(1.0, 1.0, 1.0, 0.45)
+const CURSOR_SURFACE_OFFSET := 0.035
 
 @export var map_definition: TacticalMapDefinition
 @export var cover_combat_settings: CoverCombatSettings
@@ -73,6 +75,8 @@ const VISION_BLOCK_COLOR := Color(0.0, 0.0, 0.0, 0.6)
 const ENEMY_VISION_COLOR := Color(0.62, 0.4, 1.0, 0.22)
 var inventory_body_collapsed := true
 var _restore_inventory_after_loot := false
+var _hover_cursor: MeshInstance3D = null
+var _hovered_cell: Vector3i = Vector3i(-1, -1, -1)
 ## Shared, lazily-built highlight resources so whole-map overlay rebuilds reuse
 ## one Mesh + one Material per color instead of allocating per cell, which
 ## otherwise exhausts the D3D12 RESOURCES descriptor heap on large maps.
@@ -167,6 +171,7 @@ func _ready() -> void:
 	if not player_cells.is_empty():
 		_select_unit(_find_player_at(player_cells[0]))
 	_evaluate_detection()
+	_init_hover_cursor()
 	_update_hud("探索中：用底部按钮切换移动/攻击；移动模式看蓝格，攻击模式看红格。")
 
 
@@ -282,8 +287,20 @@ func _handle_loot_action(request: Variant, _context: Variant) -> Variant:
 	return _action_rejected(&"invalid_target", ACTION_LOOT, request.actor_id, request.target_id)
 
 
+func _process(_delta: float) -> void:
+	if is_instance_valid(_hover_cursor) and _hover_cursor.visible and not input_locked and not _is_terminal():
+		var viewport := get_viewport()
+		if is_instance_valid(viewport):
+			_update_hover_cursor(viewport.get_mouse_position())
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if input_locked or _is_terminal():
+		_hide_hover_cursor()
+		return
+	if event is InputEventMouseMotion:
+		var motion_event := event as InputEventMouseMotion
+		_update_hover_cursor(motion_event.position)
 		return
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
@@ -1334,6 +1351,45 @@ func _refresh_action_bar() -> void:
 	attack_action_button.button_pressed = action_mode == ACTION_MODE_ATTACK
 
 
+func _init_hover_cursor() -> void:
+	if not is_instance_valid(grid):
+		return
+	if is_instance_valid(_hover_cursor):
+		return
+	_hover_cursor = MeshInstance3D.new()
+	_hover_cursor.name = "HoverCursor"
+	_hover_cursor.mesh = _get_cached_highlight_mesh(
+		Vector3(grid.cell_dimensions.x * 0.92, 0.04, grid.cell_dimensions.z * 0.92)
+	)
+	_hover_cursor.material_override = _get_cached_highlight_material(CURSOR_HIGHLIGHT_COLOR)
+	_hover_cursor.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_hover_cursor.visible = false
+	add_child(_hover_cursor)
+
+
+func _update_hover_cursor(screen_position: Vector2) -> void:
+	if not is_instance_valid(_hover_cursor) or not is_instance_valid(grid) or not _player_can_act():
+		_hide_hover_cursor()
+		return
+	var cell := _screen_to_cell(screen_position)
+	if not grid.has_cell(cell) or not grid.in_bounds(cell):
+		_hide_hover_cursor()
+		return
+	_hovered_cell = cell
+	_hover_cursor.global_position = grid.cell_to_world(cell) + Vector3.UP * CURSOR_SURFACE_OFFSET
+	_hover_cursor.visible = true
+
+
+func _hide_hover_cursor() -> void:
+	_hovered_cell = grid.invalid_cell() if is_instance_valid(grid) else Vector3i(-1, -1, -1)
+	if is_instance_valid(_hover_cursor):
+		_hover_cursor.visible = false
+
+
+func get_hovered_cell() -> Vector3i:
+	return _hovered_cell
+
+
 func _add_highlight(parent: Node3D, cell: Vector3i, color: Color, height_offset: float = MOVE_HIGHLIGHT_SURFACE_OFFSET) -> void:
 	if not is_instance_valid(parent):
 		return
@@ -1831,9 +1887,15 @@ func _is_loot_visible(container_id: StringName) -> bool:
 
 
 func _screen_to_cell(screen_position: Vector2) -> Vector3i:
-	var camera := get_viewport().get_camera_3d()
+	var viewport := get_viewport()
+	if not is_instance_valid(viewport):
+		return grid.invalid_cell() if is_instance_valid(grid) else Vector3i(-1, -1, -1)
+	var camera := viewport.get_camera_3d()
 	if not is_instance_valid(camera):
-		return grid.invalid_cell()
+		return grid.invalid_cell() if is_instance_valid(grid) else Vector3i(-1, -1, -1)
+	var world_3d := get_world_3d()
+	if not is_instance_valid(world_3d) or world_3d.direct_space_state == null:
+		return grid.invalid_cell() if is_instance_valid(grid) else Vector3i(-1, -1, -1)
 	var ray_origin := camera.project_ray_origin(screen_position)
 	var ray_direction := camera.project_ray_normal(screen_position)
 	var query := PhysicsRayQueryParameters3D.create(ray_origin, ray_origin + ray_direction * 1000.0)
@@ -1841,9 +1903,9 @@ func _screen_to_cell(screen_position: Vector2) -> Vector3i:
 	# FloorGrid and traversal surfaces are layer 1; blocking gameplay objects
 	# may also be layer 2. Resolve any hit back to the nearest standable surface.
 	query.collision_mask = 3
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var hit := world_3d.direct_space_state.intersect_ray(query)
 	if hit.is_empty():
-		return grid.invalid_cell()
+		return grid.invalid_cell() if is_instance_valid(grid) else Vector3i(-1, -1, -1)
 	return grid.world_to_existing_cell(hit[&"position"])
 
 
