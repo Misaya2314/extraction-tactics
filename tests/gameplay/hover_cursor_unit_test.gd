@@ -16,6 +16,7 @@ func _init() -> void:
 func _run() -> void:
 	_test_hover_cursor_lifecycle()
 	_test_hover_cursor_bounds_and_visibility()
+	_test_distance_based_cursor_highlights()
 	_test_cover_preview_indicators()
 	_finish()
 
@@ -26,15 +27,16 @@ func _test_hover_cursor_lifecycle() -> void:
 	controller._init_hover_cursor()
 
 	_expect(controller._hover_cursor != null, "cursor: _hover_cursor should be instantiated")
+	_expect(controller._cursor_indicators_root != null, "cursor: _cursor_indicators_root should be instantiated")
 	_expect(controller._cover_indicators_root != null, "cursor: _cover_indicators_root should be instantiated")
 	if controller._hover_cursor != null:
-		_expect(controller._hover_cursor.name == "HoverCursor", "cursor: name should be HoverCursor")
 		_expect(not controller._hover_cursor.visible, "cursor: initial visibility should be false")
 		_expect(controller._hover_cursor.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "cursor: shadows should be disabled")
 		_expect(controller.get_hovered_cell() == Vector3i(-1, -1, -1), "cursor: initial hovered cell should be invalid")
 		
 		# Test hide
-		controller._hover_cursor.visible = true
+		controller._update_cursor_highlights(Vector3i(1, 0, 1))
+		_expect(controller._hover_cursor.visible, "cursor: _update_cursor_highlights should make center visible")
 		controller._hovered_cell = Vector3i(1, 0, 1)
 		controller._hide_hover_cursor()
 		_expect(not controller._hover_cursor.visible, "cursor: _hide_hover_cursor should set visible to false")
@@ -50,7 +52,40 @@ func _test_hover_cursor_bounds_and_visibility() -> void:
 
 	# When player cannot act, cursor hides
 	controller._update_hover_cursor(Vector2(100, 100))
-	_expect(not controller._hover_cursor.visible, "cursor: should remain hidden when player cannot act")
+	_expect(not controller._is_cursor_visible(), "cursor: should remain hidden when player cannot act")
+
+	controller.free()
+
+
+func _test_distance_based_cursor_highlights() -> void:
+	var controller = PrototypeControllerScript.new()
+	var grid = GridModelScript.new(Vector2i(5, 5))
+	controller.grid = grid
+	controller._init_hover_cursor()
+
+	# Center at (2, 0, 2) on a 5x5 grid -> 13 cells within Manhattan distance 2
+	controller._update_cursor_highlights(Vector3i(2, 0, 2))
+
+	var visible_highlights: Array[MeshInstance3D] = []
+	for mesh in controller._cursor_mesh_pool:
+		if mesh.visible:
+			visible_highlights.append(mesh)
+
+	_expect(visible_highlights.size() == 13, "cursor_highlight: should show 13 cells within Manhattan distance 2 (got %d)" % visible_highlights.size())
+
+	# Find center mesh (distance 0) and check alpha
+	var center_pos: Vector3 = grid.cell_to_world(Vector3i(2, 0, 2)) + Vector3.UP * controller.CURSOR_SURFACE_OFFSET
+	var center_mesh: MeshInstance3D = null
+	for mesh in visible_highlights:
+		if mesh.position.is_equal_approx(center_pos):
+			center_mesh = mesh
+			break
+	_expect(center_mesh != null, "cursor_highlight: center mesh should exist")
+	if center_mesh != null:
+		var center_material = center_mesh.material_override as StandardMaterial3D
+		_expect(center_material != null, "cursor_highlight: center mesh should have material")
+		if center_material != null:
+			_expect(is_equal_approx(center_material.albedo_color.a, controller.CURSOR_HIGHLIGHT_COLOR.a * controller.CURSOR_DISTANCE_ALPHA_FACTORS[0]), "cursor_highlight: center alpha should match distance 0 factor")
 
 	controller.free()
 
@@ -70,6 +105,7 @@ func _test_cover_preview_indicators() -> void:
 	grid.edge_index.configure([edge])
 
 	# Update preview with cursor at (2, 0, 2)
+	# Cell (2,0,2) is distance 0 (alpha factor 1.0), Cell (2,0,3) is distance 1 (alpha factor 0.65)
 	controller._update_cover_preview(Vector3i(2, 0, 2))
 
 	var visible_sprites: Array[Sprite3D] = []
@@ -82,6 +118,8 @@ func _test_cover_preview_indicators() -> void:
 		var textures := [visible_sprites[0].texture, visible_sprites[1].texture]
 		_expect(textures.has(controller.HALF_COVER_TEXTURE), "cover_preview: should have half cover texture")
 		_expect(textures.has(controller.FULL_COVER_TEXTURE), "cover_preview: should have full cover texture")
+		_expect(is_equal_approx(visible_sprites[0].modulate.a, 1.0), "cover_preview: distance 0 icon should have alpha 1.0")
+		_expect(is_equal_approx(visible_sprites[1].modulate.a, controller.COVER_DISTANCE_ALPHA_FACTORS[1]), "cover_preview: distance 1 icon should have alpha 0.65")
 
 	# Moving cursor far away (> 2 distance, e.g. (5, 0, 5)) should show no icons
 	controller._update_cover_preview(Vector3i(5, 0, 5))
