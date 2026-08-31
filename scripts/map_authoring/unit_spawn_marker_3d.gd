@@ -3,6 +3,7 @@ class_name UnitSpawnMarker3D
 extends MapMarker3D
 
 @export var unit_name: StringName = &"Unit"
+@export var spawn_id: StringName = &""
 @export_enum("player", "enemy") var faction: String = "player"
 @export var facing: Vector2i = Vector2i.DOWN
 @export var visual_color: Color = Color("4f9dff")
@@ -15,6 +16,9 @@ extends MapMarker3D
 func to_data() -> MapSpawnData:
 	var data := MapSpawnData.new()
 	data.unit_name = unit_name
+	# Keep old authoring nodes loadable while ensuring every newly authored
+	# spawn carries a stable ID into the baked MapSpawnData.
+	data.spawn_id = spawn_id if spawn_id != &"" else unit_name
 	data.faction = StringName(faction)
 	data.cell = cell
 	data.facing = facing

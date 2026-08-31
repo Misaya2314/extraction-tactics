@@ -81,13 +81,17 @@ func refresh() -> void:
 		return
 	_status_label.text = "拖动物品到左侧背包；R 或右键旋转。"
 	for index in range(container.get_item_count()):
-		var item := container.get_item(index)
+		var item: InventoryItemInstance = container.get_item(index)
 		if item == null:
 			continue
 		var row := HBoxContainer.new()
 		row.custom_minimum_size = Vector2(0, 72)
 		row.add_theme_constant_override("separation", 7)
-		var item_rotation := int(_pending_rotations.get(item.instance_id, item.rotation))
+		# Loot instances are not placed in a grid yet, so their compatibility
+		# rotation is deliberately ignored.  Only this control's pending preview
+		# can define the temporary orientation until the inventory placement owns
+		# it.
+		var item_rotation: int = int(_pending_rotations.get(item.instance_id, 0))
 		var item_control := InventoryItemControl.new()
 		item_control.configure(
 			item,
@@ -211,10 +215,10 @@ func _on_item_right_click(payload: Dictionary) -> void:
 	var index := int(payload.get("index", -1))
 	if index < 0:
 		return
-	var item := container.get_item(index) if container != null else null
+	var item: InventoryItemInstance = container.get_item(index) if container != null else null
 	if item == null:
 		return
-	_pending_rotations[item.instance_id] = ItemDefinition.rotation_to_degrees(int(payload.get("rotation", item.rotation)) + 90)
+	_pending_rotations[item.instance_id] = ItemDefinition.rotation_to_degrees(int(payload.get("rotation", _pending_rotations.get(item.instance_id, 0))) + 90)
 	refresh()
 
 

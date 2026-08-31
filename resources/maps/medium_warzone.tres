@@ -7448,6 +7448,7 @@ loot_table = ExtResource("9_w8prc")
 [sub_resource type="Resource" id="Resource_4ahj6"]
 script = ExtResource("13_w0mol")
 unit_name = &"enemyspawn_002"
+spawn_id = &"enemyspawn_002"
 faction = &"enemy"
 cell = Vector3i(22, 0, 38)
 facing = Vector2i(-1, 0)
@@ -7457,22 +7458,27 @@ archetype = ExtResource("14_enx22")
 [sub_resource type="Resource" id="Resource_6qf4m"]
 script = ExtResource("13_w0mol")
 unit_name = &"enemyspawn_007"
+spawn_id = &"enemyspawn_007"
 faction = &"enemy"
 cell = Vector3i(18, 0, 43)
 facing = Vector2i(-1, 0)
 visual_color = Color(1, 0.35686275, 0.35686275, 1)
+archetype = ExtResource("14_enx22")
 
 [sub_resource type="Resource" id="Resource_k67cv"]
 script = ExtResource("13_w0mol")
 unit_name = &"enemyspawn_008"
+spawn_id = &"enemyspawn_008"
 faction = &"enemy"
 cell = Vector3i(18, 0, 35)
 facing = Vector2i(-1, 0)
 visual_color = Color(1, 0.35686275, 0.35686275, 1)
+archetype = ExtResource("14_enx22")
 
 [sub_resource type="Resource" id="Resource_j5vr4"]
 script = ExtResource("13_w0mol")
 unit_name = &"playerspawn_001"
+spawn_id = &"playerspawn_001"
 cell = Vector3i(3, 0, 35)
 visual_color = Color(0.30980393, 0.6156863, 1, 1)
 archetype = ExtResource("15_kt0d4")
@@ -7480,6 +7486,7 @@ archetype = ExtResource("15_kt0d4")
 [sub_resource type="Resource" id="Resource_bs3p2"]
 script = ExtResource("13_w0mol")
 unit_name = &"playerspawn_002"
+spawn_id = &"playerspawn_002"
 cell = Vector3i(3, 0, 40)
 visual_color = Color(0.30980393, 0.6156863, 1, 1)
 archetype = ExtResource("15_kt0d4")

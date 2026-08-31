@@ -7,6 +7,11 @@ const ActionRequestScript = preload("res://scripts/core/action/action_request.gd
 const ActionExecutionContextScript = preload("res://scripts/core/action/action_execution_context.gd")
 const ActionExecutorScript = preload("res://scripts/core/action/action_executor.gd")
 const GameStateManagerScript = preload("res://scripts/core/session/game_state_manager.gd")
+const GameDefinitionRegistryScript = preload("res://scripts/core/content/game_definition_registry.gd")
+const RuntimeInstanceRegistryScript = preload("res://scripts/core/runtime/runtime_instance_registry.gd")
+const InstanceIdGeneratorScript = preload("res://scripts/core/runtime/instance_id_generator.gd")
+const ItemInstanceFactoryScript = preload("res://scripts/core/items/item_instance_factory.gd")
+const UnitInstanceFactoryScript = preload("res://scripts/core/units/unit_instance_factory.gd")
 const SquadInventoryScript = preload("res://scripts/core/inventory/squad_inventory.gd")
 const LootContainerScript = preload("res://scripts/core/loot/loot_container_model.gd")
 const LootSettlementScript = preload("res://scripts/core/loot/loot_settlement.gd")
@@ -54,6 +59,11 @@ var grid: GridModel
 var _environment_root: Node3D
 var turn_manager: TurnManager
 var action_executor: ActionExecutor
+var definition_registry: GameDefinitionRegistry
+var runtime_instance_registry: RuntimeInstanceRegistry
+var instance_id_generator: InstanceIdGenerator
+var item_instance_factory: ItemInstanceFactory
+var unit_instance_factory: UnitInstanceFactory
 var last_action_result: ActionResult
 var last_cover_query: CoverQueryResult
 var last_cover_damage: Dictionary = {}
@@ -84,6 +94,7 @@ const VISION_BLOCK_COLOR := Color(0.0, 0.0, 0.0, 0.6)
 const ENEMY_VISION_COLOR := Color(0.62, 0.4, 1.0, 0.22)
 var inventory_body_collapsed := true
 var _restore_inventory_after_loot := false
+var _runtime_content_ready := false
 var _hover_cursor: MeshInstance3D = null
 var _hovered_cell: Vector3i = Vector3i(-1, -1, -1)
 var _cursor_indicators_root: Node3D = null
@@ -157,11 +168,17 @@ func _ready() -> void:
 		push_error("Failed to configure grid from map definition.")
 		return
 	_apply_camera_bounds()
+	_configure_runtime_instances()
 	if cover_combat_settings == null:
 		cover_combat_settings = CoverCombatSettingsScript.load_default()
 	session_manager = GameStateManagerScript.new()
 	_configure_action_executor()
-	squad_inventory = SquadInventoryScript.new()
+	squad_inventory = SquadInventoryScript.new(
+		SquadInventoryScript.DEFAULT_WIDTH,
+		SquadInventoryScript.DEFAULT_HEIGHT,
+		&"squad_inventory",
+		item_instance_factory
+	)
 	loot_settlement = null
 	session_manager.state_changed.connect(_on_session_state_changed)
 	session_manager.result_changed.connect(_on_session_result_changed)
@@ -206,6 +223,37 @@ func _configure_action_executor() -> void:
 	action_executor.register_handler(ACTION_ATTACK, Callable(self, "_handle_attack_action"))
 	action_executor.register_handler(ACTION_INTERACT, Callable(self, "_handle_interact_action"))
 	action_executor.register_handler(ACTION_LOOT, Callable(self, "_handle_loot_action"))
+
+
+func _configure_runtime_instances() -> void:
+	definition_registry = GameDefinitionRegistryScript.new()
+	var manifest = load("res://resources/content/game_content_manifest.tres")
+	_runtime_content_ready = false
+	if manifest != null:
+		var registry_result: Dictionary = definition_registry.configure(manifest)
+		_runtime_content_ready = bool(registry_result.get(&"valid", false))
+		if not _runtime_content_ready:
+			push_warning("Game content manifest is not fully valid; the runtime factory will reject unresolved definitions.")
+	else:
+		push_warning("Game content manifest is unavailable; runtime unit creation will be rejected.")
+	runtime_instance_registry = RuntimeInstanceRegistryScript.new()
+	var map_token := StringName(String(map_definition.map_id).strip_edges())
+	if map_token.is_empty():
+		map_token = &"prototype"
+	instance_id_generator = InstanceIdGeneratorScript.new(StringName("prototype_%s" % map_token))
+	# ItemInstanceFactory receives the shared definition/identity dependencies;
+	# its constructor is kept adjacent to the runtime setup so inventory and all
+	# Loot containers cannot accidentally create a second factory or ID stream.
+	item_instance_factory = ItemInstanceFactoryScript.new(
+		instance_id_generator,
+		definition_registry,
+		runtime_instance_registry
+	)
+	unit_instance_factory = UnitInstanceFactoryScript.new(
+		definition_registry,
+		runtime_instance_registry,
+		instance_id_generator
+	)
 
 
 func _execute_runtime_action(request: Variant, actor: PrototypeUnit = null) -> ActionResult:
@@ -361,13 +409,16 @@ func _index_map_objects() -> void:
 			if not extraction_cells.has(placement.cell):
 				extraction_cells.append(placement.cell)
 		elif placement.kind == MapObjectPlacement.Kind.LOOT:
+			if not _runtime_content_ready:
+				push_error("Loot placement %s skipped: Game content manifest is invalid or unavailable." % placement.object_id)
+				continue
 			var table = _placement_property(placement, &"loot_table")
 			if table == null:
 				push_warning("Loot placement %s has no loot_table; container skipped." % placement.object_id)
 				continue
 			var seed := int(_placement_property(placement, &"loot_seed", -1))
-			var container := LootContainerScript.new()
-			if table != null and container.initialize(placement.object_id, table, seed):
+			var container := LootContainerScript.new(item_instance_factory)
+			if table != null and container.initialize(placement.object_id, table, seed, null, item_instance_factory):
 				loot_containers[placement.object_id] = container
 			else:
 				push_warning("Loot placement %s has an invalid loot_table; container skipped." % placement.object_id)
@@ -425,27 +476,72 @@ func _apply_map_rules() -> void:
 
 
 func _spawn_initial_units() -> void:
-	for spawn in map_definition.spawns:
-		var color := spawn.visual_color
-		if color == Color.WHITE:
-			color = PLAYER_COLOR if spawn.faction == &"player" else ENEMY_COLOR
-		var unit := _spawn_unit(spawn.unit_name, spawn.cell, spawn.faction, color, spawn.archetype, spawn.weapon)
-		unit.set_facing(spawn.facing)
+	for index in map_definition.spawns.size():
+		var spawn: MapSpawnData = map_definition.spawns[index]
+		var unit := _spawn_unit_from_spawn(spawn, index)
+		if is_instance_valid(unit):
+			unit.set_facing(spawn.facing)
 
 
 func _spawn_unit(unit_name: StringName, cell: Vector3i, faction: StringName, color: Color, archetype: UnitArchetype = null, weapon: WeaponDefinition = null) -> PrototypeUnit:
+	# Compatibility entry for callers that still provide the legacy argument
+	# list.  It still goes through the same Factory and never derives an ID
+	# from a Node/Object instance ID.
+	var spawn := MapSpawnData.new()
+	spawn.spawn_id = StringName("compat_%s" % String(unit_name))
+	spawn.unit_name = unit_name
+	spawn.cell = cell
+	spawn.faction = faction
+	spawn.visual_color = color
+	spawn.archetype = archetype
+	spawn.weapon = weapon
+	return _spawn_unit_from_spawn(spawn, -1)
+
+
+func _spawn_unit_from_spawn(spawn: MapSpawnData, legacy_index: int = -1) -> PrototypeUnit:
+	if unit_instance_factory == null or spawn == null:
+		push_error("Cannot spawn a unit without UnitInstanceFactory and MapSpawnData.")
+		return null
+	var map_id := StringName(String(map_definition.map_id).strip_edges())
+	if map_id.is_empty():
+		map_id = &"prototype"
+	var creation := unit_instance_factory.create_from_spawn_result(spawn, map_id, legacy_index)
+	if not creation.success:
+		push_error("Failed to create unit '%s': %s (%s)" % [spawn.unit_name, creation.message, creation.reason_code])
+		return null
+	var state := creation.value as UnitRuntimeState
+	if state == null:
+		push_error("Unit factory returned no UnitRuntimeState for '%s'." % spawn.unit_name)
+		return null
+	var color := spawn.visual_color
+	if color == Color.WHITE:
+		color = PLAYER_COLOR if spawn.faction == &"player" else ENEMY_COLOR
 	var unit := UNIT_SCENE.instantiate() as PrototypeUnit
-	unit.name = unit_name
-	unit.configure(cell, faction, color, archetype, weapon)
+	if unit == null or not unit.bind_runtime_state(state, color):
+		_rollback_runtime_unit(state)
+		push_error("Failed to bind runtime state for unit '%s'." % spawn.unit_name)
+		return null
+	unit.name = spawn.unit_name if not spawn.unit_name.is_empty() else StringName("Unit_%d" % legacy_index)
 	units_root.add_child(unit)
-	unit.global_position = grid.cell_to_world(cell)
+	unit.global_position = grid.cell_to_world(state.cell)
 	unit.action_points_changed.connect(_on_unit_state_changed)
 	unit.health_changed.connect(_on_unit_state_changed)
 	unit.died.connect(_on_unit_died)
-	if not grid.occupy(cell, unit.unit_id):
-		push_error("Failed to occupy %s for %s" % [cell, unit.name])
+	if not grid.occupy(state.cell, state.instance_id):
+		_rollback_runtime_unit(state)
+		unit.queue_free()
+		push_error("Failed to occupy %s for %s" % [state.cell, unit.name])
+		return null
 	units_by_id[unit.unit_id] = unit
 	return unit
+
+
+func _rollback_runtime_unit(state: UnitRuntimeState) -> void:
+	if state == null or runtime_instance_registry == null:
+		return
+	runtime_instance_registry.unregister(state.instance_id)
+	if state.weapon_instance_id != &"":
+		runtime_instance_registry.unregister(state.weapon_instance_id)
 
 
 func _configure_encounter_models() -> void:
@@ -662,11 +758,12 @@ func loot_item(index: int) -> ActionResult:
 	var item: InventoryItemInstance = container.get_item(index)
 	if item == null or squad_inventory == null:
 		return _action_rejected(&"invalid_target", ACTION_LOOT)
-	var anchor: Vector2i = squad_inventory.find_first_fit(item)
+	var allow_owned := _is_current_loot_item(open_loot_container_id, index, item)
+	var anchor: Vector2i = squad_inventory.find_first_fit(item, -1, allow_owned)
 	if anchor == SquadInventoryScript.NO_FIT:
 		_update_hud("空间碎片：背包总空格可能足够，但该形状没有连续合法位置。")
 		return _action_rejected(&"inventory_full", ACTION_LOOT, selected_unit.unit_id if is_instance_valid(selected_unit) else &"", open_loot_container_id)
-	return place_loot_instance(open_loot_container_id, index, anchor, item.rotation)
+	return place_loot_instance(open_loot_container_id, index, anchor, 0)
 
 
 func loot_all() -> ActionResult:
@@ -695,7 +792,8 @@ func preview_inventory_command(
 		if container == null or not container.is_opened() or container.is_depleted() or item == null or item.instance_id != instance_id:
 			return {"valid": false, "cells": cells, "reason": &"invalid_target"}
 		if item != null:
-			valid = squad_inventory.can_place(item, anchor, rotation)
+			var allow_owned := _is_current_loot_item(container_id, index, item)
+			valid = squad_inventory.can_place(item, anchor, rotation, allow_owned)
 			cells = _instance_cells(item, anchor, rotation)
 	elif source_kind == &"inventory":
 		var placement = squad_inventory.get_placement(instance_id)
@@ -735,7 +833,8 @@ func place_loot_instance(container_id: StringName, index: int, anchor: Vector2i,
 	var placement = object_placements.get(container_id)
 	var player := selected_unit
 	var item = container.get_item(index) if container != null else null
-	var can_receive: bool = item != null and squad_inventory != null and squad_inventory.can_place(item, anchor, rotation)
+	var allow_owned := _is_current_loot_item(container_id, index, item)
+	var can_receive: bool = allow_owned and squad_inventory != null and squad_inventory.can_place(item, anchor, rotation, allow_owned)
 	var request := ActionRequestScript.new(
 		ACTION_LOOT,
 		player.unit_id,
@@ -828,7 +927,8 @@ func _place_loot_first_fit(container_id: StringName, index: int, rotation: int =
 	var item = container.get_item(index) if container != null else null
 	if item == null or squad_inventory == null:
 		return _action_rejected(&"invalid_target", ACTION_LOOT, selected_unit.unit_id if is_instance_valid(selected_unit) else &"", container_id)
-	var anchor: Vector2i = squad_inventory.find_first_fit(item, rotation)
+	var allow_owned := _is_current_loot_item(container_id, index, item)
+	var anchor: Vector2i = squad_inventory.find_first_fit(item, rotation, allow_owned)
 	if anchor == SquadInventoryScript.NO_FIT:
 		_update_hud("空间碎片：没有可容纳该形状的连续空间。")
 		return _action_rejected(&"inventory_full", ACTION_LOOT, selected_unit.unit_id if is_instance_valid(selected_unit) else &"", container_id)
@@ -1807,6 +1907,20 @@ func _can_use_loot_action() -> bool:
 		or (state == GameStateManagerScript.State.COMBAT and turn_manager.is_player_turn())
 
 
+func _is_current_loot_container(container_id: StringName) -> bool:
+	if container_id == &"" or container_id != open_loot_container_id:
+		return false
+	var container = loot_containers.get(container_id)
+	return container != null and container.is_opened() and not container.is_depleted()
+
+
+func _is_current_loot_item(container_id: StringName, index: int, item: Variant) -> bool:
+	if not _is_current_loot_container(container_id) or item == null or index < 0:
+		return false
+	var container = loot_containers.get(container_id)
+	return container.get_item(index) == item
+
+
 ## Extraction confirmation remains an exploration-only action.
 func _can_use_exploration_action() -> bool:
 	return is_instance_valid(selected_unit) and selected_unit.is_alive() and session_manager != null \
@@ -1821,11 +1935,12 @@ func _loot_item(container_id: StringName, index: int) -> ActionResult:
 	var item = container.get_item(index) if container != null else null
 	if item == null or squad_inventory == null:
 		return _action_rejected(&"invalid_target", ACTION_LOOT)
-	var anchor: Vector2i = squad_inventory.find_first_fit(item)
+	var allow_owned := _is_current_loot_item(container_id, index, item)
+	var anchor: Vector2i = squad_inventory.find_first_fit(item, -1, allow_owned)
 	if anchor == SquadInventoryScript.NO_FIT:
 		_update_hud("空间碎片：该物品没有连续合法位置，Loot 与 AP 未改变。")
 		return _action_rejected(&"inventory_full", ACTION_LOOT)
-	return place_loot_instance(container_id, index, anchor, item.rotation)
+	return place_loot_instance(container_id, index, anchor, 0)
 
 
 func _loot_all(container_id: StringName) -> ActionResult:
@@ -1835,6 +1950,7 @@ func _loot_all(container_id: StringName) -> ActionResult:
 	var placement = object_placements.get(container_id)
 	var player := selected_unit
 	var contents: Array = container.get_contents_instances() if container != null else []
+	var allow_owned := _is_current_loot_container(container_id)
 	var request := ActionRequestScript.new(
 		ACTION_LOOT,
 		player.unit_id,
@@ -1847,7 +1963,7 @@ func _loot_all(container_id: StringName) -> ActionResult:
 			ActionExecutorScript.KEY_INTERACTION_RANGE: INTERACTION_RANGE,
 			ActionExecutorScript.KEY_CONTAINER_VALID: container != null and placement != null and container_id == open_loot_container_id,
 			ActionExecutorScript.KEY_CONTAINER_AVAILABLE: container != null and not container.is_depleted(),
-			ActionExecutorScript.KEY_INVENTORY_CAN_RECEIVE: squad_inventory != null and container != null and squad_inventory.can_add_items(contents),
+			ActionExecutorScript.KEY_INVENTORY_CAN_RECEIVE: squad_inventory != null and container != null and squad_inventory.can_add_items(contents, allow_owned),
 		}
 	)
 	var result := _execute_runtime_action(request, player)
@@ -1965,8 +2081,17 @@ func _refresh_result_panel() -> void:
 	var names: Array[String] = []
 	if loot_settlement != null:
 		for item in loot_settlement.get_items():
-			names.append("%s（占%d格，%d°）" % [item.display_name, item.slot_size, item.rotation])
+			names.append("%s（占%d格，%d°）" % [item.display_name, item.slot_size, _inventory_item_rotation(item)])
 	result_items_label.text = "带出物品：" + ("、".join(names) if not names.is_empty() else "无")
+
+
+func _inventory_item_rotation(item: InventoryItemInstance) -> int:
+	## InventoryItemPlacement owns orientation.  InventoryItemInstance.rotation is
+	## only a legacy compatibility hint and must not drive settlement UI.
+	if item == null or squad_inventory == null:
+		return 0
+	var placement = squad_inventory.get_placement(item)
+	return int(placement.rotation) if placement != null else 0
 
 
 func _action_rejected(reason: StringName, action_type: StringName, actor_id: StringName = &"", target_id: StringName = &"") -> ActionResult:

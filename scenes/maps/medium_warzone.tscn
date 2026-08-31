@@ -120,6 +120,7 @@ metadata/map_marker_preview = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, 1, 23)
 script = ExtResource("9_4y30j")
 unit_name = &"enemyspawn_002"
+spawn_id = &"enemyspawn_002"
 faction = "enemy"
 facing = Vector2i(-1, 0)
 visual_color = Color(1, 0.35686275, 0.35686275, 1)
@@ -130,24 +131,29 @@ cell = Vector3i(22, 0, 11)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37, 1, 33)
 script = ExtResource("9_4y30j")
 unit_name = &"enemyspawn_007"
+spawn_id = &"enemyspawn_007"
 faction = "enemy"
 facing = Vector2i(-1, 0)
 visual_color = Color(1, 0.35686275, 0.35686275, 1)
+archetype = ExtResource("13_g5ewa")
 cell = Vector3i(18, 0, 16)
 
 [node name="enemyspawn_008" type="Node3D" parent="Spawns" unique_id=647751149]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 37, 1, 17)
 script = ExtResource("9_4y30j")
 unit_name = &"enemyspawn_008"
+spawn_id = &"enemyspawn_008"
 faction = "enemy"
 facing = Vector2i(-1, 0)
 visual_color = Color(1, 0.35686275, 0.35686275, 1)
+archetype = ExtResource("13_g5ewa")
 cell = Vector3i(18, 0, 8)
 
 [node name="playerspawn_001" type="Node3D" parent="Spawns" unique_id=607370926]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1, 17)
 script = ExtResource("9_4y30j")
 unit_name = &"playerspawn_001"
+spawn_id = &"playerspawn_001"
 archetype = ExtResource("13_atd6i")
 cell = Vector3i(3, 0, 8)
 
@@ -155,6 +161,7 @@ cell = Vector3i(3, 0, 8)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1, 27)
 script = ExtResource("9_4y30j")
 unit_name = &"playerspawn_002"
+spawn_id = &"playerspawn_002"
 archetype = ExtResource("13_atd6i")
 cell = Vector3i(3, 0, 13)
 
