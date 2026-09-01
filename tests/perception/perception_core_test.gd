@@ -58,9 +58,9 @@ func _test_detection_rules() -> void:
 		edge_observer, edge_target, Vector2i.RIGHT, 4, {}, 60.0,
 		edge_grid, edge_grid.get_edge_index()
 	), "detect: explicit sight edge should block enemy detection")
-	_expect(not DetectionRulesScript.can_player_see(
+	_expect(DetectionRulesScript.can_player_see(
 		edge_observer, edge_target, 4, {}, edge_grid, edge_grid.get_edge_index()
-	), "player: explicit sight edge should block player visibility")
+	), "player: explicit sight edge should not block player visibility")
 
 	var projectile_edge := _edge(_c(1, 0), _c(2, 0), 0.0, 1.0)
 	_expect(edge_grid.edge_index.configure([projectile_edge]), "detect: explicit projectile edge should index")
@@ -71,6 +71,12 @@ func _test_detection_rules() -> void:
 	_expect(DetectionRulesScript.can_player_see(
 		edge_observer, edge_target, 4, {}, edge_grid, edge_grid.get_edge_index()
 	), "player: projectile-only edge must not block player visibility")
+
+	# Intermediate opaque cells must not block player vision
+	var opaque_wall := {_c(2, 0): true}
+	_expect(DetectionRulesScript.can_player_see(
+		edge_observer, edge_target, 4, opaque_wall
+	), "player: opaque cell must not block player visibility")
 
 	var empty_grid := GridModelScript.new(Vector2i(5, 1))
 	var legacy_result := DetectionRulesScript.can_player_see(edge_observer, edge_target, 4, {})

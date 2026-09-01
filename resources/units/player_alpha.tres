@@ -9,5 +9,5 @@ archetype_id = &"player_alpha"
 display_name = "突击手"
 max_hp = 24
 move_range = 8
-vision_range = 12
+vision_range = 15
 default_weapon = ExtResource("2_weapon")

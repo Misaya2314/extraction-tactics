@@ -41,11 +41,13 @@ static func can_player_see(
 	observer: Vector3i,
 	target: Vector3i,
 	vision_range: int,
-	opaque_cells: Dictionary,
-	grid: GridModel = null,
-	edge_index: TacticalEdgeIndex = null
+	_opaque_cells: Dictionary = {},
+	_grid: GridModel = null,
+	_edge_index: TacticalEdgeIndex = null
 ) -> bool:
-	return _has_line_of_sight(observer, target, opaque_cells, vision_range, grid, edge_index)
+	if vision_range < 0:
+		return false
+	return GridVisibility.tactical_distance(observer, target) <= vision_range
 
 
 ## Compatibility boundary for perception.  With a runtime GridModel, the
