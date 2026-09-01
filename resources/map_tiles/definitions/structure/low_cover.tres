@@ -18,9 +18,19 @@ height = 0.7
 script = ExtResource("4_local_edge")
 edge_rules = SubResource("TacticalEdgeRules_low_cover")
 
+[sub_resource type="Resource" id="TacticalLocalEdgeContribution_low_cover_east"]
+script = ExtResource("4_local_edge")
+local_direction = 1
+edge_rules = SubResource("TacticalEdgeRules_low_cover")
+
 [sub_resource type="Resource" id="TacticalLocalEdgeContribution_low_cover_south"]
 script = ExtResource("4_local_edge")
 local_direction = 2
+edge_rules = SubResource("TacticalEdgeRules_low_cover")
+
+[sub_resource type="Resource" id="TacticalLocalEdgeContribution_low_cover_west"]
+script = ExtResource("4_local_edge")
+local_direction = 3
 edge_rules = SubResource("TacticalEdgeRules_low_cover")
 
 [sub_resource type="Resource" id="TacticalCellRules_low_cover"]
@@ -35,7 +45,7 @@ tile_id = &"low_cover"
 target_layer = 1
 mesh_item_id = 3
 rule_contribution = SubResource("TacticalCellRules_low_cover")
-edge_contributions = Array[ExtResource("4_local_edge")]([SubResource("TacticalLocalEdgeContribution_low_cover"), SubResource("TacticalLocalEdgeContribution_low_cover_south")])
+edge_contributions = Array[ExtResource("4_local_edge")]([SubResource("TacticalLocalEdgeContribution_low_cover"), SubResource("TacticalLocalEdgeContribution_low_cover_east"), SubResource("TacticalLocalEdgeContribution_low_cover_south"), SubResource("TacticalLocalEdgeContribution_low_cover_west")])
 placeable_id = &"tile.structure.low_cover"
 display_name = "Low Cover"
 tags = PackedStringArray()

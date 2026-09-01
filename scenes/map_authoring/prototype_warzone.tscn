@@ -52,7 +52,7 @@ item_id = 3
 tile_id = &"low_cover"
 walkable = false
 occluder_height = 0.7
-cover_mask = 1
+cover_mask = 15
 
 [sub_resource type="Resource" id="Resource_aiis1"]
 script = ExtResource("3_6p242")

@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="TacticalCellTileDefinition" format=3 uid="uid://bx48dbjpa57sh"]
 
 [ext_resource type="Script" uid="uid://dg7mgs6ut3kbt" path="res://scripts/core/map/tactical_cell_tile_definition.gd" id="1_cell"]
+[ext_resource type="Script" uid="uid://hr4gjpevci62" path="res://scripts/core/map/tactical_local_edge_contribution.gd" id="1_ixynu"]
 [ext_resource type="Script" uid="uid://d1esqxh8ro8fi" path="res://scripts/core/map/tactical_cell_rules.gd" id="2_rules"]
 
 [sub_resource type="Resource" id="TacticalCellRules_floor_concrete"]

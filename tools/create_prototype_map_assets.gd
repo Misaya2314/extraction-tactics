@@ -82,7 +82,7 @@ func _create_catalog() -> MapTileCatalog:
 	catalog.rules.append(_rule(MapTileRule.Layer.FLOOR, 0, &"floor", true, 1, false, 0.0, 0))
 	catalog.rules.append(_rule(MapTileRule.Layer.FLOOR, 1, &"floor_alt", true, 1, false, 0.0, 0))
 	catalog.rules.append(_rule(MapTileRule.Layer.STRUCTURE, 2, &"wall", false, 1, true, 1.6, 0))
-	catalog.rules.append(_rule(MapTileRule.Layer.STRUCTURE, 3, &"low_cover", false, 1, false, 0.7, 1))
+	catalog.rules.append(_rule(MapTileRule.Layer.STRUCTURE, 3, &"low_cover", false, 1, false, 0.7, 15))
 	return catalog
 
 

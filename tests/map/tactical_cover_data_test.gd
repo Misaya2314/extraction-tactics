@@ -15,6 +15,7 @@ func _init() -> void:
 	_test_internal_structure_edges()
 	_test_baker_merge_precedence()
 	_test_profile_warning_consumption()
+	_test_four_way_cover_runtime()
 	_test_schema_contract()
 	_test_baker_save_preserves_existing_uid()
 	_finish()
@@ -70,13 +71,18 @@ func _test_local_contribution_and_content() -> void:
 	_expect(wall != null and wall.is_valid(), "content: Wall definition with edge contribution should validate")
 	if low_cover == null or wall == null:
 		return
-	_expect(low_cover.edge_contributions.size() == 2, "content: LowCover should expose North and South local edges")
+	_expect(low_cover.edge_contributions.size() == 4, "content: LowCover should expose all four local edges")
 	_expect(wall.edge_contributions.size() == 4, "content: Wall should expose all four local edges")
 	var low_directions: Array[int] = []
 	for low_edge in low_cover.edge_contributions:
 		low_directions.append(int(low_edge.local_direction))
 		_expect(low_edge.edge_rules.cover_profile_b == load("res://resources/combat/cover_profiles/cover_half.tres"), "content: LowCover neighbor side should be HALF")
-	_expect(low_directions == [TacticalLocalEdgeContribution.LocalDirection.NORTH, TacticalLocalEdgeContribution.LocalDirection.SOUTH], "content: LowCover local edges should be North/South")
+	_expect(low_directions == [
+		TacticalLocalEdgeContribution.LocalDirection.NORTH,
+		TacticalLocalEdgeContribution.LocalDirection.EAST,
+		TacticalLocalEdgeContribution.LocalDirection.SOUTH,
+		TacticalLocalEdgeContribution.LocalDirection.WEST,
+	], "content: LowCover local edges should be North/East/South/West")
 	var wall_directions: Array[int] = []
 	for wall_edge in wall.edge_contributions:
 		wall_directions.append(int(wall_edge.local_direction))
@@ -311,7 +317,7 @@ func _test_internal_structure_edges() -> void:
 	}
 	var low_candidates := [
 		_test_structure_candidate(source_cell, low_cover, low_cover.edge_contributions[0]),
-		_test_structure_candidate(neighbor_cell, low_cover, low_cover.edge_contributions[1]),
+		_test_structure_candidate(neighbor_cell, low_cover, low_cover.edge_contributions[2]),
 	]
 	var low_result := _collect_test_edges(null, low_candidates, 0, blocked_cells)
 	_expect((low_result[&"definition"].edges as Array).is_empty(), "baker: adjacent LowCover Structures should not emit an internal Edge")
@@ -339,6 +345,26 @@ func _test_internal_structure_edges() -> void:
 		var source_profile := exposed_edge.cover_profile_a if source_is_a else exposed_edge.cover_profile_b
 		var neighbor_profile := exposed_edge.cover_profile_b if source_is_a else exposed_edge.cover_profile_a
 		_expect(source_profile.cover_level == 0 and neighbor_profile.cover_level == 1, "baker: exposed Structure Edge should retain source NONE and neighbor HALF")
+
+	var all_walkable_neighbors := {
+		source_cell: _test_cell_data(source_cell, false),
+		Vector3i(0, 0, -1): _test_cell_data(Vector3i(0, 0, -1), true),
+		Vector3i(1, 0, 0): _test_cell_data(Vector3i(1, 0, 0), true),
+		Vector3i(0, 0, 1): _test_cell_data(Vector3i(0, 0, 1), true),
+		Vector3i(-1, 0, 0): _test_cell_data(Vector3i(-1, 0, 0), true),
+	}
+	var all_four_candidates: Array = []
+	for contrib in low_cover.edge_contributions:
+		all_four_candidates.append(_test_structure_candidate(source_cell, low_cover, contrib))
+	var all_four_result := _collect_test_edges(null, all_four_candidates, 0, all_walkable_neighbors)
+	var all_four_edges: Array = all_four_result[&"definition"].edges
+	_expect(all_four_edges.size() == 4, "baker: LowCover surrounded by walkable cells should emit all four edges")
+	for edge in all_four_edges:
+		var edge_data := edge as MapEdgeData
+		var source_is_a := edge_data.cell_a == edge_data.source_cell
+		var source_profile := edge_data.cover_profile_a if source_is_a else edge_data.cover_profile_b
+		var neighbor_profile := edge_data.cover_profile_b if source_is_a else edge_data.cover_profile_a
+		_expect(source_profile.cover_level == 0 and neighbor_profile.cover_level == 1, "baker: all four LowCover edges should have neighbor HALF cover")
 
 
 func _test_cell_data(coordinate: Vector3i, walkable: bool) -> MapCellData:
@@ -469,6 +495,51 @@ func _test_profile_warning_consumption() -> void:
 		if diagnostic is Dictionary and diagnostic.get(&"code", &"") == &"TMB-065":
 			warning_diagnostics += 1
 	_expect(warning_diagnostics == 2, "profile: both TMB-065 warnings should be structured diagnostics")
+
+
+func _test_four_way_cover_runtime() -> void:
+	var low_cover := load("res://resources/map_tiles/definitions/structure/low_cover.tres") as TacticalCellTileDefinition
+	if low_cover == null:
+		return
+	var center_cell := Vector3i(1, 0, 1)
+	var cells: Dictionary = {}
+	for x in range(3):
+		for z in range(3):
+			var coord := Vector3i(x, 0, z)
+			var cell_data := _test_cell_data(coord, coord != center_cell)
+			cells[coord] = cell_data
+	var candidates: Array = []
+	for contrib in low_cover.edge_contributions:
+		candidates.append(_test_structure_candidate(center_cell, low_cover, contrib))
+	var result := _collect_test_edges(null, candidates, 0, cells)
+	var definition: TacticalMapDefinition = result[&"definition"]
+	_expect(definition != null and definition.edges.size() == 4, "runtime 4-way: definition should contain 4 edges")
+	if definition == null:
+		return
+	for x in range(3):
+		for z in range(3):
+			definition.cells.append(cells[Vector3i(x, 0, z)])
+	definition.footprint_size = Vector2i(3, 3)
+	definition.level_count = 1
+	var grid := GridModel.new()
+	_expect(grid.configure_from_definition(definition), "runtime 4-way: grid should configure from definition")
+
+	var settings := CoverCombatSettings.load_default()
+	# 1. Target North (1, 0, 0), Attacker South (1, 0, 2)
+	var query_north := CoverQuery.query(Vector3i(1, 0, 2), Vector3i(1, 0, 0), grid, null, settings)
+	_expect(query_north.has_cover and query_north.cover_level == 1 and query_north.cover_profile_id == &"cover.half", "runtime 4-way: target at North should have HALF cover")
+
+	# 2. Target East (2, 0, 1), Attacker West (0, 0, 1)
+	var query_east := CoverQuery.query(Vector3i(0, 0, 1), Vector3i(2, 0, 1), grid, null, settings)
+	_expect(query_east.has_cover and query_east.cover_level == 1 and query_east.cover_profile_id == &"cover.half", "runtime 4-way: target at East should have HALF cover")
+
+	# 3. Target South (1, 0, 2), Attacker North (1, 0, 0)
+	var query_south := CoverQuery.query(Vector3i(1, 0, 0), Vector3i(1, 0, 2), grid, null, settings)
+	_expect(query_south.has_cover and query_south.cover_level == 1 and query_south.cover_profile_id == &"cover.half", "runtime 4-way: target at South should have HALF cover")
+
+	# 4. Target West (0, 0, 1), Attacker East (2, 0, 1)
+	var query_west := CoverQuery.query(Vector3i(2, 0, 1), Vector3i(0, 0, 1), grid, null, settings)
+	_expect(query_west.has_cover and query_west.cover_level == 1 and query_west.cover_profile_id == &"cover.half", "runtime 4-way: target at West should have HALF cover")
 
 
 func _collect_test_edges(

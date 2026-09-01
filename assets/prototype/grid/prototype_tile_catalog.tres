@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="MapTileCatalog" format=3 uid="uid://ceq202erwle3w"]
+[gd_resource type="Resource" script_class="MapTileCatalog" format=3]
 
-[ext_resource type="Script" uid="uid://4n5a0xk24mkv" path="res://scripts/core/map/map_tile_rule.gd" id="1_rfjmj"]
-[ext_resource type="Script" uid="uid://c0ijlb7pl2cyv" path="res://scripts/core/map/map_tile_catalog.gd" id="2_nyecn"]
+[ext_resource type="Script" path="res://scripts/core/map/map_tile_rule.gd" id="1_rfjmj"]
+[ext_resource type="Script" path="res://scripts/core/map/map_tile_catalog.gd" id="2_nyecn"]
 
 [sub_resource type="Resource" id="Resource_jgq0w"]
 script = ExtResource("1_rfjmj")
@@ -29,7 +29,7 @@ item_id = 3
 tile_id = &"low_cover"
 walkable = false
 occluder_height = 0.7
-cover_mask = 1
+cover_mask = 15
 
 [resource]
 script = ExtResource("2_nyecn")
