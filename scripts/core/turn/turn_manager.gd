@@ -15,6 +15,8 @@ var _phase: Phase = Phase.EXPLORATION
 var _player_ids: Array[StringName] = []
 var _enemy_ids: Array[StringName] = []
 
+const STATE_SNAPSHOT_SCHEMA_VERSION: int = 1
+
 
 ## Replaces both faction rosters with stable, de-duplicated, non-empty IDs.
 ## Configuration resets the phase to exploration and cannot emit a phase signal
@@ -89,6 +91,35 @@ func get_enemy_ids() -> Array[StringName]:
 	return _enemy_ids.duplicate()
 
 
+## Returns a detached, pure-data snapshot suitable for a tactical checkpoint.
+func capture_state() -> Dictionary:
+	return {
+		&"schema_version": STATE_SNAPSHOT_SCHEMA_VERSION,
+		&"phase": int(_phase),
+		&"player_ids": _player_ids.duplicate(),
+		&"enemy_ids": _enemy_ids.duplicate(),
+	}
+
+
+## Restores a previously captured state without applying normal phase rules.
+## All fields are validated before mutating this manager, so malformed input is
+## rejected atomically.  A changed phase emits at most one phase_changed signal.
+func restore_state(snapshot: Variant) -> bool:
+	var decoded: Variant = _decode_state(snapshot)
+	if decoded == null:
+		return false
+	var next_phase: Phase = decoded[&"phase"]
+	var next_players: Array[StringName] = decoded[&"player_ids"]
+	var next_enemies: Array[StringName] = decoded[&"enemy_ids"]
+	var previous_phase := _phase
+	_phase = next_phase
+	_player_ids = next_players
+	_enemy_ids = next_enemies
+	if previous_phase != _phase:
+		phase_changed.emit(previous_phase, _phase)
+	return true
+
+
 func is_player_turn() -> bool:
 	return _phase == Phase.PLAYER_TURN
 
@@ -129,6 +160,44 @@ func _unique_non_empty(ids: Array[StringName]) -> Array[StringName]:
 			continue
 		result.append(unit_id)
 	return result
+
+
+static func _decode_state(snapshot: Variant) -> Variant:
+	if not snapshot is Dictionary:
+		return null
+	var state_snapshot: Dictionary = snapshot
+	if not state_snapshot.has(&"schema_version") or not state_snapshot[&"schema_version"] is int:
+		return null
+	if state_snapshot[&"schema_version"] != STATE_SNAPSHOT_SCHEMA_VERSION:
+		return null
+	if not state_snapshot.has(&"phase") or not state_snapshot[&"phase"] is int:
+		return null
+	var raw_phase: int = state_snapshot[&"phase"]
+	if raw_phase < int(Phase.EXPLORATION) or raw_phase > int(Phase.DEFEAT):
+		return null
+	var players: Variant = _decode_ids(state_snapshot.get(&"player_ids", null))
+	var enemies: Variant = _decode_ids(state_snapshot.get(&"enemy_ids", null))
+	if players == null or enemies == null:
+		return null
+	return {
+		&"phase": raw_phase,
+		&"player_ids": players,
+		&"enemy_ids": enemies,
+	}
+
+
+static func _decode_ids(raw_ids: Variant) -> Variant:
+	if not raw_ids is Array:
+		return null
+	var ids: Array[StringName] = []
+	for raw_id in raw_ids:
+		if not (raw_id is StringName or raw_id is String):
+			return null
+		var unit_id := StringName(raw_id)
+		if unit_id == &"" or ids.has(unit_id):
+			return null
+		ids.append(unit_id)
+	return ids
 
 
 func _remove_from_array(ids: Array[StringName], unit_id: StringName) -> bool:

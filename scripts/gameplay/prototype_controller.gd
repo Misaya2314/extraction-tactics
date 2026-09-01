@@ -7,6 +7,7 @@ const ActionRequestScript = preload("res://scripts/core/action/action_request.gd
 const ActionExecutionContextScript = preload("res://scripts/core/action/action_execution_context.gd")
 const ActionExecutorScript = preload("res://scripts/core/action/action_executor.gd")
 const GameStateManagerScript = preload("res://scripts/core/session/game_state_manager.gd")
+const TacticalUndoManagerScript = preload("res://scripts/core/undo/tactical_undo_manager.gd")
 const GameDefinitionRegistryScript = preload("res://scripts/core/content/game_definition_registry.gd")
 const RuntimeInstanceRegistryScript = preload("res://scripts/core/runtime/runtime_instance_registry.gd")
 const InstanceIdGeneratorScript = preload("res://scripts/core/runtime/instance_id_generator.gd")
@@ -64,6 +65,7 @@ var runtime_instance_registry: RuntimeInstanceRegistry
 var instance_id_generator: InstanceIdGenerator
 var item_instance_factory: ItemInstanceFactory
 var unit_instance_factory: UnitInstanceFactory
+var tactical_undo_manager: TacticalUndoManager
 var last_action_result: ActionResult
 var last_cover_query: CoverQueryResult
 var last_cover_damage: Dictionary = {}
@@ -99,6 +101,7 @@ const ENEMY_VISION_COLOR := ENEMY_OUTER_VISION_COLOR
 var inventory_body_collapsed := true
 var _restore_inventory_after_loot := false
 var _runtime_content_ready := false
+var _undo_restoring := false
 var _hover_cursor: MeshInstance3D = null
 var _hovered_cell: Vector3i = Vector3i(-1, -1, -1)
 var _cursor_indicators_root: Node3D = null
@@ -112,8 +115,17 @@ var _unit_cover_icon_pool: Array[Sprite3D] = []
 ## otherwise exhausts the D3D12 RESOURCES descriptor heap on large maps.
 var _highlight_mesh_cache: Dictionary = {}
 var _highlight_material_cache: Dictionary = {}
-const INVENTORY_PANEL_EXPANDED_BOTTOM := 570.0
-const INVENTORY_PANEL_COLLAPSED_BOTTOM := 300.0
+## Keep the collapsed panel below the top-left status panel. The main scene
+## reserves a compact panel there; the runtime top follows the status panel's
+## actual content height. Expanded height is calculated from visible content.
+const INVENTORY_PANEL_LAYOUT_GAP := 10.0
+const INVENTORY_PANEL_COLLAPSED_HEIGHT := 56.0
+## This is the intrinsic height of the authored inventory body at the fixed
+## HUD width. Do not derive it from PanelContainer.get_combined_minimum_size():
+## once the panel is assigned this height, that outer minimum can include the
+## assigned size and feed back into an ever-growing rectangle.
+const INVENTORY_PANEL_EXPANDED_HEIGHT := 410.0
+var _inventory_layout_sync_queued := false
 
 @onready var units_root: Node3D = $Units
 @onready var camera_rig: TacticalCameraRig = $TacticalCameraRig
@@ -125,7 +137,10 @@ const INVENTORY_PANEL_COLLAPSED_BOTTOM := 300.0
 @onready var phase_label: Label = $HUD/TopLeftPanel/Margin/VBox/PhaseLabel
 @onready var alert_label: Label = $HUD/TopLeftPanel/Margin/VBox/AlertLabel
 @onready var hint_label: Label = $HUD/TopLeftPanel/Margin/VBox/HintLabel
+@onready var top_left_panel: PanelContainer = $HUD/TopLeftPanel
 @onready var end_turn_button: Button = $HUD/TopLeftPanel/Margin/VBox/EndTurnButton
+@onready var undo_step_button: Button = $HUD/TopLeftPanel/Margin/VBox/UndoStepButton
+@onready var undo_turn_button: Button = $HUD/TopLeftPanel/Margin/VBox/UndoTurnButton
 @onready var action_bar: PanelContainer = $HUD/ActionBar
 @onready var move_action_button: Button = $HUD/ActionBar/Margin/Buttons/MoveButton
 @onready var attack_action_button: Button = $HUD/ActionBar/Margin/Buttons/AttackButton
@@ -194,7 +209,12 @@ func _ready() -> void:
 	_configure_encounter_models()
 	_configure_inventory_ui()
 	session_manager.start_exploration()
+	_configure_undo_manager()
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
+	if is_instance_valid(undo_step_button):
+		undo_step_button.pressed.connect(_on_undo_step_pressed)
+	if is_instance_valid(undo_turn_button):
+		undo_turn_button.pressed.connect(_on_undo_turn_pressed)
 	move_action_button.pressed.connect(_on_move_action_pressed)
 	attack_action_button.pressed.connect(_on_attack_action_pressed)
 	loot_all_button.pressed.connect(_on_loot_all_button_pressed)
@@ -229,6 +249,151 @@ func _configure_action_executor() -> void:
 	action_executor.register_handler(ACTION_ATTACK, Callable(self, "_handle_attack_action"))
 	action_executor.register_handler(ACTION_INTERACT, Callable(self, "_handle_interact_action"))
 	action_executor.register_handler(ACTION_LOOT, Callable(self, "_handle_loot_action"))
+
+
+func _configure_undo_manager() -> void:
+	tactical_undo_manager = TacticalUndoManagerScript.new()
+	if not tactical_undo_manager.configure(
+		Callable(self, "_capture_undo_state"),
+		Callable(self, "_restore_undo_state")
+	):
+		push_error("Failed to configure TacticalUndoManager callbacks.")
+		tactical_undo_manager = null
+		return
+	tactical_undo_manager.availability_changed.connect(_on_undo_availability_changed)
+	# The first exploration state is the first player-operable turn.
+	_capture_undo_turn_checkpoint()
+	_refresh_undo_buttons()
+
+
+func _should_track_player_action(actor: PrototypeUnit) -> bool:
+	if tactical_undo_manager == null or _undo_restoring or not is_instance_valid(actor):
+		return false
+	if actor.faction != &"player" or session_manager == null or not session_manager.is_active():
+		return false
+	var state: int = session_manager.get_state()
+	return state == GameStateManagerScript.State.EXPLORATION \
+		or (state == GameStateManagerScript.State.COMBAT \
+		and turn_manager != null and turn_manager.is_player_turn())
+
+
+func _begin_undo_player_action(actor: PrototypeUnit) -> bool:
+	if not _should_track_player_action(actor):
+		return false
+	return tactical_undo_manager.begin_player_action()
+
+
+func _finish_undo_player_action(started: bool, succeeded: bool) -> void:
+	if not started or tactical_undo_manager == null:
+		return
+	if succeeded:
+		if not tactical_undo_manager.commit_player_action():
+			# The gameplay mutation has already passed the executor's synchronous
+			# commit point.  This should only be reachable for a broken manager
+			# lifecycle, so surface it instead of silently replacing a checkpoint.
+			push_error("TacticalUndoManager failed to commit a successful player action.")
+	else:
+		tactical_undo_manager.cancel_player_action()
+
+
+func _can_undo_in_current_context() -> bool:
+	if _undo_restoring or input_locked or session_manager == null or not session_manager.is_active():
+		return false
+	if turn_manager == null:
+		return false
+	var state: int = session_manager.get_state()
+	if state == GameStateManagerScript.State.EXPLORATION:
+		return turn_manager.get_phase() == TurnManager.Phase.EXPLORATION
+	if state == GameStateManagerScript.State.COMBAT:
+		return turn_manager.is_player_turn()
+	# EXTRACTION and RESULT are intentionally not undoable.
+	return false
+
+
+func _refresh_undo_buttons() -> void:
+	var context_allowed := _can_undo_in_current_context()
+	if tactical_undo_manager != null:
+		tactical_undo_manager.set_locked(not context_allowed)
+	var can_step := context_allowed and tactical_undo_manager != null and tactical_undo_manager.can_undo_step()
+	var can_turn := context_allowed and tactical_undo_manager != null and tactical_undo_manager.can_undo_turn()
+	if is_instance_valid(undo_step_button):
+		undo_step_button.disabled = not can_step
+	if is_instance_valid(undo_turn_button):
+		undo_turn_button.disabled = not can_turn
+
+
+func _on_undo_availability_changed(_can_step: bool = false, _can_turn: bool = false) -> void:
+	_refresh_undo_buttons()
+
+
+func _capture_undo_turn_checkpoint() -> bool:
+	if tactical_undo_manager == null or _undo_restoring:
+		return false
+	# A phase callback can arrive immediately after enemy input is released;
+	# refresh the temporary lock before asking the core manager to capture.
+	_refresh_undo_buttons()
+	return tactical_undo_manager.capture_turn_checkpoint()
+
+
+func _on_undo_step_pressed() -> void:
+	_perform_undo(false)
+
+
+func _on_undo_turn_pressed() -> void:
+	_perform_undo(true)
+
+
+func _perform_undo(to_turn: bool) -> void:
+	if tactical_undo_manager == null or not _can_undo_in_current_context():
+		return
+	if (to_turn and not tactical_undo_manager.can_undo_turn()) \
+		or (not to_turn and not tactical_undo_manager.can_undo_step()):
+		return
+	_undo_restoring = true
+	input_locked = true
+	_clear_highlights()
+	_hide_hover_cursor()
+	var restored := tactical_undo_manager.undo_turn() if to_turn else tactical_undo_manager.undo_step()
+	_undo_restoring = false
+	input_locked = false
+	_refresh_undo_buttons()
+	if not restored:
+		_update_hud("撤回失败，当前状态未改变。")
+		return
+	_post_undo_restore()
+	_update_hud("已撤回至回合开始状态。" if to_turn else "已撤回上一步。")
+
+
+func _post_undo_restore() -> void:
+	# Panels and feedback are presentation state, never part of the domain
+	# checkpoint.  Close all transient interaction surfaces before rebuilding.
+	if is_instance_valid(loot_panel):
+		loot_panel.visible = false
+	if is_instance_valid(extraction_panel):
+		extraction_panel.visible = false
+	if is_instance_valid(result_panel):
+		result_panel.visible = false
+	open_loot_container_id = &""
+	_restore_inventory_after_loot = false
+	if is_instance_valid(loot_grid):
+		loot_grid.clear_container()
+	if is_instance_valid(inventory_panel):
+		_set_inventory_body_collapsed(true)
+	for unit_value in units_by_id.values():
+		var unit := unit_value as PrototypeUnit
+		if not is_instance_valid(unit):
+			continue
+		unit.set_selected(false)
+		if unit.is_attack_feedback_playing:
+			unit.call("_interrupt_attack_feedback")
+		else:
+			unit.call("_reset_attack_feedback_visuals")
+	var restored_selection := selected_unit
+	if is_instance_valid(restored_selection):
+		restored_selection.set_selected(true)
+	_update_enemy_visibility()
+	_refresh_inventory_ui()
+	_refresh_highlights()
 
 
 func _configure_runtime_instances() -> void:
@@ -266,12 +431,450 @@ func _execute_runtime_action(request: Variant, actor: PrototypeUnit = null) -> A
 	if action_executor == null or request == null:
 		last_action_result = ActionResultScript.rejected(&"invalid_request")
 		return last_action_result
+	var undo_started := _begin_undo_player_action(actor)
 	var current_ap := actor.current_action_points if is_instance_valid(actor) else 0
 	var context = ActionExecutionContextScript.new(current_ap)
 	if is_instance_valid(actor):
 		context.set_ap_committer(Callable(actor, "spend_action_points"))
 	last_action_result = action_executor.execute(request, context)
+	_finish_undo_player_action(undo_started, last_action_result != null and last_action_result.success)
+	_refresh_undo_buttons()
 	return last_action_result
+
+
+## The undo manager stores this detached-by-convention dictionary.  Runtime
+## state, item instances and Nodes are retained by identity, while every
+## mutable value needed to restore them is copied as scalar/vector data.  No
+## visual transform is treated as authoritative.
+func _capture_undo_state() -> Dictionary:
+	var unit_entries: Array[Dictionary] = []
+	var occupancy: Array[Dictionary] = []
+	var unit_keys: Array = units_by_id.keys()
+	unit_keys.sort_custom(func(first: Variant, second: Variant) -> bool:
+		return String(first) < String(second)
+	)
+	for raw_unit_id in unit_keys:
+		var unit := units_by_id[raw_unit_id] as PrototypeUnit
+		if not is_instance_valid(unit):
+			continue
+		var state := unit.runtime_state
+		var state_snapshot: Variant = state.to_snapshot() if state != null else null
+		var unit_entry: Dictionary = {
+			&"unit": unit,
+			&"runtime_state": state,
+			&"state_snapshot": state_snapshot,
+			&"archetype": state.archetype if state != null else unit.archetype,
+			&"weapon_instance": state.weapon_instance if state != null else null,
+			&"unit_id": unit.unit_id,
+			&"visual_color": unit.visual_color,
+			&"visible": unit.visible,
+			&"process_mode": unit.process_mode,
+			&"legacy_cell": unit.grid_cell,
+			&"legacy_faction": unit.faction,
+			&"legacy_hp": unit.current_hp,
+			&"legacy_ap": unit.current_action_points,
+			&"legacy_facing": unit.facing,
+		}
+		unit_entries.append(unit_entry)
+		if unit.is_alive():
+			occupancy.append({&"cell": unit.grid_cell, &"unit_id": unit.unit_id})
+	var selected_id: StringName = selected_unit.unit_id if is_instance_valid(selected_unit) else &""
+	var turn_snapshot: Dictionary = turn_manager.capture_state() if turn_manager != null else {}
+	var session_snapshot: Dictionary = session_manager.capture_state() \
+		if session_manager != null and session_manager.has_method("capture_state") else {}
+	return {
+		&"schema_version": 1,
+		&"units": unit_entries,
+		&"grid_occupancy": occupancy,
+		&"turn": turn_snapshot,
+		&"session": session_snapshot,
+		&"world_tick": world_tick,
+		&"enemy_alerts": _capture_undo_alerts(),
+		&"enemy_patrols": _capture_undo_patrols(),
+		&"encounter_by_unit": encounter_by_unit.duplicate(true),
+		&"encounter_members": encounter_members.duplicate(true),
+		&"resolved_encounters": resolved_encounters.duplicate(true),
+		&"all_player_ids": all_player_ids.duplicate(),
+		&"all_enemy_ids": all_enemy_ids.duplicate(),
+		&"active_encounter_id": active_encounter_id,
+		&"discovering_enemy_ids": discovering_enemy_ids.duplicate(),
+		&"suspicious_investigations": suspicious_investigations.duplicate(true),
+		&"inventory": _capture_undo_inventory(),
+		&"instance_id_generator": instance_id_generator.capture_state() \
+			if instance_id_generator != null and instance_id_generator.has_method("capture_state") else {},
+		&"loot_settlement": loot_settlement,
+		&"selected_unit_id": selected_id,
+		&"open_loot_container_id": open_loot_container_id,
+		&"restore_inventory_after_loot": _restore_inventory_after_loot,
+	}
+
+
+func _capture_undo_inventory() -> Dictionary:
+	var result: Dictionary = {
+		&"present": squad_inventory != null,
+		&"width": 0,
+		&"height": 0,
+		&"inventory_id": &"",
+		&"placements": [],
+		&"containers": [],
+	}
+	if squad_inventory != null:
+		result[&"width"] = squad_inventory.width
+		result[&"height"] = squad_inventory.height
+		result[&"inventory_id"] = squad_inventory.inventory_id
+		var placement_entries: Array[Dictionary] = []
+		for placement in squad_inventory.get_placements():
+			if placement == null or placement.instance == null:
+				continue
+			placement_entries.append({
+				&"instance": placement.instance,
+				&"anchor": placement.anchor,
+				&"rotation": placement.rotation,
+			})
+		result[&"placements"] = placement_entries
+	var container_entries: Array[Dictionary] = []
+	var container_ids: Array = loot_containers.keys()
+	container_ids.sort_custom(func(first: Variant, second: Variant) -> bool:
+		return String(first) < String(second)
+	)
+	for raw_container_id in container_ids:
+		var container = loot_containers[raw_container_id]
+		if container == null:
+			continue
+		container_entries.append({
+			&"container": container,
+			&"container_id": StringName(raw_container_id),
+			&"items": container.get_contents_instances(),
+			&"opened": container.is_opened(),
+			&"depleted": container.is_depleted(),
+		})
+	result[&"containers"] = container_entries
+	return result
+
+
+func _capture_undo_alerts() -> Dictionary:
+	var result: Dictionary = {}
+	for raw_unit_id in enemy_alerts.keys():
+		var alert := enemy_alerts[raw_unit_id] as AlertState
+		if alert == null:
+			continue
+		result[raw_unit_id] = {
+			&"instance": alert,
+			&"level": int(alert.get_level()),
+			&"target_id": alert.get_target_id(),
+			&"last_known_cell": alert.get_last_known_cell(),
+		}
+	return result
+
+
+func _capture_undo_patrols() -> Dictionary:
+	var result: Dictionary = {}
+	for raw_unit_id in enemy_patrols.keys():
+		var route := enemy_patrols[raw_unit_id] as PatrolRoute
+		if route == null:
+			continue
+		result[raw_unit_id] = {
+			&"instance": route,
+			&"points": route._points.duplicate(),
+			&"current_index": route._current_index,
+			&"direction": route._direction,
+			&"loop": route._loop,
+		}
+	return result
+
+
+func _restore_undo_state(checkpoint: Variant) -> bool:
+	if not checkpoint is Dictionary:
+		return false
+	# A failed restore must leave the live state usable.  Checkpoints generated
+	# by this controller are valid, but retaining a rollback makes a later core
+	# schema/API mismatch fail atomically from the player's point of view.
+	var rollback := _capture_undo_state()
+	_undo_restoring = true
+	var restored := _restore_undo_state_internal(checkpoint as Dictionary)
+	if not restored:
+		_restore_undo_state_internal(rollback)
+		_undo_restoring = false
+		return false
+	_undo_restoring = false
+	return restored
+
+
+func _restore_undo_state_internal(checkpoint: Dictionary) -> bool:
+	if int(checkpoint.get(&"schema_version", -1)) != 1:
+		return false
+	var raw_units: Variant = checkpoint.get(&"units", null)
+	if not raw_units is Array:
+		return false
+	var old_unit_ids: Array = units_by_id.keys()
+	var restored_units: Dictionary = {}
+	# Release every currently equipped runtime weapon before hydrating the
+	# checkpoint.  This makes restoration order-independent when a valid action
+	# has swapped two externally-created WeaponInstances between units.
+	for current_unit_value in units_by_id.values():
+		var current_unit := current_unit_value as PrototypeUnit
+		if not is_instance_valid(current_unit) or current_unit.runtime_state == null:
+			continue
+		if current_unit.runtime_state.weapon_instance != null \
+			and not current_unit.runtime_state.unequip():
+			return false
+	for raw_entry in raw_units:
+		if not raw_entry is Dictionary:
+			return false
+		var entry: Dictionary = raw_entry
+		var unit := entry.get(&"unit") as PrototypeUnit
+		if not is_instance_valid(unit):
+			return false
+		var state := entry.get(&"runtime_state") as UnitRuntimeState
+		if state != null:
+			var archetype := entry.get(&"archetype") as UnitArchetype
+			var weapon_instance := entry.get(&"weapon_instance") as WeaponInstance
+			if not state.hydrate_from_snapshot(entry.get(&"state_snapshot"), archetype, weapon_instance):
+				return false
+			unit.visual_color = entry.get(&"visual_color", unit.visual_color)
+			if unit.runtime_state != state:
+				if not unit.bind_runtime_state(state, unit.visual_color):
+					return false
+			elif unit.is_node_ready():
+				unit.call("_apply_weapon_stats")
+				unit.call("_refresh_weapon_model")
+				unit.call("_capture_feedback_rest_pose")
+				unit.call("_apply_facing_visual")
+				unit.call("_apply_visual_color")
+				unit.call("_update_status_label")
+				unit.call("_update_alert_badge")
+		else:
+			# Compatibility-only unbound views are restored through their public
+			# adapter properties and never manufacture a runtime identity.
+			if unit.runtime_state != null:
+				unit.unbind_runtime_state()
+			unit.grid_cell = entry.get(&"legacy_cell", unit.grid_cell)
+			unit.faction = entry.get(&"legacy_faction", unit.faction)
+			unit.current_hp = int(entry.get(&"legacy_hp", unit.current_hp))
+			unit.current_action_points = int(entry.get(&"legacy_ap", unit.current_action_points))
+			unit.facing = entry.get(&"legacy_facing", unit.facing)
+			unit.visual_color = entry.get(&"visual_color", unit.visual_color)
+		var unit_id := unit.unit_id
+		if unit_id == &"":
+			unit_id = StringName(entry.get(&"unit_id", &""))
+		if unit_id == &"":
+			return false
+		restored_units[unit_id] = unit
+		unit.set_selected(false)
+		if unit.is_attack_feedback_playing:
+			unit.call("_interrupt_attack_feedback")
+		else:
+			unit.call("_reset_attack_feedback_visuals")
+		unit.visible = bool(entry.get(&"visible", unit.is_alive())) if unit.is_alive() else false
+		unit.process_mode = int(entry.get(&"process_mode", Node.PROCESS_MODE_INHERIT)) \
+			if unit.is_alive() else Node.PROCESS_MODE_DISABLED
+		if grid != null:
+			unit.global_position = grid.cell_to_world(unit.grid_cell)
+	units_by_id = restored_units
+
+	var player_ids: Variant = _coerce_undo_id_array(checkpoint.get(&"all_player_ids", null))
+	var enemy_ids: Variant = _coerce_undo_id_array(checkpoint.get(&"all_enemy_ids", null))
+	var discovering_ids: Variant = _coerce_undo_id_array(checkpoint.get(&"discovering_enemy_ids", null))
+	if player_ids == null or enemy_ids == null or discovering_ids == null:
+		return false
+	all_player_ids = player_ids
+	all_enemy_ids = enemy_ids
+	discovering_enemy_ids = discovering_ids
+	encounter_by_unit = (checkpoint.get(&"encounter_by_unit", {}) as Dictionary).duplicate(true)
+	encounter_members = (checkpoint.get(&"encounter_members", {}) as Dictionary).duplicate(true)
+	resolved_encounters = (checkpoint.get(&"resolved_encounters", {}) as Dictionary).duplicate(true)
+	suspicious_investigations = (checkpoint.get(&"suspicious_investigations", {}) as Dictionary).duplicate(true)
+	var active_raw: Variant = checkpoint.get(&"active_encounter_id", &"")
+	active_encounter_id = StringName(active_raw) if active_raw is String or active_raw is StringName else &""
+	world_tick = int(checkpoint.get(&"world_tick", 0))
+
+	if not _restore_undo_alerts(checkpoint.get(&"enemy_alerts", null)):
+		return false
+	if not _restore_undo_patrols(checkpoint.get(&"enemy_patrols", null)):
+		return false
+
+	if grid != null:
+		var ids_to_release: Dictionary = {}
+		for raw_id in old_unit_ids:
+			ids_to_release[StringName(raw_id)] = true
+		for raw_id in units_by_id.keys():
+			ids_to_release[StringName(raw_id)] = true
+		for raw_id in all_player_ids:
+			ids_to_release[raw_id] = true
+		for raw_id in all_enemy_ids:
+			ids_to_release[raw_id] = true
+		for raw_id in ids_to_release.keys():
+			grid.release_occupant(StringName(raw_id))
+		var raw_occupancy: Variant = checkpoint.get(&"grid_occupancy", null)
+		if not raw_occupancy is Array:
+			return false
+		for raw_occupant in raw_occupancy:
+			if not raw_occupant is Dictionary:
+				return false
+			var occupant: Dictionary = raw_occupant
+			var cell: Variant = occupant.get(&"cell", null)
+			var occupant_id: Variant = occupant.get(&"unit_id", null)
+			if not cell is Vector3i or not (occupant_id is StringName or occupant_id is String):
+				return false
+			if not grid.occupy(cell, StringName(occupant_id)):
+				return false
+
+	if not _restore_undo_inventory(checkpoint.get(&"inventory", null)):
+		return false
+	var generator_snapshot: Variant = checkpoint.get(&"instance_id_generator", {})
+	if instance_id_generator != null and instance_id_generator.has_method("restore_state"):
+		if not generator_snapshot is Dictionary or not instance_id_generator.restore_state(generator_snapshot):
+			return false
+	if turn_manager != null:
+		var turn_snapshot: Variant = checkpoint.get(&"turn", null)
+		if not turn_snapshot is Dictionary or not turn_manager.restore_state(turn_snapshot):
+			return false
+	if session_manager != null and session_manager.has_method("restore_state"):
+		var session_snapshot: Variant = checkpoint.get(&"session", null)
+		if not session_snapshot is Dictionary or not session_manager.restore_state(session_snapshot):
+			return false
+
+	var selected_raw: Variant = checkpoint.get(&"selected_unit_id", &"")
+	var selected_id := StringName(selected_raw) if selected_raw is String or selected_raw is StringName else &""
+	selected_unit = _unit_by_id(selected_id)
+	if not is_instance_valid(selected_unit) or selected_unit.faction != &"player" or not selected_unit.is_alive():
+		selected_unit = null
+	else:
+		selected_unit.set_selected(true)
+	open_loot_container_id = StringName(checkpoint.get(&"open_loot_container_id", &""))
+	_restore_inventory_after_loot = bool(checkpoint.get(&"restore_inventory_after_loot", false))
+	loot_settlement = checkpoint.get(&"loot_settlement", null)
+	last_action_result = null
+	last_cover_query = null
+	last_cover_damage.clear()
+	return true
+
+
+func _restore_undo_alerts(raw_alerts: Variant) -> bool:
+	if not raw_alerts is Dictionary:
+		return false
+	enemy_alerts.clear()
+	for raw_unit_id in raw_alerts.keys():
+		var entry: Variant = raw_alerts[raw_unit_id]
+		if not entry is Dictionary:
+			return false
+		var alert := (entry as Dictionary).get(&"instance") as AlertState
+		if alert == null:
+			alert = AlertState.new()
+		alert._level = int((entry as Dictionary).get(&"level", AlertState.Level.UNAWARE))
+		alert._target_id = StringName((entry as Dictionary).get(&"target_id", &""))
+		var cell: Variant = (entry as Dictionary).get(&"last_known_cell", AlertState.INVALID_CELL)
+		if not cell is Vector3i:
+			return false
+		alert._last_known_cell = cell
+		enemy_alerts[StringName(raw_unit_id)] = alert
+	return true
+
+
+func _restore_undo_patrols(raw_patrols: Variant) -> bool:
+	if not raw_patrols is Dictionary:
+		return false
+	enemy_patrols.clear()
+	for raw_unit_id in raw_patrols.keys():
+		var entry: Variant = raw_patrols[raw_unit_id]
+		if not entry is Dictionary:
+			return false
+		var route := (entry as Dictionary).get(&"instance") as PatrolRoute
+		if route == null:
+			return false
+		var points: Array[Vector3i] = []
+		var raw_points: Variant = (entry as Dictionary).get(&"points", [])
+		if not raw_points is Array:
+			return false
+		for raw_point in raw_points:
+			if not raw_point is Vector3i:
+				return false
+			points.append(raw_point)
+		route.configure(points, bool((entry as Dictionary).get(&"loop", true)))
+		if not route._points.is_empty():
+			route._current_index = clampi(int((entry as Dictionary).get(&"current_index", 0)), 0, route._points.size() - 1)
+		else:
+			route._current_index = 0
+		route._direction = -1 if int((entry as Dictionary).get(&"direction", 1)) < 0 else 1
+		enemy_patrols[StringName(raw_unit_id)] = route
+	return true
+
+
+func _restore_undo_inventory(raw_inventory: Variant) -> bool:
+	if not raw_inventory is Dictionary:
+		return false
+	var snapshot: Dictionary = raw_inventory
+	if not bool(snapshot.get(&"present", false)):
+		return squad_inventory == null
+	if squad_inventory == null:
+		return false
+	# Release current ownership before reattaching the exact instance objects
+	# captured by the checkpoint.  This avoids registry unregister/re-register
+	# collisions and preserves stable item IDs.
+	squad_inventory.clear()
+	for raw_container_id in loot_containers.keys():
+		var container = loot_containers[raw_container_id]
+		if container == null:
+			continue
+		var owner := StringName("loot:" + String(raw_container_id))
+		for item in container.get_contents_instances():
+			if item != null and item.is_owned() and item.get_owner_id() == owner:
+				item.release_owner(owner)
+		container._items.clear()
+	squad_inventory.width = int(snapshot.get(&"width", squad_inventory.width))
+	squad_inventory.height = int(snapshot.get(&"height", squad_inventory.height))
+	squad_inventory.inventory_id = StringName(snapshot.get(&"inventory_id", squad_inventory.inventory_id))
+	var raw_placements: Variant = snapshot.get(&"placements", null)
+	if not raw_placements is Array:
+		return false
+	for raw_placement in raw_placements:
+		if not raw_placement is Dictionary:
+			return false
+		var placement: Dictionary = raw_placement
+		var item := placement.get(&"instance") as InventoryItemInstance
+		var anchor: Variant = placement.get(&"anchor", null)
+		if item == null or not anchor is Vector2i:
+			return false
+		if not squad_inventory.place(item, anchor, int(placement.get(&"rotation", 0)), true):
+			return false
+	var raw_containers: Variant = snapshot.get(&"containers", null)
+	if not raw_containers is Array:
+		return false
+	for raw_container_entry in raw_containers:
+		if not raw_container_entry is Dictionary:
+			return false
+		var entry: Dictionary = raw_container_entry
+		var container = entry.get(&"container")
+		if container == null:
+			container = loot_containers.get(StringName(entry.get(&"container_id", &"")))
+		if container == null:
+			return false
+		var container_id := StringName(entry.get(&"container_id", container.container_id))
+		var owner := StringName("loot:" + String(container_id))
+		var raw_items: Variant = entry.get(&"items", null)
+		if not raw_items is Array:
+			return false
+		for item in raw_items:
+			if not item is InventoryItemInstance or item.is_owned() or not item.claim_owner(owner):
+				return false
+			container._items.append(item)
+		container.opened = bool(entry.get(&"opened", false))
+		container.depleted = bool(entry.get(&"depleted", false))
+	return true
+
+
+func _coerce_undo_id_array(raw_ids: Variant) -> Variant:
+	if not raw_ids is Array:
+		return null
+	var result: Array[StringName] = []
+	for raw_id in raw_ids:
+		if not (raw_id is StringName or raw_id is String):
+			return null
+		var id := StringName(raw_id)
+		if id == &"":
+			return null
+		result.append(id)
+	return result
 
 
 func _handle_move_action(request: Variant, _context: Variant) -> Variant:
@@ -882,13 +1485,18 @@ func place_loot_instance(container_id: StringName, index: int, anchor: Vector2i,
 func move_inventory_instance(instance_id: StringName, anchor: Vector2i, rotation: int = -1) -> ActionResult:
 	if not _can_use_loot_action():
 		return _action_rejected(&"wrong_phase", ACTION_LOOT)
+	var undo_started := _begin_undo_player_action(selected_unit)
 	if squad_inventory == null or squad_inventory.get_placement(instance_id) == null:
+		_finish_undo_player_action(undo_started, false)
 		return _action_rejected(&"invalid_target", ACTION_LOOT, selected_unit.unit_id, instance_id)
 	if not squad_inventory.can_move(instance_id, anchor, rotation):
+		_finish_undo_player_action(undo_started, false)
 		_update_hud("背包位置无效：越界、重叠或形状无法放置。")
 		return _action_rejected(&"inventory_full", ACTION_LOOT, selected_unit.unit_id, instance_id)
 	if not squad_inventory.move(instance_id, anchor, rotation):
+		_finish_undo_player_action(undo_started, false)
 		return _action_rejected(&"inventory_full", ACTION_LOOT, selected_unit.unit_id, instance_id)
+	_finish_undo_player_action(undo_started, true)
 	_refresh_inventory_ui()
 	_update_hud("已重新排列背包物品。")
 	return ActionResultScript.accepted(selected_unit.unit_id, instance_id, 0, ACTION_LOOT)
@@ -897,14 +1505,19 @@ func move_inventory_instance(instance_id: StringName, anchor: Vector2i, rotation
 func rotate_inventory_instance(instance_id: StringName) -> ActionResult:
 	if not _can_use_loot_action():
 		return _action_rejected(&"wrong_phase", ACTION_LOOT)
+	var undo_started := _begin_undo_player_action(selected_unit)
 	var placement = squad_inventory.get_placement(instance_id) if squad_inventory != null else null
 	if placement == null:
+		_finish_undo_player_action(undo_started, false)
 		return _action_rejected(&"invalid_target", ACTION_LOOT, selected_unit.unit_id, instance_id)
 	if not squad_inventory.can_rotate(instance_id, placement.rotation + 90):
+		_finish_undo_player_action(undo_started, false)
 		_update_hud("旋转后形状与边界/其他物品冲突。")
 		return _action_rejected(&"inventory_full", ACTION_LOOT, selected_unit.unit_id, instance_id)
 	if not squad_inventory.rotate_by(instance_id, 90):
+		_finish_undo_player_action(undo_started, false)
 		return _action_rejected(&"inventory_full", ACTION_LOOT, selected_unit.unit_id, instance_id)
+	_finish_undo_player_action(undo_started, true)
 	_refresh_inventory_ui()
 	_update_hud("已旋转物品 90°。")
 	return ActionResultScript.accepted(selected_unit.unit_id, instance_id, 0, ACTION_LOOT)
@@ -913,12 +1526,16 @@ func rotate_inventory_instance(instance_id: StringName) -> ActionResult:
 func return_inventory_instance_to_loot(instance_id: StringName, container_id: StringName) -> ActionResult:
 	if not _can_use_loot_action():
 		return _action_rejected(&"wrong_phase", ACTION_LOOT)
+	var undo_started := _begin_undo_player_action(selected_unit)
 	var container = loot_containers.get(container_id)
 	if container == null or container_id != open_loot_container_id:
+		_finish_undo_player_action(undo_started, false)
 		return _action_rejected(&"invalid_container", ACTION_LOOT, selected_unit.unit_id, container_id)
 	if not container.transfer_from_inventory(instance_id, squad_inventory):
+		_finish_undo_player_action(undo_started, false)
 		_update_hud("无法将物品放回当前 Loot 箱。")
 		return _action_rejected(&"invalid_target", ACTION_LOOT, selected_unit.unit_id, container_id)
+	_finish_undo_player_action(undo_started, true)
 	if is_instance_valid(loot_grid):
 		loot_grid.clear_pending_rotation(instance_id)
 	_refresh_inventory_ui()
@@ -1080,6 +1697,7 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 	var result := _execute_runtime_action(request, unit)
 	if not result.success:
 		input_locked = previous_input_locked
+		_refresh_undo_buttons()
 		_refresh_highlights()
 		_update_hud("无法移动：%s。" % result.reason)
 		return false
@@ -1088,6 +1706,7 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 		world_points.append(grid.cell_to_world(path[index]))
 	await unit.move_along_world_path(world_points, destination)
 	input_locked = previous_input_locked
+	_refresh_undo_buttons()
 	_update_enemy_visibility()
 	_refresh_highlights()
 	_update_hud("%s 移动到 %s，消耗 %d AP。" % [unit.name, destination, ap_cost])
@@ -1147,6 +1766,7 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 		# diagnostics are presentation metadata, not a second action taxonomy.
 		result.metadata = cover_damage.duplicate(true)
 		input_locked = previous_input_locked
+		_refresh_undo_buttons()
 		_refresh_highlights()
 		if cover_query.is_blocked():
 			var block_reason: StringName = StringName(cover_summary.get(&"block_reason", result.reason))
@@ -1163,6 +1783,7 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 	result.metadata = cover_damage.duplicate(true)
 	await attacker.play_attack_feedback()
 	input_locked = previous_input_locked
+	_refresh_undo_buttons()
 	var applied := result.damage
 	var cover_level_name := String(cover_summary.get(&"cover_level_name", &"NONE"))
 	var reduction_percent := int(cover_summary.get(&"damage_reduction_percent", 0))
@@ -1418,6 +2039,7 @@ func _run_enemy_turn() -> void:
 	if not turn_manager.is_enemy_turn() or turn_manager.is_terminal():
 		return
 	input_locked = true
+	_refresh_undo_buttons()
 	end_turn_button.disabled = true
 	_clear_highlights()
 	for enemy_id in turn_manager.get_enemy_ids().duplicate():
@@ -1471,10 +2093,16 @@ func _run_enemy_turn() -> void:
 				_:
 					break
 	input_locked = false
+	_refresh_undo_buttons()
 	if turn_manager.is_enemy_turn():
-		turn_manager.end_enemy_turn()
-		_reset_faction_ap(&"player")
+		if turn_manager.end_enemy_turn():
+			_reset_faction_ap(&"player")
+			# The turn checkpoint must include the AP reset performed between
+			# enemy and player turns.  Capturing from phase_changed would be too
+			# early and would preserve the previous player's depleted AP.
+			_capture_undo_turn_checkpoint()
 	end_turn_button.disabled = turn_manager.is_terminal()
+	_refresh_undo_buttons()
 	_refresh_highlights()
 
 
@@ -1938,6 +2566,8 @@ func _on_end_turn_pressed() -> void:
 	if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION:
 		await _run_exploration_tick()
 		_evaluate_detection()
+		if session_manager.get_state() == GameStateManagerScript.State.EXPLORATION:
+			_capture_undo_turn_checkpoint()
 		_update_hud("探索世界 Tick %d。" % world_tick)
 		_log("世界 Tick %d：敌人巡逻，玩家 AP 重置。" % world_tick)
 		return
@@ -1974,10 +2604,9 @@ func _on_unit_died(unit: PrototypeUnit) -> void:
 	_log("%s 阵亡（HP 归零）。" % unit.name)
 	grid.vacate(unit.grid_cell, unit.unit_id)
 	turn_manager.remove_unit(unit.unit_id)
-	units_by_id.erase(unit.unit_id)
-	enemy_alerts.erase(unit.unit_id)
-	enemy_patrols.erase(unit.unit_id)
-	suspicious_investigations.erase(unit.unit_id)
+	# Keep the View and runtime state indexed after death.  TurnManager still
+	# removes the ID from the living turn roster, while undo can later restore
+	# the same state/object without inventing a duplicate identity.
 	discovering_enemy_ids.erase(unit.unit_id)
 	if selected_unit == unit:
 		selected_unit = null
@@ -2001,6 +2630,8 @@ func _on_unit_died(unit: PrototypeUnit) -> void:
 
 
 func _on_phase_changed(_previous: TurnManager.Phase, _current: TurnManager.Phase) -> void:
+	if _undo_restoring:
+		return
 	match _current:
 		TurnManager.Phase.PLAYER_TURN:
 			_log("—— 玩家回合开始 ——")
@@ -2243,7 +2874,37 @@ func _set_inventory_body_collapsed(collapsed: bool) -> void:
 	inventory_grid.visible = body_visible
 	loot_overview_label.visible = body_visible
 	inventory_collapse_button.text = "展开" if collapsed else "收起"
-	inventory_panel.offset_bottom = INVENTORY_PANEL_COLLAPSED_BOTTOM if collapsed else INVENTORY_PANEL_EXPANDED_BOTTOM
+	_sync_inventory_panel_layout()
+
+
+func _sync_inventory_panel_layout() -> void:
+	if not is_instance_valid(top_left_panel) or not is_instance_valid(inventory_panel):
+		return
+	# Both panels are siblings under HUD, so the top-left offset plus its
+	# effective content height is the stable coordinate for the next panel.
+	# Include the current size as well because a Container may have already
+	# expanded beyond its reported minimum during the same layout pass.
+	var top_left_height := maxf(top_left_panel.get_combined_minimum_size().y, top_left_panel.size.y)
+	var panel_top := top_left_panel.offset_top + top_left_height + INVENTORY_PANEL_LAYOUT_GAP
+	inventory_panel.offset_top = panel_top
+	if inventory_body_collapsed:
+		inventory_panel.offset_bottom = panel_top + INVENTORY_PANEL_COLLAPSED_HEIGHT
+	else:
+		# Use the stable authored content height rather than the outer panel's
+		# combined minimum, whose value can include the panel's current size.
+		inventory_panel.offset_bottom = panel_top + INVENTORY_PANEL_EXPANDED_HEIGHT
+
+
+func _queue_inventory_panel_layout_sync() -> void:
+	if _inventory_layout_sync_queued:
+		return
+	_inventory_layout_sync_queued = true
+	call_deferred("_run_deferred_inventory_panel_layout_sync")
+
+
+func _run_deferred_inventory_panel_layout_sync() -> void:
+	_inventory_layout_sync_queued = false
+	_sync_inventory_panel_layout()
 
 
 func _restore_inventory_after_loot_state() -> void:
@@ -2254,6 +2915,8 @@ func _restore_inventory_after_loot_state() -> void:
 
 
 func _on_session_state_changed(_previous: int, current: int) -> void:
+	if _undo_restoring:
+		return
 	if current != GameStateManagerScript.State.EXTRACTION and is_instance_valid(extraction_panel):
 		extraction_panel.visible = false
 	if current != GameStateManagerScript.State.RESULT and is_instance_valid(result_panel):
@@ -2271,6 +2934,8 @@ func _on_session_state_changed(_previous: int, current: int) -> void:
 
 
 func _on_session_result_changed(result: RefCounted) -> void:
+	if _undo_restoring:
+		return
 	if result.success:
 		loot_settlement = LootSettlementScript.from_inventory(true, squad_inventory)
 		_log("结算：撤离成功，带出 %d 件物品，总价值 %d。" % [loot_settlement.get_items().size(), loot_settlement.get_total_value()])
@@ -2541,3 +3206,6 @@ func _update_hud(message: String = "") -> void:
 		loot_overview_label.text = "Loot 容器：%d 个可搜刮" % available
 	if not message.is_empty():
 		hint_label.text = message
+	_sync_inventory_panel_layout()
+	_queue_inventory_panel_layout_sync()
+	_refresh_undo_buttons()

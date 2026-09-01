@@ -36,6 +36,7 @@ signal result_changed(result: RefCounted)
 const DEFAULT_EXTRACTION_REASON: StringName = &"extracted"
 const DEFAULT_DEFEAT_REASON: StringName = &"team_defeated"
 const DEFAULT_COMBAT_REASON: StringName = &"combat_resolved"
+const STATE_SNAPSHOT_SCHEMA_VERSION: int = 1
 
 var _state: State = State.PREPARATION
 var _result = SessionResultScript.new()
@@ -78,6 +79,44 @@ func get_result_success() -> bool:
 
 func get_result_reason() -> StringName:
 	return _result.reason
+
+
+## Returns a detached pure-data snapshot of the session state and result.
+func capture_state() -> Dictionary:
+	return {
+		&"schema_version": STATE_SNAPSHOT_SCHEMA_VERSION,
+		&"state": int(_state),
+		&"result": {
+			&"has_value": _result.has_value,
+			&"success": _result.success,
+			&"reason": _result.reason,
+		},
+	}
+
+
+## Restores a checkpoint without passing through the ordinary legal transition
+## graph. Validation is completed before mutation; each changed signal is
+## emitted at most once.
+func restore_state(snapshot: Variant) -> bool:
+	var decoded: Variant = _decode_state(snapshot)
+	if decoded == null:
+		return false
+	var next_state: State = decoded[&"state"]
+	var next_result: Dictionary = decoded[&"result"]
+	var state_changed_value := _state != next_state
+	var result_changed_value := not _result_matches(next_result)
+	var previous_state := _state
+	_state = next_state
+	_result = SessionResultScript.new(
+		bool(next_result[&"success"]),
+		StringName(next_result[&"reason"]),
+		bool(next_result[&"has_value"]),
+	)
+	if state_changed_value:
+		state_changed.emit(previous_state, _state)
+	if result_changed_value:
+		result_changed.emit(_result.duplicate_result())
+	return true
 
 
 func is_success() -> bool:
@@ -212,3 +251,52 @@ func _is_legal_transition(current: State, next_state: State) -> bool:
 		State.RESULT:
 			return false
 	return false
+
+
+static func _decode_state(snapshot: Variant) -> Variant:
+	if not snapshot is Dictionary:
+		return null
+	var state_snapshot: Dictionary = snapshot
+	if not state_snapshot.has(&"schema_version") or not state_snapshot[&"schema_version"] is int:
+		return null
+	if state_snapshot[&"schema_version"] != STATE_SNAPSHOT_SCHEMA_VERSION:
+		return null
+	if not state_snapshot.has(&"state") or not state_snapshot[&"state"] is int:
+		return null
+	var raw_state: int = state_snapshot[&"state"]
+	if raw_state < int(State.PREPARATION) or raw_state > int(State.RESULT):
+		return null
+	var raw_result: Variant = state_snapshot.get(&"result", null)
+	if not raw_result is Dictionary:
+		return null
+	var result: Dictionary = raw_result
+	if not result.has(&"has_value") or not result[&"has_value"] is bool:
+		return null
+	if not result.has(&"success") or not result[&"success"] is bool:
+		return null
+	if not result.has(&"reason"):
+		return null
+	var raw_reason: Variant = result[&"reason"]
+	if not (raw_reason is StringName or raw_reason is String):
+		return null
+	var has_value: bool = result[&"has_value"]
+	var success: bool = result[&"success"]
+	var reason := StringName(raw_reason)
+	if not has_value and (success or reason != &""):
+		return null
+	if has_value and reason == &"":
+		return null
+	return {
+		&"state": raw_state,
+		&"result": {
+			&"has_value": has_value,
+			&"success": success,
+			&"reason": reason,
+		},
+	}
+
+
+func _result_matches(result: Dictionary) -> bool:
+	return _result.has_value == result[&"has_value"] \
+		and _result.success == result[&"success"] \
+		and _result.reason == StringName(result[&"reason"])

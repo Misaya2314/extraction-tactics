@@ -107,7 +107,7 @@ text = "攻击"
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 362.0
-offset_bottom = 214.0
+offset_bottom = 296.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_hud_top")
 
 [node name="Margin" type="MarginContainer" parent="HUD/TopLeftPanel" unique_id=713704160]
@@ -148,6 +148,18 @@ autowrap_mode = 2
 custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 text = "结束回合 / 推进世界 Tick"
+
+[node name="UndoStepButton" type="Button" parent="HUD/TopLeftPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+text = "撤回上一步"
+disabled = true
+
+[node name="UndoTurnButton" type="Button" parent="HUD/TopLeftPanel/Margin/VBox"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+text = "撤回至回合开始"
+disabled = true
 
 [node name="InventoryPanel" type="PanelContainer" parent="HUD" unique_id=1914501418]
 offset_left = 16.0
