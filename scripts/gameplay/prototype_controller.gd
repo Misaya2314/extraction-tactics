@@ -80,6 +80,8 @@ var resolved_encounters: Dictionary = {}
 var all_player_ids: Array[StringName] = []
 var all_enemy_ids: Array[StringName] = []
 var active_encounter_id: StringName = &""
+var discovering_enemy_ids: Array[StringName] = []
+var suspicious_investigations: Dictionary = {}
 var opaque_cells: Dictionary = {}
 var object_placements: Dictionary = {}
 var loot_nodes_by_id: Dictionary = {}
@@ -91,7 +93,9 @@ var input_locked := false
 var debug_reveal_all := false
 var action_mode: int = ACTION_MODE_MOVE
 const VISION_BLOCK_COLOR := Color(0.0, 0.0, 0.0, 0.6)
-const ENEMY_VISION_COLOR := Color(0.62, 0.4, 1.0, 0.22)
+const ENEMY_OUTER_VISION_COLOR := Color(0.95, 0.75, 0.15, 0.22)
+const ENEMY_INNER_VISION_COLOR := Color(0.95, 0.22, 0.22, 0.35)
+const ENEMY_VISION_COLOR := ENEMY_OUTER_VISION_COLOR
 var inventory_body_collapsed := true
 var _restore_inventory_after_loot := false
 var _runtime_content_ready := false
@@ -559,6 +563,8 @@ func _configure_encounter_models() -> void:
 	encounter_members.clear()
 	resolved_encounters.clear()
 	active_encounter_id = &""
+	discovering_enemy_ids.clear()
+	suspicious_investigations.clear()
 	for unit_value in units_by_id.values():
 		var unit := unit_value as PrototypeUnit
 		if unit.faction == &"player":
@@ -1224,6 +1230,27 @@ func _can_detect_with_grid(
 	)
 
 
+func _evaluate_detection_tier_with_grid(
+	observer: Vector3i,
+	target: Vector3i,
+	facing: Vector2i,
+	inner_vision_range: int,
+	outer_vision_range: int,
+	half_angle_degrees: float = 60.0
+) -> DetectionRules.DetectionTier:
+	return DetectionRules.evaluate_detection_tier(
+		observer,
+		target,
+		facing,
+		inner_vision_range,
+		outer_vision_range,
+		opaque_cells,
+		half_angle_degrees,
+		grid,
+		_perception_edge_index()
+	)
+
+
 func _can_player_see_with_grid(observer: Vector3i, target: Vector3i, vision_range: int) -> bool:
 	return DetectionRules.can_player_see(
 		observer,
@@ -1241,22 +1268,56 @@ func can_attack_line(attacker_cell: Vector3i, target_cell: Vector3i, attack_rang
 	return query_attack_cover(attacker_cell, target_cell).can_attack()
 
 
+func _has_any_engaged_enemy() -> bool:
+	for alert_value in enemy_alerts.values():
+		var alert := alert_value as AlertState
+		if alert != null and alert.is_engaged():
+			return true
+	return false
+
+
 func _run_exploration_tick() -> void:
 	world_tick += 1
 	for enemy_id in _living_enemy_ids():
 		var enemy := _unit_by_id(enemy_id)
-		if not is_instance_valid(enemy) or not enemy_patrols.has(enemy_id):
+		if not is_instance_valid(enemy) or not enemy.is_alive():
 			continue
-		var route := enemy_patrols[enemy_id] as PatrolRoute
-		var next_cell := route.peek_next()
-		if next_cell == enemy.grid_cell:
-			continue
-		var path := grid.find_path(enemy.grid_cell, next_cell)
-		if path.size() == 2:
-			await _move_unit(enemy, next_cell, path, 0)
-			route.advance()
-			if _evaluate_detection():
-				break
+		var alert := enemy_alerts.get(enemy_id) as AlertState
+		var patrol_route := enemy_patrols.get(enemy_id) as PatrolRoute
+		var invest_info: Dictionary = suspicious_investigations.get(enemy_id, {})
+		var plan := EnemyTacticalAI.plan_exploration_step(
+			enemy.grid_cell, enemy.facing, alert, patrol_route, invest_info, grid, enemy.move_range
+		)
+		suspicious_investigations[enemy_id] = plan.get(&"updated_investigation", invest_info)
+		match plan.get(&"intent"):
+			EnemyTacticalAI.IntentType.INVESTIGATE_STEP:
+				var next_cell: Vector3i = plan[&"destination"]
+				var path: Array[Vector3i] = []
+				path.assign(plan[&"path"])
+				var facing: Vector2i = plan[&"facing"]
+				if not grid.is_occupied(next_cell) or next_cell == enemy.grid_cell:
+					await _move_unit(enemy, next_cell, path, 0)
+					if facing != Vector2i.ZERO:
+						enemy.set_facing(facing)
+					if _evaluate_detection():
+						break
+			EnemyTacticalAI.IntentType.PATROL_STEP:
+				var next_cell: Vector3i = plan[&"destination"]
+				var path: Array[Vector3i] = []
+				path.assign(plan[&"path"])
+				var facing: Vector2i = plan[&"facing"]
+				await _move_unit(enemy, next_cell, path, 0)
+				if is_instance_valid(patrol_route):
+					patrol_route.advance()
+				if facing != Vector2i.ZERO:
+					enemy.set_facing(facing)
+				if _evaluate_detection():
+					break
+			EnemyTacticalAI.IntentType.CALM_DOWN:
+				if alert != null:
+					alert.calm_down()
+				suspicious_investigations.erase(enemy_id)
+				_log("%s 未在可疑位置发现异常，解除警戒。" % enemy.name)
 	for unit_value in units_by_id.values():
 		var unit := unit_value as PrototypeUnit
 		if unit.faction == &"player":
@@ -1268,18 +1329,54 @@ func _evaluate_detection() -> bool:
 		return false
 	for enemy_id in _living_enemy_ids():
 		var enemy := _unit_by_id(enemy_id)
-		if not is_instance_valid(enemy):
+		if not is_instance_valid(enemy) or not enemy.is_alive():
 			continue
 		for player_id in turn_manager.get_player_ids():
 			var player := _unit_by_id(player_id)
-			if not is_instance_valid(player):
+			if not is_instance_valid(player) or not player.is_alive():
 				continue
-			if _can_detect_with_grid(
+			var tier := _evaluate_detection_tier_with_grid(
 				enemy.grid_cell, player.grid_cell, enemy.facing,
-				enemy.vision_range
-			):
-				_start_combat(true, enemy, player.grid_cell, player.unit_id, "发现玩家")
-				return true
+				enemy.inner_vision_range, enemy.vision_range
+			)
+			match tier:
+				DetectionRules.DetectionTier.INNER_DISCOVERY:
+					var alert := enemy_alerts.get(enemy.unit_id) as AlertState
+					if alert != null:
+						alert.become_alerted(player.unit_id, player.grid_cell)
+					if not discovering_enemy_ids.has(enemy.unit_id):
+						discovering_enemy_ids.append(enemy.unit_id)
+					_start_combat(true, enemy, player.grid_cell, player.unit_id, "发现玩家（暗杀击杀窗口）")
+					_update_enemy_visibility()
+					_refresh_highlights()
+					_update_hud()
+					return true
+				DetectionRules.DetectionTier.OUTER_ALERT:
+					var alert := enemy_alerts.get(enemy.unit_id) as AlertState
+					if alert != null:
+						if alert.is_unaware():
+							alert.become_suspicious(player.grid_cell)
+							suspicious_investigations[enemy.unit_id] = {
+								&"target_cell": player.grid_cell,
+								&"idle_ticks": 0,
+							}
+							var diff := Vector2i(player.grid_cell.x - enemy.grid_cell.x, player.grid_cell.z - enemy.grid_cell.z)
+							if diff != Vector2i.ZERO:
+								enemy.set_facing(diff)
+							_log("%s 注意到了可疑动静，进入警戒状态并前往探查 %s。" % [enemy.name, player.grid_cell])
+							_update_enemy_visibility()
+							_refresh_highlights()
+							_update_hud()
+						elif alert.is_suspicious():
+							if alert.get_last_known_cell() != player.grid_cell:
+								alert.become_suspicious(player.grid_cell)
+								suspicious_investigations[enemy.unit_id] = {
+									&"target_cell": player.grid_cell,
+									&"idle_ticks": 0,
+								}
+								var diff := Vector2i(player.grid_cell.x - enemy.grid_cell.x, player.grid_cell.z - enemy.grid_cell.z)
+								if diff != Vector2i.ZERO:
+									enemy.set_facing(diff)
 	return false
 
 
@@ -1295,11 +1392,14 @@ func _start_combat(player_first: bool, alert_enemy: PrototypeUnit, known_cell: V
 	var effective_target := target_id
 	if effective_target.is_empty() and is_instance_valid(selected_unit):
 		effective_target = selected_unit.unit_id
-	if enemy_alerts.has(alert_enemy.unit_id):
-		(enemy_alerts[alert_enemy.unit_id] as AlertState).engage(effective_target, known_cell)
-	for enemy_id in turn_manager.get_enemy_ids():
-		if enemy_alerts.has(enemy_id) and enemy_id != alert_enemy.unit_id:
-			(enemy_alerts[enemy_id] as AlertState).become_suspicious(known_cell)
+	var alert := enemy_alerts.get(alert_enemy.unit_id) as AlertState
+	if alert != null:
+		if not alert.is_alerted():
+			alert.engage(effective_target, known_cell)
+	if alert == null or not alert.is_alerted():
+		for enemy_id in turn_manager.get_enemy_ids():
+			if enemy_alerts.has(enemy_id) and enemy_id != alert_enemy.unit_id:
+				(enemy_alerts[enemy_id] as AlertState).become_suspicious(known_cell)
 	if not session_manager.start_combat():
 		turn_manager.configure(_living_player_ids(), [])
 		active_encounter_id = &""
@@ -1329,45 +1429,53 @@ func _run_enemy_turn() -> void:
 		var max_action_attempts := maxi(enemy.max_action_points + 1, 1)
 		while enemy.current_action_points > 0 and turn_manager.is_enemy_turn() and action_attempts < max_action_attempts:
 			action_attempts += 1
-			var target := _nearest_living_player(enemy.grid_cell)
-			if not is_instance_valid(target):
+			var living_players: Array = []
+			for player_id in _living_player_ids():
+				var player := _unit_by_id(player_id)
+				if is_instance_valid(player) and player.is_alive():
+					living_players.append(player)
+			if living_players.is_empty():
 				break
-			if can_attack_line(enemy.grid_cell, target.grid_cell, enemy.attack_range):
-				var attack_result := await _attack_with_unit(enemy, target)
-				if not attack_result.success:
-					# A failed action, especially no_ap after a move, cannot change
-					# the tactical situation. End this unit's loop instead of retrying.
+			var can_attack_checker := func(from_c: Vector3i, to_c: Vector3i, r: int) -> bool:
+				return can_attack_line(from_c, to_c, r)
+			var plan := EnemyTacticalAI.plan_combat_action(
+				enemy.grid_cell,
+				enemy.current_action_points,
+				enemy.attack_damage,
+				enemy.attack_range,
+				enemy.attack_ap_cost,
+				enemy.move_range,
+				MOVE_ACTION_COST,
+				living_players,
+				grid,
+				can_attack_checker
+			)
+			match plan.get(&"intent"):
+				EnemyTacticalAI.IntentType.ATTACK:
+					var target := _unit_by_id(plan[&"target_id"])
+					if not is_instance_valid(target):
+						break
+					var attack_result := await _attack_with_unit(enemy, target)
+					if not attack_result.success:
+						break
+					if enemy.attack_ap_cost <= 0 or enemy.current_action_points < enemy.attack_ap_cost:
+						break
+					continue
+				EnemyTacticalAI.IntentType.MOVE:
+					var destination: Vector3i = plan[&"destination"]
+					var path: Array[Vector3i] = []
+					path.assign(plan[&"path"])
+					var ap_cost: int = plan[&"ap_cost"]
+					if not await _move_unit(enemy, destination, path, ap_cost):
+						break
+				_:
 					break
-				if enemy.attack_ap_cost <= 0 or enemy.current_action_points < enemy.attack_ap_cost:
-					break
-				continue
-			var destination := _best_enemy_move(enemy, target)
-			if destination == enemy.grid_cell:
-				break
-			var path := grid.find_path(enemy.grid_cell, destination)
-			if not await _move_unit(enemy, destination, path, MOVE_ACTION_COST):
-				break
 	input_locked = false
 	if turn_manager.is_enemy_turn():
 		turn_manager.end_enemy_turn()
 		_reset_faction_ap(&"player")
 	end_turn_button.disabled = turn_manager.is_terminal()
 	_refresh_highlights()
-
-
-func _best_enemy_move(enemy: PrototypeUnit, target: PrototypeUnit) -> Vector3i:
-	var best_cell := enemy.grid_cell
-	var best_distance := _manhattan(enemy.grid_cell, target.grid_cell)
-	for cell in grid.get_reachable_cells(enemy.grid_cell, enemy.move_range):
-		if cell == enemy.grid_cell:
-			continue
-		var distance := _manhattan(cell, target.grid_cell)
-		if distance < best_distance:
-			best_distance = distance
-			best_cell = cell
-		elif distance == best_distance and _cell_less(cell, best_cell):
-			best_cell = cell
-	return best_cell
 
 
 func _select_unit(unit: PrototypeUnit, allow_enemy: bool = false) -> void:
@@ -1447,8 +1555,15 @@ func _refresh_enemy_range_overlays(enemy: PrototypeUnit) -> void:
 				var cell := Vector3i(x, level, z)
 				if not grid.has_cell(cell) or cell == origin:
 					continue
-				if _can_detect_with_grid(origin, cell, enemy.facing, enemy.vision_range):
-					_add_highlight(vision_highlights_root, cell, ENEMY_VISION_COLOR, 0.045)
+				var tier := _evaluate_detection_tier_with_grid(
+					origin, cell, enemy.facing,
+					enemy.inner_vision_range, enemy.vision_range
+				)
+				match tier:
+					DetectionRules.DetectionTier.INNER_DISCOVERY:
+						_add_highlight(vision_highlights_root, cell, ENEMY_INNER_VISION_COLOR, 0.045)
+					DetectionRules.DetectionTier.OUTER_ALERT:
+						_add_highlight(vision_highlights_root, cell, ENEMY_OUTER_VISION_COLOR, 0.045)
 
 
 func _refresh_move_highlights() -> void:
@@ -1826,6 +1941,31 @@ func _on_end_turn_pressed() -> void:
 		_update_hud("探索世界 Tick %d。" % world_tick)
 		_log("世界 Tick %d：敌人巡逻，玩家 AP 重置。" % world_tick)
 		return
+
+	# If any enemy in discovering_enemy_ids is still alive in ALERTED state, sound alarm to whole squad!
+	var pending_alerts: Array[StringName] = []
+	for enemy_id in discovering_enemy_ids:
+		var enemy := _unit_by_id(enemy_id)
+		if is_instance_valid(enemy) and enemy.is_alive():
+			var alert := enemy_alerts.get(enemy_id) as AlertState
+			if alert != null and alert.is_alerted():
+				pending_alerts.append(enemy_id)
+
+	if not pending_alerts.is_empty():
+		for enemy_id in pending_alerts:
+			var enemy := _unit_by_id(enemy_id)
+			var target_player_id := (enemy_alerts[enemy_id] as AlertState).get_target_id()
+			var target_cell := (enemy_alerts[enemy_id] as AlertState).get_last_known_cell()
+			(enemy_alerts[enemy_id] as AlertState).engage(target_player_id, target_cell)
+			var encounter_id: StringName = encounter_by_unit.get(enemy_id, &"default")
+			for member_id in encounter_members.get(encounter_id, []):
+				var member := _unit_by_id(member_id)
+				if is_instance_valid(member) and member.is_alive():
+					if enemy_alerts.has(member_id):
+						(enemy_alerts[member_id] as AlertState).engage(target_player_id, target_cell)
+			_log("【警报扩散】%s 发出警报，整个小组进入战斗状态！" % (enemy.name if is_instance_valid(enemy) else String(enemy_id)))
+		discovering_enemy_ids.clear()
+
 	if turn_manager.end_player_turn():
 		await _run_enemy_turn()
 
@@ -1837,6 +1977,8 @@ func _on_unit_died(unit: PrototypeUnit) -> void:
 	units_by_id.erase(unit.unit_id)
 	enemy_alerts.erase(unit.unit_id)
 	enemy_patrols.erase(unit.unit_id)
+	suspicious_investigations.erase(unit.unit_id)
+	discovering_enemy_ids.erase(unit.unit_id)
 	if selected_unit == unit:
 		selected_unit = null
 	unit.set_selected(false)
@@ -1845,6 +1987,14 @@ func _on_unit_died(unit: PrototypeUnit) -> void:
 	if unit.faction == &"player" and _living_player_count() == 0:
 		if session_manager != null:
 			session_manager.report_team_defeated()
+	elif unit.faction == &"enemy":
+		if discovering_enemy_ids.is_empty() and not _has_any_engaged_enemy():
+			if turn_manager.get_phase() == TurnManager.Phase.PLAYER_TURN and session_manager != null and session_manager.get_state() == GameStateManagerScript.State.COMBAT:
+				_log("【暗杀成功】发现你的敌人已被击杀，警报解除，敌方小队未被惊动！")
+				turn_manager.reset_to_exploration()
+				turn_manager.configure(_living_player_ids(), [])
+				active_encounter_id = &""
+				session_manager.resolve_combat()
 	_update_enemy_visibility()
 	_refresh_highlights()
 	_update_hud()
@@ -2182,6 +2332,11 @@ func _update_enemy_visibility() -> void:
 		var enemy := _unit_by_id(enemy_id)
 		if not is_instance_valid(enemy):
 			continue
+		var alert := enemy_alerts.get(enemy_id) as AlertState
+		if alert != null:
+			enemy.set_alert_level(alert.get_level())
+		else:
+			enemy.set_alert_level(AlertState.Level.UNAWARE)
 		var visible_to_player := debug_reveal_all
 		for player_id in _living_player_ids():
 			if visible_to_player:
@@ -2278,17 +2433,32 @@ func _cell_less(a: Vector3i, b: Vector3i) -> bool:
 
 func _alert_summary() -> String:
 	var suspicious := 0
+	var alerted := 0
 	var engaged := 0
 	for alert_value in enemy_alerts.values():
 		var alert := alert_value as AlertState
-		if alert.get_level() == AlertState.Level.ENGAGED:
-			engaged += 1
-		elif alert.get_level() == AlertState.Level.SUSPICIOUS:
-			suspicious += 1
+		if alert == null:
+			continue
+		match alert.get_level():
+			AlertState.Level.ENGAGED:
+				engaged += 1
+			AlertState.Level.ALERTED:
+				alerted += 1
+			AlertState.Level.SUSPICIOUS:
+				suspicious += 1
 	if engaged > 0:
-		return "交战 %d · 怀疑 %d" % [engaged, suspicious]
+		var extra := ""
+		if alerted > 0 and suspicious > 0:
+			extra = " · 发现 %d · 警戒 %d" % [alerted, suspicious]
+		elif alerted > 0:
+			extra = " · 发现 %d" % alerted
+		elif suspicious > 0:
+			extra = " · 警戒 %d" % suspicious
+		return "交战 %d%s" % [engaged, extra]
+	if alerted > 0:
+		return "发现 %d (击杀倒计时)" % alerted if suspicious == 0 else "发现 %d · 警戒 %d" % [alerted, suspicious]
 	if suspicious > 0:
-		return "怀疑 %d" % suspicious
+		return "警戒 %d" % suspicious
 	return "未警戒"
 
 
@@ -2336,12 +2506,13 @@ func _update_hud(message: String = "") -> void:
 			if enemy_alerts.has(selected_unit.unit_id):
 				var alert := enemy_alerts[selected_unit.unit_id] as AlertState
 				match alert.get_level():
-					AlertState.Level.SUSPICIOUS: alert_text = "怀疑"
+					AlertState.Level.SUSPICIOUS: alert_text = "警戒"
+					AlertState.Level.ALERTED: alert_text = "发现!"
 					AlertState.Level.ENGAGED: alert_text = "交战"
-			selection_label.text = "%s | HP %d/%d | 移动 %d | 伤害 %d (危险 %d) | 视野 %d | %s" % [
+			selection_label.text = "%s | HP %d/%d | 移动 %d | 伤害 %d (危险 %d) | 视野 外%d/内%d | %s" % [
 				selected_unit.name, selected_unit.current_hp, selected_unit.max_hp,
 				selected_unit.move_range, selected_unit.attack_damage,
-				selected_unit.attack_range, selected_unit.vision_range, alert_text,
+				selected_unit.attack_range, selected_unit.vision_range, selected_unit.inner_vision_range, alert_text,
 			]
 		else:
 			var archetype_name := selected_unit.archetype.display_name if selected_unit.archetype != null else "未配置原型"

@@ -86,16 +86,37 @@ func _test_detection_rules() -> void:
 	var compatible_negative := DetectionRulesScript.can_player_see(edge_observer, edge_target, -1, {}, empty_grid, empty_grid.get_edge_index())
 	_expect(not legacy_negative and not compatible_negative, "player: negative vision range must remain rejected on old and GridModel paths")
 
+	# Dual-tier vision tests
+	var origin := _c(2, 2)
+	var close_target := _c(2, 4) # in front when facing DOWN
+	var far_target := _c(2, 6)
+	var out_target := _c(2, 9)
+	_expect(DetectionRulesScript.evaluate_detection_tier(
+		origin, close_target, Vector2i.DOWN, 3, 6, {}
+	) == DetectionRulesScript.DetectionTier.INNER_DISCOVERY, "dual-tier: close target should trigger INNER_DISCOVERY")
+	_expect(DetectionRulesScript.evaluate_detection_tier(
+		origin, far_target, Vector2i.DOWN, 3, 6, {}
+	) == DetectionRulesScript.DetectionTier.OUTER_ALERT, "dual-tier: intermediate target should trigger OUTER_ALERT")
+	_expect(DetectionRulesScript.evaluate_detection_tier(
+		origin, out_target, Vector2i.DOWN, 3, 6, {}
+	) == DetectionRulesScript.DetectionTier.NONE, "dual-tier: target beyond outer range should be NONE")
+
 
 func _test_alert_state() -> void:
 	var state = AlertStateScript.new()
 	state.level_changed.connect(_record_level_change)
 	_expect(state.become_suspicious(_c(3, 3, 1)), "alert: unaware should become suspicious")
 	_expect(state.get_last_known_cell() == _c(3, 3, 1), "alert: last-known cell should preserve level")
+	_expect(state.become_alerted(&"enemy_alpha", _c(4, 4, 1)), "alert: suspicious should become alerted")
+	_expect(state.get_target_id() == &"enemy_alpha", "alert: target id should persist in alerted")
+	_expect(state.is_alerted(), "alert: should report is_alerted")
 	_expect(state.engage(&"enemy_alpha", _c(5, 5, 1)), "alert: valid target should engage")
-	_expect(state.get_target_id() == &"enemy_alpha", "alert: target id should persist")
-	_expect(state.calm_down() and state.calm_down(), "alert: two calm-downs should return to unaware")
-	_expect(_level_events.size() == 4, "alert: real state changes should emit events")
+	_expect(state.is_engaged(), "alert: should report is_engaged")
+	_expect(state.calm_down(), "alert: engage calm_down to suspicious")
+	_expect(state.is_suspicious(), "alert: should now be suspicious")
+	_expect(state.calm_down(), "alert: suspicious calm_down to unaware")
+	_expect(state.is_unaware(), "alert: should now be unaware")
+	_expect(_level_events.size() == 5, "alert: real state changes should emit events")
 	state.reset()
 	_expect(state.get_last_known_cell() == AlertStateScript.INVALID_CELL, "alert: reset should clear last-known cell")
 

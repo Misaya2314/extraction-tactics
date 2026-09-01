@@ -20,6 +20,7 @@ var _legacy_move_range := 4
 var _legacy_attack_range := 5
 var _legacy_attack_damage := 4
 var _legacy_attack_ap_cost := 1
+var _legacy_inner_vision_range := 4
 var _legacy_vision_range := 7
 var _legacy_archetype: UnitArchetype
 var _legacy_weapon: WeaponDefinition
@@ -92,12 +93,25 @@ var _legacy_facing := Vector2i(0, 1)
 		if runtime_state == null:
 			_legacy_attack_ap_cost = value
 
+@export var inner_vision_range: int = 4:
+	get:
+		return runtime_state.inner_vision_range if runtime_state != null else _legacy_inner_vision_range
+	set(value):
+		if runtime_state == null:
+			_legacy_inner_vision_range = value
+
 @export var vision_range: int = 7:
 	get:
 		return runtime_state.vision_range if runtime_state != null else _legacy_vision_range
 	set(value):
 		if runtime_state == null:
 			_legacy_vision_range = value
+
+var outer_vision_range: int:
+	get:
+		return vision_range
+	set(value):
+		vision_range = value
 
 @export var visual_color := Color("4f9dff")
 
@@ -143,9 +157,15 @@ var unit_id: StringName:
 @onready var selection_marker: MeshInstance3D = $SelectionMarker
 @onready var facing_marker: MeshInstance3D = $FacingMarker
 @onready var status_label: Label3D = $StatusLabel
+@onready var alert_badge: Label3D = get_node_or_null("AlertBadge") as Label3D
 @onready var weapon_pivot: Node3D = get_node_or_null("VisualRoot/WeaponPivot") as Node3D
 @onready var weapon_model_root: Node3D = get_node_or_null("VisualRoot/WeaponPivot/WeaponModelRoot") as Node3D
 @onready var muzzle_flash: MeshInstance3D = get_node_or_null("VisualRoot/WeaponPivot/MuzzleFlash") as MeshInstance3D
+
+var alert_level: int = 0:
+	set(value):
+		alert_level = value
+		_update_alert_badge()
 
 var facing: Vector2i:
 	get:
@@ -179,6 +199,7 @@ func _ready() -> void:
 	set_selected(false)
 	_apply_facing_visual()
 	_update_status_label()
+	_update_alert_badge()
 
 
 func bind_runtime_state(new_state: UnitRuntimeState, new_color: Color = Color.WHITE) -> bool:
@@ -200,6 +221,7 @@ func bind_runtime_state(new_state: UnitRuntimeState, new_color: Color = Color.WH
 		_apply_weapon_facing()
 		_apply_visual_color()
 		_update_status_label()
+		_update_alert_badge()
 	return true
 
 
@@ -233,6 +255,7 @@ func configure(
 		max_hp = archetype.max_hp
 		max_action_points = archetype.max_action_points
 		move_range = archetype.move_range
+		inner_vision_range = archetype.inner_vision_range
 		vision_range = archetype.vision_range
 		weapon = new_weapon if new_weapon != null else archetype.default_weapon
 	elif new_weapon != null:
@@ -764,6 +787,34 @@ func _update_status_label() -> void:
 		current_action_points,
 		max_action_points,
 	]
+
+
+func set_alert_level(level: int) -> void:
+	alert_level = level
+
+
+func _update_alert_badge() -> void:
+	if not is_instance_valid(alert_badge):
+		return
+	if faction != &"enemy" or alert_level == AlertState.Level.UNAWARE:
+		alert_badge.visible = false
+		return
+	alert_badge.visible = true
+	match alert_level:
+		AlertState.Level.SUSPICIOUS:
+			alert_badge.text = "❓ 警戒"
+			alert_badge.modulate = Color(1.0, 0.85, 0.15, 1.0)
+			alert_badge.outline_modulate = Color(0.2, 0.12, 0.0, 0.95)
+		AlertState.Level.ALERTED:
+			alert_badge.text = "❗ 发现!"
+			alert_badge.modulate = Color(1.0, 0.35, 0.05, 1.0)
+			alert_badge.outline_modulate = Color(0.3, 0.05, 0.0, 0.95)
+		AlertState.Level.ENGAGED:
+			alert_badge.text = "⚔️ 交战"
+			alert_badge.modulate = Color(1.0, 0.15, 0.15, 1.0)
+			alert_badge.outline_modulate = Color(0.3, 0.0, 0.0, 0.95)
+		_:
+			alert_badge.visible = false
 
 
 func _exit_tree() -> void:

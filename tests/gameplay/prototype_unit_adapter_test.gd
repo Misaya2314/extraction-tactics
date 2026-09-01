@@ -41,6 +41,7 @@ func _run() -> void:
 	_expect(unit.grid_cell == state.cell and unit.facing == state.facing, "adapter: cell and facing should proxy state")
 	_expect(unit.current_hp == original_hp and unit.current_action_points == original_ap, "adapter: initial HP/AP should come from state")
 	_expect(unit.archetype == archetype and unit.weapon == rifle, "adapter: definitions should proxy state/equipment")
+	_expect(unit.inner_vision_range == archetype.inner_vision_range and unit.vision_range == archetype.vision_range, "adapter: vision ranges should proxy archetype")
 	_expect(unit.attack_damage == rifle.damage and unit.attack_range == rifle.range and unit.attack_ap_cost == rifle.ap_cost, "adapter: weapon stats should proxy the equipped definition")
 	_expect(state.unequip(), "adapter: runtime state should support unequipping the weapon")
 	_expect(unit.weapon == null, "adapter: unarmed runtime state must not fall back to the legacy weapon")

@@ -7,6 +7,7 @@
 script = ExtResource("1_archetype")
 archetype_id = &"assault"
 display_name = "突击兵"
-move_range = 8
-vision_range = 15
+move_range = 5
+inner_vision_range = 3
+vision_range = 8
 default_weapon = ExtResource("2_weapon")

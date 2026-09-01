@@ -4,6 +4,7 @@ extends RefCounted
 enum Level {
 	UNAWARE,
 	SUSPICIOUS,
+	ALERTED,
 	ENGAGED,
 }
 
@@ -20,8 +21,24 @@ func get_level() -> Level:
 	return _level
 
 
+func is_unaware() -> bool:
+	return _level == Level.UNAWARE
+
+
+func is_suspicious() -> bool:
+	return _level == Level.SUSPICIOUS
+
+
+func is_alerted() -> bool:
+	return _level == Level.ALERTED
+
+
+func is_engaged() -> bool:
+	return _level == Level.ENGAGED
+
+
 func become_suspicious(cell: Vector3i) -> bool:
-	if _level == Level.ENGAGED:
+	if _level == Level.ENGAGED or _level == Level.ALERTED:
 		return false
 
 	_last_known_cell = cell
@@ -29,6 +46,21 @@ func become_suspicious(cell: Vector3i) -> bool:
 		return true
 
 	_set_level(Level.SUSPICIOUS)
+	return true
+
+
+func become_alerted(target_id: StringName, cell: Vector3i) -> bool:
+	if target_id == &"":
+		return false
+
+	_target_id = target_id
+	_last_known_cell = cell
+	if _level == Level.ALERTED:
+		return true
+	if _level == Level.ENGAGED:
+		return false
+
+	_set_level(Level.ALERTED)
 	return true
 
 
@@ -48,6 +80,10 @@ func engage(target_id: StringName, last_known_cell: Vector3i) -> bool:
 func calm_down() -> bool:
 	match _level:
 		Level.ENGAGED:
+			_target_id = &""
+			_set_level(Level.SUSPICIOUS)
+			return true
+		Level.ALERTED:
 			_target_id = &""
 			_set_level(Level.SUSPICIOUS)
 			return true

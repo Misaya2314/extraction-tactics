@@ -4,6 +4,12 @@ extends RefCounted
 const TacticalLineQueryScript = preload("res://scripts/core/cover/tactical_line_query.gd")
 const _CARDINAL_FACING: Array[Vector2i] = [Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT]
 
+enum DetectionTier {
+	NONE = 0,
+	OUTER_ALERT = 1,
+	INNER_DISCOVERY = 2,
+}
+
 
 static func is_in_vision_cone(observer: Vector3i, target: Vector3i, facing: Vector2i, vision_range: int, half_angle_degrees: float = 60.0) -> bool:
 	if vision_range < 0 or half_angle_degrees < 0.0 or is_nan(half_angle_degrees) or is_inf(half_angle_degrees):
@@ -35,6 +41,24 @@ static func can_detect(
 ) -> bool:
 	return is_in_vision_cone(observer, target, facing, vision_range, half_angle_degrees) \
 		and _has_line_of_sight(observer, target, opaque_cells, vision_range, grid, edge_index)
+
+
+static func evaluate_detection_tier(
+	observer: Vector3i,
+	target: Vector3i,
+	facing: Vector2i,
+	inner_vision_range: int,
+	outer_vision_range: int,
+	opaque_cells: Dictionary,
+	half_angle_degrees: float = 60.0,
+	grid: GridModel = null,
+	edge_index: TacticalEdgeIndex = null
+) -> DetectionTier:
+	if can_detect(observer, target, facing, inner_vision_range, opaque_cells, half_angle_degrees, grid, edge_index):
+		return DetectionTier.INNER_DISCOVERY
+	if can_detect(observer, target, facing, outer_vision_range, opaque_cells, half_angle_degrees, grid, edge_index):
+		return DetectionTier.OUTER_ALERT
+	return DetectionTier.NONE
 
 
 static func can_player_see(

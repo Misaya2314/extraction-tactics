@@ -155,9 +155,19 @@ var move_range: int:
 		return archetype.move_range if archetype != null else 0
 
 
+var inner_vision_range: int:
+	get:
+		return archetype.inner_vision_range if archetype != null else 0
+
+
 var vision_range: int:
 	get:
 		return archetype.vision_range if archetype != null else 0
+
+
+var outer_vision_range: int:
+	get:
+		return vision_range
 
 
 func is_valid(registry: Variant = null) -> bool:
@@ -209,8 +219,16 @@ func get_move_range() -> int:
 	return move_range
 
 
+func get_inner_vision_range() -> int:
+	return inner_vision_range
+
+
 func get_vision_range() -> int:
 	return vision_range
+
+
+func get_outer_vision_range() -> int:
+	return outer_vision_range
 
 
 func get_cell() -> Vector3i:
