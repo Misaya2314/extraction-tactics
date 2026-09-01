@@ -1,6 +1,7 @@
 extends SceneTree
 
 const PrototypeControllerScript = preload("res://scripts/gameplay/prototype_controller.gd")
+const PrototypeUnitScript = preload("res://scripts/gameplay/prototype_unit.gd")
 const GridModelScript = preload("res://scripts/core/grid/grid_model.gd")
 const MapEdgeDataScript = preload("res://scripts/core/map/map_edge_data.gd")
 const TacticalEdgeRulesScript = preload("res://scripts/core/map/tactical_edge_rules.gd")
@@ -16,8 +17,10 @@ func _init() -> void:
 func _run() -> void:
 	_test_hover_cursor_lifecycle()
 	_test_hover_cursor_bounds_and_visibility()
-	_test_distance_based_cursor_highlights()
+	_test_single_cell_cursor_highlight()
 	_test_cover_preview_indicators()
+	_test_action_mode_visibility()
+	_test_unit_cover_icons()
 	_finish()
 
 
@@ -29,6 +32,7 @@ func _test_hover_cursor_lifecycle() -> void:
 	_expect(controller._hover_cursor != null, "cursor: _hover_cursor should be instantiated")
 	_expect(controller._cursor_indicators_root != null, "cursor: _cursor_indicators_root should be instantiated")
 	_expect(controller._cover_indicators_root != null, "cursor: _cover_indicators_root should be instantiated")
+	_expect(controller._unit_cover_indicators_root != null, "cursor: _unit_cover_indicators_root should be instantiated")
 	if controller._hover_cursor != null:
 		_expect(not controller._hover_cursor.visible, "cursor: initial visibility should be false")
 		_expect(controller._hover_cursor.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF, "cursor: shadows should be disabled")
@@ -50,20 +54,20 @@ func _test_hover_cursor_bounds_and_visibility() -> void:
 	controller.grid = GridModelScript.new(Vector2i(4, 4))
 	controller._init_hover_cursor()
 
-	# When player cannot act, cursor hides
-	controller._update_hover_cursor(Vector2(100, 100))
-	_expect(not controller._is_cursor_visible(), "cursor: should remain hidden when player cannot act")
+	# When out of bounds / invalid cell, cursor hides
+	controller._update_hover_cursor(Vector2(-100, -100))
+	_expect(not controller._is_cursor_visible(), "cursor: should remain hidden when out of bounds")
 
 	controller.free()
 
 
-func _test_distance_based_cursor_highlights() -> void:
+func _test_single_cell_cursor_highlight() -> void:
 	var controller = PrototypeControllerScript.new()
 	var grid = GridModelScript.new(Vector2i(5, 5))
 	controller.grid = grid
 	controller._init_hover_cursor()
 
-	# Center at (2, 0, 2) on a 5x5 grid -> 5 cells within Manhattan distance 1 (center + 4 cardinal neighbors)
+	# Center at (2, 0, 2) on a 5x5 grid -> exactly 1 cell
 	controller._update_cursor_highlights(Vector3i(2, 0, 2))
 
 	var visible_highlights: Array[MeshInstance3D] = []
@@ -71,7 +75,7 @@ func _test_distance_based_cursor_highlights() -> void:
 		if mesh.visible:
 			visible_highlights.append(mesh)
 
-	_expect(visible_highlights.size() == 5, "cursor_highlight: should show 5 cells within Manhattan distance 1 (got %d)" % visible_highlights.size())
+	_expect(visible_highlights.size() == 1, "cursor_highlight: should show exactly 1 cell for hover cursor (got %d)" % visible_highlights.size())
 
 	# Find center mesh (distance 0) and check alpha
 	var center_pos: Vector3 = grid.cell_to_world(Vector3i(2, 0, 2)) + Vector3.UP * controller.CURSOR_SURFACE_OFFSET
@@ -85,7 +89,7 @@ func _test_distance_based_cursor_highlights() -> void:
 		var center_material = center_mesh.material_override as StandardMaterial3D
 		_expect(center_material != null, "cursor_highlight: center mesh should have material")
 		if center_material != null:
-			_expect(is_equal_approx(center_material.albedo_color.a, controller.CURSOR_HIGHLIGHT_COLOR.a * controller.CURSOR_DISTANCE_ALPHA_FACTORS[0]), "cursor_highlight: center alpha should match distance 0 factor")
+			_expect(is_equal_approx(center_material.albedo_color.a, controller.CURSOR_HIGHLIGHT_COLOR.a), "cursor_highlight: center alpha should match CURSOR_HIGHLIGHT_COLOR")
 
 	controller.free()
 
@@ -134,6 +138,88 @@ func _test_cover_preview_indicators() -> void:
 	for sprite in controller._cover_icon_pool:
 		_expect(not sprite.visible, "cover_preview: _hide_cover_preview should make all sprites invisible")
 
+	controller.free()
+
+
+func _test_action_mode_visibility() -> void:
+	var controller = PrototypeControllerScript.new()
+	controller.grid = GridModelScript.new(Vector2i(4, 4))
+	controller._init_hover_cursor()
+
+	# In ATTACK mode, _can_show_move_highlights should be false
+	controller.action_mode = controller.ACTION_MODE_ATTACK
+	_expect(not controller._can_show_move_highlights(), "action_mode: _can_show_move_highlights should be false in ATTACK mode")
+
+	# Setting up cover preview and switching to ATTACK mode should hide cover preview
+	controller._update_cover_preview(Vector3i(1, 0, 1))
+	controller._set_action_mode(controller.ACTION_MODE_ATTACK)
+	var visible_cover_count := 0
+	for sprite in controller._cover_icon_pool:
+		if sprite.visible:
+			visible_cover_count += 1
+	_expect(visible_cover_count == 0, "action_mode: _set_action_mode(ATTACK) should hide cover preview icons")
+
+	controller.free()
+
+
+func _test_unit_cover_icons() -> void:
+	var controller = PrototypeControllerScript.new()
+	var grid = GridModelScript.new(Vector2i(6, 6))
+	controller.grid = grid
+	controller._init_hover_cursor()
+
+	# Setup an edge with HALF cover on side A (cell (2,0,2)) and FULL cover on side B (cell (2,0,3))
+	var edge := MapEdgeDataScript.new()
+	edge.cell_a = Vector3i(2, 0, 2)
+	edge.cell_b = Vector3i(2, 0, 3)
+	edge.cover_a = TacticalEdgeRulesScript.CoverLevel.HALF
+	edge.cover_b = TacticalEdgeRulesScript.CoverLevel.FULL
+	grid.edge_index.configure([edge])
+
+	# Add player unit at (2, 0, 2)
+	var player_unit := PrototypeUnitScript.new()
+	player_unit.faction = &"player"
+	player_unit.grid_cell = Vector3i(2, 0, 2)
+	player_unit.visible = true
+	controller.units_by_id[&"player_1"] = player_unit
+
+	controller._refresh_unit_cover_icons()
+
+	var visible_icons: Array[Sprite3D] = []
+	for sprite in controller._unit_cover_icon_pool:
+		if sprite.visible:
+			visible_icons.append(sprite)
+
+	_expect(visible_icons.size() == 1, "unit_cover: player unit at (2,0,2) should display 1 cover icon (got %d)" % visible_icons.size())
+	if visible_icons.size() == 1:
+		_expect(visible_icons[0].texture == controller.HALF_COVER_TEXTURE, "unit_cover: player unit should have HALF cover texture")
+		_expect(is_equal_approx(visible_icons[0].modulate.a, 1.0), "unit_cover: unit cover icon should have full alpha")
+
+	# Add hidden enemy unit at (2, 0, 3) - should not display cover icon while invisible
+	var enemy_unit := PrototypeUnitScript.new()
+	enemy_unit.faction = &"enemy"
+	enemy_unit.grid_cell = Vector3i(2, 0, 3)
+	enemy_unit.visible = false
+	controller.units_by_id[&"enemy_1"] = enemy_unit
+
+	controller._refresh_unit_cover_icons()
+	visible_icons.clear()
+	for sprite in controller._unit_cover_icon_pool:
+		if sprite.visible:
+			visible_icons.append(sprite)
+	_expect(visible_icons.size() == 1, "unit_cover: hidden enemy should not display cover icon")
+
+	# Reveal enemy unit
+	enemy_unit.visible = true
+	controller._refresh_unit_cover_icons()
+	visible_icons.clear()
+	for sprite in controller._unit_cover_icon_pool:
+		if sprite.visible:
+			visible_icons.append(sprite)
+	_expect(visible_icons.size() == 2, "unit_cover: revealed enemy should display its FULL cover icon (got %d)" % visible_icons.size())
+
+	player_unit.free()
+	enemy_unit.free()
 	controller.free()
 
 

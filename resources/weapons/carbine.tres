@@ -6,10 +6,10 @@
 
 [resource]
 script = ExtResource("1_weapon")
-weapon_id = &"carbine"
-display_name = "卡宾枪"
+weapon_id = &"sniper"
+display_name = "狙击枪"
 damage = 3
-range = 7
+range = 10
 attack_feedback_profile = ExtResource("2_feedback")
 world_model_scene = ExtResource("3_model")
 world_model_position = Vector3(0, 0, 0.36)

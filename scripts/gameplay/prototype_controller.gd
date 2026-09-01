@@ -44,9 +44,9 @@ const CURSOR_HIGHLIGHT_COLOR := Color(1.0, 1.0, 1.0, 0.45)
 const CURSOR_SURFACE_OFFSET := 0.035
 const HALF_COVER_TEXTURE: Texture2D = preload("res://assets/textures/half_cover.png")
 const FULL_COVER_TEXTURE: Texture2D = preload("res://assets/textures/full_cover.png")
-const CURSOR_HIGHLIGHT_DISTANCE: int = 1
+const CURSOR_HIGHLIGHT_DISTANCE: int = 0
 const COVER_PREVIEW_DISTANCE: int = 2
-const CURSOR_DISTANCE_ALPHA_FACTORS: Array[float] = [1.0, 0.45]
+const CURSOR_DISTANCE_ALPHA_FACTORS: Array[float] = [1.0]
 const COVER_DISTANCE_ALPHA_FACTORS: Array[float] = [1.0, 0.65, 0.35]
 const COVER_ICON_SURFACE_OFFSET: float = 0.55
 const COVER_ICON_EDGE_OFFSET_RATIO: float = 0.40
@@ -101,6 +101,8 @@ var _cursor_indicators_root: Node3D = null
 var _cursor_mesh_pool: Array[MeshInstance3D] = []
 var _cover_indicators_root: Node3D = null
 var _cover_icon_pool: Array[Sprite3D] = []
+var _unit_cover_indicators_root: Node3D = null
+var _unit_cover_icon_pool: Array[Sprite3D] = []
 ## Shared, lazily-built highlight resources so whole-map overlay rebuilds reuse
 ## one Mesh + one Material per color instead of allocating per cell, which
 ## otherwise exhausts the D3D12 RESOURCES descriptor heap on large maps.
@@ -392,6 +394,10 @@ func _set_action_mode(mode: int) -> void:
 	if mode != ACTION_MODE_MOVE and mode != ACTION_MODE_ATTACK:
 		return
 	action_mode = mode
+	if action_mode != ACTION_MODE_MOVE:
+		_hide_cover_preview()
+	elif is_instance_valid(grid) and grid.has_cell(_hovered_cell) and _is_cursor_visible():
+		_update_cover_preview(_hovered_cell)
 	_refresh_highlights()
 	_update_hud("行动模式：移动。" if mode == ACTION_MODE_MOVE else "行动模式：攻击。")
 
@@ -1409,6 +1415,9 @@ func _refresh_highlights() -> void:
 				_add_highlight(attack_highlights_root, enemy.grid_cell, ATTACK_HIGHLIGHT_COLOR)
 	_refresh_object_highlights()
 	_refresh_vision_overlay()
+	_refresh_unit_cover_icons()
+	if can_show_move_highlights and is_instance_valid(grid) and grid.has_cell(_hovered_cell) and _is_cursor_visible():
+		_update_cover_preview(_hovered_cell)
 	if is_instance_valid(selected_unit) and selected_unit.faction == &"enemy":
 		_refresh_enemy_range_overlays(selected_unit)
 	_refresh_action_bar()
@@ -1475,6 +1484,10 @@ func _init_hover_cursor() -> void:
 		_cover_indicators_root = Node3D.new()
 		_cover_indicators_root.name = "CoverIndicators"
 		add_child(_cover_indicators_root)
+	if not is_instance_valid(_unit_cover_indicators_root):
+		_unit_cover_indicators_root = Node3D.new()
+		_unit_cover_indicators_root.name = "UnitCoverIndicators"
+		add_child(_unit_cover_indicators_root)
 	_hover_cursor = _get_or_create_cursor_mesh(0)
 
 
@@ -1485,7 +1498,7 @@ func _is_cursor_visible() -> bool:
 
 
 func _update_hover_cursor(screen_position: Vector2) -> void:
-	if not is_instance_valid(grid) or not _player_can_act():
+	if not is_instance_valid(grid) or input_locked or _is_terminal():
 		_hide_hover_cursor()
 		return
 	var cell := _screen_to_cell(screen_position)
@@ -1496,7 +1509,10 @@ func _update_hover_cursor(screen_position: Vector2) -> void:
 	_hovered_cell = cell
 	if cell_changed or not _is_cursor_visible():
 		_update_cursor_highlights(cell)
-		_update_cover_preview(cell)
+		if _can_show_move_highlights():
+			_update_cover_preview(cell)
+		else:
+			_hide_cover_preview()
 
 
 func _hide_hover_cursor() -> void:
@@ -1510,39 +1526,16 @@ func _update_cursor_highlights(center_cell: Vector3i) -> void:
 	if not is_instance_valid(grid) or not is_instance_valid(_cursor_indicators_root):
 		return
 
-	var mesh_index := 0
-	var level := center_cell.y
-	for dx in range(-CURSOR_HIGHLIGHT_DISTANCE, CURSOR_HIGHLIGHT_DISTANCE + 1):
-		for dz in range(-CURSOR_HIGHLIGHT_DISTANCE, CURSOR_HIGHLIGHT_DISTANCE + 1):
-			var dist := absi(dx) + absi(dz)
-			if dist > CURSOR_HIGHLIGHT_DISTANCE:
-				continue
-			var cell := Vector3i(center_cell.x + dx, level, center_cell.z + dz)
-			if not grid.has_cell(cell):
-				continue
-			if dist > 0 and not grid.is_walkable(cell):
-				continue
-
-			var alpha_factor: float = CURSOR_DISTANCE_ALPHA_FACTORS[dist] if dist < CURSOR_DISTANCE_ALPHA_FACTORS.size() else 0.45
-			var color := Color(
-				CURSOR_HIGHLIGHT_COLOR.r,
-				CURSOR_HIGHLIGHT_COLOR.g,
-				CURSOR_HIGHLIGHT_COLOR.b,
-				CURSOR_HIGHLIGHT_COLOR.a * alpha_factor
-			)
-			var material := _get_cached_highlight_material(color)
-			var highlight := _get_or_create_cursor_mesh(mesh_index)
-			mesh_index += 1
-
-			highlight.material_override = material
-			var target_pos := grid.cell_to_world(cell) + Vector3.UP * CURSOR_SURFACE_OFFSET
-			if is_inside_tree():
-				highlight.global_position = target_pos
-			else:
-				highlight.position = target_pos
-			highlight.visible = true
-	if _cursor_mesh_pool.size() > 0:
-		_hover_cursor = _cursor_mesh_pool[0]
+	var material := _get_cached_highlight_material(CURSOR_HIGHLIGHT_COLOR)
+	var highlight := _get_or_create_cursor_mesh(0)
+	highlight.material_override = material
+	var target_pos := grid.cell_to_world(center_cell) + Vector3.UP * CURSOR_SURFACE_OFFSET
+	if is_inside_tree():
+		highlight.global_position = target_pos
+	else:
+		highlight.position = target_pos
+	highlight.visible = true
+	_hover_cursor = highlight
 
 
 func _hide_cursor_highlights() -> void:
@@ -1632,6 +1625,73 @@ func _get_or_create_cover_sprite(index: int) -> Sprite3D:
 	return _cover_icon_pool[index]
 
 
+func _refresh_unit_cover_icons() -> void:
+	_hide_unit_cover_icons()
+	if not is_instance_valid(grid) or not is_instance_valid(_unit_cover_indicators_root):
+		return
+	var edge_index := grid.get_edge_index()
+	if edge_index == null:
+		return
+
+	var icon_index := 0
+	for unit_value in units_by_id.values():
+		var unit := unit_value as PrototypeUnit
+		if not is_instance_valid(unit) or not unit.is_alive():
+			continue
+		if unit.faction != &"player" and not unit.visible:
+			continue
+
+		var cell := unit.grid_cell
+		if not grid.has_cell(cell):
+			continue
+		var cell_world := grid.cell_to_world(cell)
+
+		for dir in GridModel.CARDINAL_DIRECTIONS:
+			var neighbor := cell + dir
+			var edge := edge_index.get_edge(cell, neighbor)
+			if edge == null:
+				continue
+			var side := 0 if edge.cell_a == cell else 1
+			var profile := edge.resolve_profile(side, cover_combat_settings)
+			if profile == null or profile.cover_level == 0:
+				continue
+
+			var texture: Texture2D = HALF_COVER_TEXTURE if profile.cover_level == 1 else FULL_COVER_TEXTURE
+			var sprite := _get_or_create_unit_cover_sprite(icon_index)
+			icon_index += 1
+
+			sprite.texture = texture
+			sprite.modulate = Color(1.0, 1.0, 1.0, 1.0)
+			var dir_vector := Vector3(float(dir.x), 0.0, float(dir.z))
+			var sprite_pos := cell_world + dir_vector * (grid.cell_dimensions.x * COVER_ICON_EDGE_OFFSET_RATIO) + Vector3.UP * COVER_ICON_SURFACE_OFFSET
+			if is_inside_tree():
+				sprite.global_position = sprite_pos
+			else:
+				sprite.position = sprite_pos
+			sprite.visible = true
+
+
+func _hide_unit_cover_icons() -> void:
+	for sprite in _unit_cover_icon_pool:
+		if is_instance_valid(sprite):
+			sprite.visible = false
+
+
+func _get_or_create_unit_cover_sprite(index: int) -> Sprite3D:
+	while index >= _unit_cover_icon_pool.size():
+		var sprite := Sprite3D.new()
+		sprite.name = "UnitCoverIcon_%d" % _unit_cover_icon_pool.size()
+		sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		sprite.shaded = false
+		sprite.pixel_size = COVER_ICON_PIXEL_SIZE
+		sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		sprite.render_priority = 10
+		sprite.visible = false
+		_unit_cover_indicators_root.add_child(sprite)
+		_unit_cover_icon_pool.append(sprite)
+	return _unit_cover_icon_pool[index]
+
+
 func get_hovered_cell() -> Vector3i:
 	return _hovered_cell
 
@@ -1711,8 +1771,8 @@ func _clear_highlights() -> void:
 		_clear_children(attack_highlights_root)
 	if is_instance_valid(object_highlights_root):
 		_clear_children(object_highlights_root)
-	_hide_cursor_highlights()
 	_hide_cover_preview()
+	_hide_unit_cover_icons()
 
 
 ## Darkens every cell NOT visible to any living player unit (range + LOS)
@@ -2199,7 +2259,9 @@ func _can_show_tactical_highlights() -> bool:
 
 
 func _can_show_move_highlights() -> bool:
-	return _can_show_tactical_highlights() and selected_unit.can_spend_action_points(MOVE_ACTION_COST)
+	return _can_show_tactical_highlights() \
+		and action_mode == ACTION_MODE_MOVE \
+		and selected_unit.can_spend_action_points(MOVE_ACTION_COST)
 
 
 func _is_terminal() -> bool:
