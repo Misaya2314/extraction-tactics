@@ -43,10 +43,11 @@ func _test_visible_cells() -> void:
 
 func _test_detection_rules() -> void:
 	var observer := _c(2, 2)
-	_expect(DetectionRulesScript.is_in_vision_cone(observer, _c(2, 0), Vector2i.UP, 4), "cone: target in front should be visible")
-	_expect(not DetectionRulesScript.is_in_vision_cone(observer, _c(2, 4), Vector2i.UP, 4), "cone: target behind should be hidden")
-	_expect(DetectionRulesScript.is_in_vision_cone(observer, _c(4, 2, 1), Vector2i.RIGHT, 4), "cone: elevated target in facing direction should be visible")
-	_expect(not DetectionRulesScript.can_detect(observer, _c(2, 0), Vector2i.UP, 4, {_c(2, 1): true}), "detect: LOS blocker should prevent detection")
+	_expect(DetectionRulesScript.is_in_range(observer, _c(2, 0), 4), "range: target in range should be true")
+	_expect(DetectionRulesScript.is_in_range(observer, _c(2, 4), 4), "range: target at distance 2 should be in range 4")
+	_expect(DetectionRulesScript.is_in_range(observer, _c(4, 2, 1), 4), "range: elevated target in range should be true")
+	_expect(not DetectionRulesScript.is_in_range(observer, _c(2, 8), 4), "range: target beyond distance 4 should be false")
+	_expect(not DetectionRulesScript.can_detect(observer, _c(2, 0), 4, {_c(2, 1): true}), "detect: LOS blocker should prevent detection")
 	_expect(DetectionRulesScript.can_player_see(observer, _c(2, 4), 4, {}), "player: vision should remain 360 degrees")
 
 	var edge_grid := GridModelScript.new(Vector2i(5, 1))
@@ -55,7 +56,7 @@ func _test_detection_rules() -> void:
 	var edge_observer := _c(0, 0)
 	var edge_target := _c(4, 0)
 	_expect(not DetectionRulesScript.can_detect(
-		edge_observer, edge_target, Vector2i.RIGHT, 4, {}, 60.0,
+		edge_observer, edge_target, 4, {},
 		edge_grid, edge_grid.get_edge_index()
 	), "detect: explicit sight edge should block enemy detection")
 	_expect(DetectionRulesScript.can_player_see(
@@ -65,7 +66,7 @@ func _test_detection_rules() -> void:
 	var projectile_edge := _edge(_c(1, 0), _c(2, 0), 0.0, 1.0)
 	_expect(edge_grid.edge_index.configure([projectile_edge]), "detect: explicit projectile edge should index")
 	_expect(DetectionRulesScript.can_detect(
-		edge_observer, edge_target, Vector2i.RIGHT, 4, {}, 60.0,
+		edge_observer, edge_target, 4, {},
 		edge_grid, edge_grid.get_edge_index()
 	), "detect: projectile-only edge must not block enemy detection")
 	_expect(DetectionRulesScript.can_player_see(
@@ -88,17 +89,17 @@ func _test_detection_rules() -> void:
 
 	# Dual-tier vision tests
 	var origin := _c(2, 2)
-	var close_target := _c(2, 4) # in front when facing DOWN
+	var close_target := _c(2, 4)
 	var far_target := _c(2, 6)
 	var out_target := _c(2, 9)
 	_expect(DetectionRulesScript.evaluate_detection_tier(
-		origin, close_target, Vector2i.DOWN, 3, 6, {}
+		origin, close_target, 3, 6, {}
 	) == DetectionRulesScript.DetectionTier.INNER_DISCOVERY, "dual-tier: close target should trigger INNER_DISCOVERY")
 	_expect(DetectionRulesScript.evaluate_detection_tier(
-		origin, far_target, Vector2i.DOWN, 3, 6, {}
+		origin, far_target, 3, 6, {}
 	) == DetectionRulesScript.DetectionTier.OUTER_ALERT, "dual-tier: intermediate target should trigger OUTER_ALERT")
 	_expect(DetectionRulesScript.evaluate_detection_tier(
-		origin, out_target, Vector2i.DOWN, 3, 6, {}
+		origin, out_target, 3, 6, {}
 	) == DetectionRulesScript.DetectionTier.NONE, "dual-tier: target beyond outer range should be NONE")
 
 

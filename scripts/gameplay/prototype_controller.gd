@@ -1847,17 +1847,13 @@ func _perception_edge_index() -> TacticalEdgeIndex:
 func _can_detect_with_grid(
 	observer: Vector3i,
 	target: Vector3i,
-	facing: Vector2i,
-	vision_range: int,
-	half_angle_degrees: float = 60.0
+	vision_range: int
 ) -> bool:
 	return DetectionRules.can_detect(
 		observer,
 		target,
-		facing,
 		vision_range,
 		opaque_cells,
-		half_angle_degrees,
 		grid,
 		_perception_edge_index()
 	)
@@ -1866,19 +1862,15 @@ func _can_detect_with_grid(
 func _evaluate_detection_tier_with_grid(
 	observer: Vector3i,
 	target: Vector3i,
-	facing: Vector2i,
 	inner_vision_range: int,
-	outer_vision_range: int,
-	half_angle_degrees: float = 60.0
+	outer_vision_range: int
 ) -> DetectionRules.DetectionTier:
 	return DetectionRules.evaluate_detection_tier(
 		observer,
 		target,
-		facing,
 		inner_vision_range,
 		outer_vision_range,
 		opaque_cells,
-		half_angle_degrees,
 		grid,
 		_perception_edge_index()
 	)
@@ -1969,7 +1961,7 @@ func _evaluate_detection() -> bool:
 			if not is_instance_valid(player) or not player.is_alive():
 				continue
 			var tier := _evaluate_detection_tier_with_grid(
-				enemy.grid_cell, player.grid_cell, enemy.facing,
+				enemy.grid_cell, player.grid_cell,
 				enemy.inner_vision_range, enemy.vision_range
 			)
 			match tier:
@@ -2215,7 +2207,7 @@ func _refresh_enemies_range_overlays(enemies: Array) -> void:
 					if cell_tiers.get(cell, DetectionRules.DetectionTier.NONE) == DetectionRules.DetectionTier.INNER_DISCOVERY:
 						continue
 					var tier := _evaluate_detection_tier_with_grid(
-						origin, cell, enemy.facing,
+						origin, cell,
 						enemy.inner_vision_range, enemy.vision_range
 					)
 					if tier != DetectionRules.DetectionTier.NONE:

@@ -26,42 +26,41 @@ func _init() -> void:
 
 func _test_dual_tier_detection_rules() -> void:
 	var observer := Vector3i(2, 0, 2)
-	var facing := Vector2i(0, 1) # Facing DOWN (increasing Z)
 	var inner_range := 3
 	var outer_range := 7
 
-	# Target directly ahead within inner cone (distance 2 <= 3)
+	# Target directly ahead within inner range (distance 2 <= 3)
 	var inner_target := Vector3i(2, 0, 4)
 	var tier := DetectionRulesScript.evaluate_detection_tier(
-		observer, inner_target, facing, inner_range, outer_range, {}
+		observer, inner_target, inner_range, outer_range, {}
 	)
 	_expect(tier == DetectionRulesScript.DetectionTier.INNER_DISCOVERY, "rules: inner target should be INNER_DISCOVERY")
 
-	# Target directly ahead within outer cone (distance 5: > 3 and <= 7)
+	# Target directly ahead within outer range (distance 5: > 3 and <= 7)
 	var outer_target := Vector3i(2, 0, 7)
 	tier = DetectionRulesScript.evaluate_detection_tier(
-		observer, outer_target, facing, inner_range, outer_range, {}
+		observer, outer_target, inner_range, outer_range, {}
 	)
 	_expect(tier == DetectionRulesScript.DetectionTier.OUTER_ALERT, "rules: outer target should be OUTER_ALERT")
 
 	# Target outside outer range (distance 8 > 7)
 	var far_target := Vector3i(2, 0, 10)
 	tier = DetectionRulesScript.evaluate_detection_tier(
-		observer, far_target, facing, inner_range, outer_range, {}
+		observer, far_target, inner_range, outer_range, {}
 	)
 	_expect(tier == DetectionRulesScript.DetectionTier.NONE, "rules: far target should be NONE")
 
-	# Target behind observer (facing DOWN, target at Z=0)
+	# Target behind observer (distance 2 <= 3, 360 degree grid distance)
 	var behind_target := Vector3i(2, 0, 0)
 	tier = DetectionRulesScript.evaluate_detection_tier(
-		observer, behind_target, facing, inner_range, outer_range, {}
+		observer, behind_target, inner_range, outer_range, {}
 	)
-	_expect(tier == DetectionRulesScript.DetectionTier.NONE, "rules: behind target should be NONE")
+	_expect(tier == DetectionRulesScript.DetectionTier.INNER_DISCOVERY, "rules: behind target within inner range should be INNER_DISCOVERY (360 degrees vision)")
 
 	# Target blocked by opaque wall
 	var wall := {Vector3i(2, 0, 3): true}
 	tier = DetectionRulesScript.evaluate_detection_tier(
-		observer, inner_target, facing, inner_range, outer_range, wall
+		observer, inner_target, inner_range, outer_range, wall
 	)
 	_expect(tier == DetectionRulesScript.DetectionTier.NONE, "rules: blocked inner target should be NONE")
 
@@ -107,7 +106,7 @@ func _test_outer_vision_investigation_flow() -> void:
 	grid.occupy(player_cell, &"player_unit")
 
 	var tier := DetectionRulesScript.evaluate_detection_tier(
-		enemy_cell, player_cell, facing, 3, 7, {}
+		enemy_cell, player_cell, 3, 7, {}
 	)
 	_expect(tier == DetectionRulesScript.DetectionTier.OUTER_ALERT, "investigation: outer alert triggered")
 
