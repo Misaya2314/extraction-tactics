@@ -9,6 +9,5 @@ archetype_id = &"dummy_enemy"
 display_name = "敌人A"
 max_hp = 6
 move_range = 8
-inner_vision_range = 4
-vision_range = 10
+vision_range = 8
 default_weapon = ExtResource("1_jfguy")

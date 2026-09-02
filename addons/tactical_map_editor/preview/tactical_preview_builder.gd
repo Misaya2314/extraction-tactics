@@ -109,6 +109,24 @@ static func build_facing_needle(length: float, radius: float, color: Color) -> M
 	return instance
 
 
+## Builds a floating 3D billboard text label displaying an encounter_id above
+## a spawn marker in the editor viewport overlay and placement preview.
+static func build_encounter_label(encounter_id: StringName, color: Color, height_offset: float = 1.0) -> Label3D:
+	var label := Label3D.new()
+	label.name = "EncounterIdPreview"
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.text = String(encounter_id)
+	label.font_size = 56
+	label.outline_size = 14
+	label.outline_modulate = Color(0.0, 0.0, 0.0, 0.95)
+	label.modulate = color
+	label.pixel_size = 0.015
+	label.position = Vector3(0.0, height_offset, 0.0)
+	label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return label
+
+
 static func tint_preview(node: Node, color: Color) -> void:
 	if node == null:
 		return

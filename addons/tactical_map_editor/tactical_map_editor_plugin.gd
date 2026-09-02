@@ -1608,6 +1608,8 @@ func _update_special_overlay() -> void:
 				spawn_points.append({
 				&"position": author.call("cell_to_local", marker.cell),
 				&"color": marker.visual_color,
+				&"encounter_id": marker.encounter_id,
+				&"faction": marker.faction,
 			})
 		elif node is TraversalLink3D:
 			var link := node as TraversalLink3D
@@ -1638,6 +1640,7 @@ func _update_special_overlay() -> void:
 	for child in _special_overlay_root.get_children():
 		child.free()
 	_add_special_points(spawn_points, "SpawnMarkers", dimensions, 0.24)
+	_add_special_encounter_labels(spawn_points, dimensions)
 	_add_special_points(traversal_points, "TraversalEndpoints", dimensions, 0.18)
 	_add_special_points(patrol_points, "PatrolPoints", dimensions, 0.16)
 	_add_special_lines(traversal_segments, "TraversalLines", Color("d58cff"))
@@ -1681,6 +1684,21 @@ func _add_special_points(points: Array[Dictionary], node_name: String, dimension
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_special_overlay_root.add_child(instance)
 	instance.owner = null
+
+func _add_special_encounter_labels(points: Array[Dictionary], dimensions: Vector3) -> void:
+	if _special_overlay_root == null or points.is_empty():
+		return
+	var height := dimensions.y * 1.1
+	for point in points:
+		var encounter_id: StringName = point.get(&"encounter_id", &"")
+		if encounter_id.is_empty():
+			continue
+		var local_position: Vector3 = point.get(&"position", Vector3.ZERO)
+		var color: Color = point.get(&"color", Color.WHITE)
+		var label := PREVIEW_BUILDER.build_encounter_label(encounter_id, color, height)
+		label.position += local_position
+		_special_overlay_root.add_child(label)
+		label.owner = null
 
 func _add_special_lines(segments: Array[Dictionary], node_name: String, color: Color) -> void:
 	if _special_overlay_root == null or segments.is_empty():
@@ -1773,9 +1791,26 @@ func _rebuild_preview_content(author: Node3D) -> void:
 			tintable.append(_preview_mesh)
 	if selected_kind == "cell":
 		_build_preview_cover_directions(selected, author)
+	if selected_kind == "spawn":
+		_build_preview_encounter_label(selected, author)
 	for visual_node in tintable:
 		if visual_node != null and is_instance_valid(visual_node):
 			_apply_preview_visual_defaults(visual_node)
+
+
+func _build_preview_encounter_label(selected: Dictionary, author: Node3D) -> void:
+	if _preview_root == null or author == null:
+		return
+	var encounter_id := StringName(selected.get(&"encounter_id", &""))
+	if encounter_id.is_empty():
+		return
+	var dimensions: Vector3 = author.get("cell_dimensions")
+	var color: Variant = selected.get(&"visual_color", null)
+	var tint := color as Color if color is Color else Color("ff5b5b")
+	var height := dimensions.y * 1.1
+	var label := PREVIEW_BUILDER.build_encounter_label(encounter_id, tint, height)
+	_preview_root.add_child(label)
+	label.owner = null
 
 
 func _build_preview_cover_directions(selected: Dictionary, author: Node3D) -> void:

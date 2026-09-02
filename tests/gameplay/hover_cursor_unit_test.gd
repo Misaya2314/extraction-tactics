@@ -131,7 +131,7 @@ func _test_cover_preview_indicators() -> void:
 	for sprite in controller._cover_icon_pool:
 		if sprite.visible:
 			visible_count_far += 1
-	_expect(visible_count_far == 0, "cover_preview: should show 0 cover icons when beyond distance 2")
+	_expect(visible_count_far == 0, "cover_preview: should show 0 cover icons when beyond distance 1")
 
 	# Hide cover preview
 	controller._hide_cover_preview()
