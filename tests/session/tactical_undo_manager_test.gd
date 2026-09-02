@@ -15,6 +15,7 @@ var _restore_saw_unavailable: bool = false
 
 func _init() -> void:
 	_test_undo_manager_checkpoints_and_atomicity()
+	_test_multiple_turn_undo_to_stable_start()
 	_test_undo_manager_restore_failure_and_locking()
 	_test_turn_manager_state_roundtrip_and_validation()
 	_test_game_state_manager_state_roundtrip_and_validation()
@@ -71,6 +72,31 @@ func _test_undo_manager_checkpoints_and_atomicity() -> void:
 	_expect(manager.undo_step(), "undo: cancelled action must leave the prior step checkpoint intact")
 	_expect(_model[&"counter"] == 10, "undo: failed/cancelled action must not overwrite the prior step")
 	_expect(not manager.commit_player_action(), "undo: commit without an open action must be rejected")
+
+
+func _test_multiple_turn_undo_to_stable_start() -> void:
+	_model = {&"counter": 0}
+	_capture_should_fail = false
+	_restore_should_succeed = true
+	var manager := TacticalUndoManagerScript.new()
+	manager.configure(Callable(self, "_capture_test_model"), Callable(self, "_restore_test_model"))
+	_expect(manager.capture_turn_checkpoint(), "undo repeat: turn entry should capture once")
+
+	_expect(manager.begin_player_action(), "undo repeat: action A should begin")
+	_model[&"counter"] = 1
+	_expect(manager.commit_player_action(), "undo repeat: action A should commit")
+	_expect(manager.undo_turn(), "undo repeat: first turn undo should succeed")
+	_expect(_model[&"counter"] == 0, "undo repeat: first turn undo should restore the original entry")
+	_expect(not manager.can_undo_turn(), "undo repeat: no new action should leave turn undo unavailable")
+	_expect(not manager.undo_turn(), "undo repeat: repeated empty turn undo should be rejected")
+
+	_expect(manager.begin_player_action(), "undo repeat: action B should begin after turn undo")
+	_model[&"counter"] = 2
+	_expect(manager.commit_player_action(), "undo repeat: action B should commit")
+	_expect(manager.can_undo_turn(), "undo repeat: a later action should re-enable turn undo")
+	_expect(manager.undo_turn(), "undo repeat: second turn undo should succeed")
+	_expect(_model[&"counter"] == 0, "undo repeat: second turn undo should restore the same original entry")
+	_expect(not manager.can_undo_step() and not manager.can_undo_turn(), "undo repeat: second turn undo should hide both actions")
 
 
 func _test_undo_manager_restore_failure_and_locking() -> void:

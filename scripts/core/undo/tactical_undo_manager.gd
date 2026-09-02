@@ -112,8 +112,10 @@ func undo_step() -> bool:
 	return true
 
 
-## Restores the player-turn entry state and consumes both checkpoints.
-## A failed restore retains both checkpoints for a later retry.
+## Restores the player-turn entry state and consumes the current step
+## checkpoint/availability.  The turn checkpoint remains stable until a new
+## player turn is captured, so another successful action can be undone to the
+## same turn entry state.  A failed restore retains all checkpoints.
 func undo_turn() -> bool:
 	if not can_undo_turn():
 		return false
@@ -121,7 +123,6 @@ func undo_turn() -> bool:
 	if not _restore_snapshot(checkpoint):
 		return false
 	_step_checkpoint = null
-	_turn_checkpoint = null
 	_turn_has_successful_action = false
 	_emit_availability_if_changed()
 	return true
