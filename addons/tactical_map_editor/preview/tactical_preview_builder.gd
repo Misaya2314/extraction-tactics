@@ -76,9 +76,8 @@ static func apply_preview_visual_defaults(node: Node, color: Color = Color(0.25,
 		apply_preview_visual_defaults(child, color)
 
 
-## Basis whose local +Y axis points along a cardinal facing direction on the
-## X/Z ground plane. Shared by the spawn-marker overlay and the placement
-## preview so both render the same physical orientation.
+## Basis whose local +Y axis points along a cardinal direction on the
+## X/Z ground plane. Used to orient directional indicators (such as cover protection).
 static func facing_basis(facing: Vector2i) -> Basis:
 	var y := Vector3(float(facing.x), 0.0, float(facing.y)).normalized()
 	var z := Vector3.UP

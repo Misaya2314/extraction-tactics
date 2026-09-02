@@ -15,7 +15,6 @@ var faction: StringName = &""
 var current_hp: int = 0
 var current_action_points: int = 0
 var cell: Vector3i = DEFAULT_CELL
-var facing: Vector2i = Vector2i(0, 1)
 var weapon_instance_id: StringName = &""
 var inventory_id: StringName = &""
 var alive: bool = false
@@ -29,11 +28,12 @@ func _init(
 	new_current_hp: int = 0,
 	new_current_action_points: int = 0,
 	new_cell: Variant = DEFAULT_CELL,
-	new_facing: Variant = Vector2i(0, 1),
 	new_weapon_instance_id: Variant = &"",
 	new_inventory_id: Variant = &"",
 	new_alive: bool = false,
 	new_state_version: int = CURRENT_STATE_VERSION,
+	legacy_arg_1: Variant = null,
+	legacy_arg_2: Variant = null,
 ) -> void:
 	instance_id = _coerce_string_name(new_instance_id)
 	archetype_id = _coerce_string_name(new_archetype_id)
@@ -42,12 +42,23 @@ func _init(
 	current_action_points = new_current_action_points
 	if new_cell is Vector3i:
 		cell = new_cell
-	if new_facing is Vector2i:
-		facing = new_facing
-	weapon_instance_id = _coerce_string_name(new_weapon_instance_id)
-	inventory_id = _coerce_string_name(new_inventory_id)
-	alive = new_alive
-	state_version = new_state_version
+
+	var actual_weapon_id: Variant = new_weapon_instance_id
+	var actual_inventory_id: Variant = new_inventory_id
+	var actual_alive: bool = new_alive
+	var actual_version: int = new_state_version
+
+	if new_weapon_instance_id is Vector2i:
+		# Legacy signature: (id, arch, faction, hp, ap, cell, facing, weapon_id, inv_id, alive, version)
+		actual_weapon_id = new_inventory_id
+		actual_inventory_id = new_alive
+		actual_alive = bool(new_state_version)
+		actual_version = int(legacy_arg_1) if legacy_arg_1 != null else CURRENT_STATE_VERSION
+
+	weapon_instance_id = _coerce_string_name(actual_weapon_id)
+	inventory_id = _coerce_string_name(actual_inventory_id)
+	alive = actual_alive
+	state_version = actual_version
 
 
 func is_valid() -> bool:
@@ -60,7 +71,6 @@ func is_valid() -> bool:
 		and current_hp >= 0
 		and current_action_points >= 0
 		and is_valid_cell(cell)
-		and is_valid_facing(facing)
 		and alive == (current_hp > 0)
 		and state_version == CURRENT_STATE_VERSION
 	)
@@ -82,7 +92,6 @@ func to_dictionary() -> Dictionary:
 		&"current_hp": current_hp,
 		&"current_action_points": current_action_points,
 		&"cell": cell,
-		&"facing": facing,
 		&"weapon_instance_id": String(weapon_instance_id),
 		&"inventory_id": String(inventory_id),
 		&"alive": alive,
@@ -104,7 +113,6 @@ static func from_dictionary(data: Dictionary) -> UnitStateSnapshot:
 		&"current_hp",
 		&"current_action_points",
 		&"cell",
-		&"facing",
 		&"weapon_instance_id",
 		&"inventory_id",
 		&"alive",
@@ -119,7 +127,6 @@ static func from_dictionary(data: Dictionary) -> UnitStateSnapshot:
 	var raw_hp: Variant = _field(data, &"current_hp")
 	var raw_ap: Variant = _field(data, &"current_action_points")
 	var raw_cell: Variant = _field(data, &"cell")
-	var raw_facing: Variant = _field(data, &"facing")
 	var raw_weapon_instance_id: Variant = _field(data, &"weapon_instance_id")
 	var raw_inventory_id: Variant = _field(data, &"inventory_id")
 	var raw_alive: Variant = _field(data, &"alive")
@@ -130,7 +137,7 @@ static func from_dictionary(data: Dictionary) -> UnitStateSnapshot:
 		return null
 	if typeof(raw_hp) != TYPE_INT or typeof(raw_ap) != TYPE_INT or typeof(raw_state_version) != TYPE_INT:
 		return null
-	if typeof(raw_cell) != TYPE_VECTOR3I or typeof(raw_facing) != TYPE_VECTOR2I or typeof(raw_alive) != TYPE_BOOL:
+	if typeof(raw_cell) != TYPE_VECTOR3I or typeof(raw_alive) != TYPE_BOOL:
 		return null
 	var snapshot := UnitStateSnapshot.new(
 		raw_instance_id,
@@ -139,7 +146,6 @@ static func from_dictionary(data: Dictionary) -> UnitStateSnapshot:
 		int(raw_hp),
 		int(raw_ap),
 		raw_cell,
-		raw_facing,
 		raw_weapon_instance_id,
 		raw_inventory_id,
 		bool(raw_alive),
@@ -160,7 +166,6 @@ func duplicate_snapshot() -> UnitStateSnapshot:
 		current_hp,
 		current_action_points,
 		cell,
-		facing,
 		weapon_instance_id,
 		inventory_id,
 		alive,
@@ -172,18 +177,6 @@ static func is_valid_cell(candidate: Variant) -> bool:
 	if not candidate is Vector3i:
 		return false
 	return true
-
-
-static func is_valid_facing(candidate: Variant) -> bool:
-	if not candidate is Vector2i:
-		return false
-	var typed_facing: Vector2i = candidate
-	return (
-		typed_facing == Vector2i(0, -1)
-		or typed_facing == Vector2i(-1, 0)
-		or typed_facing == Vector2i(0, 1)
-		or typed_facing == Vector2i(1, 0)
-	)
 
 
 static func _has_field(data: Dictionary, key: StringName) -> bool:

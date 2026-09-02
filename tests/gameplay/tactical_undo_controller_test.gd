@@ -207,7 +207,6 @@ func _build_fixture(lethal_attack: bool = false) -> void:
 		_archetype,
 		&"player",
 		START_CELL,
-		Vector2i(0, 1),
 		player_weapon
 	)
 	var enemy_state := UnitRuntimeStateScript.new(
@@ -215,7 +214,6 @@ func _build_fixture(lethal_attack: bool = false) -> void:
 		_archetype,
 		&"enemy",
 		ENEMY_CELL,
-		Vector2i(0, -1),
 		enemy_weapon
 	)
 	_expect(player_state.is_valid(), "fixture: player runtime state must be valid")
@@ -278,9 +276,6 @@ func _make_unit_view(state: UnitRuntimeState, view_name: String, color: Color) -
 	var selection_marker := MeshInstance3D.new()
 	selection_marker.name = "SelectionMarker"
 	unit.add_child(selection_marker)
-	var facing_marker := MeshInstance3D.new()
-	facing_marker.name = "FacingMarker"
-	unit.add_child(facing_marker)
 	var status_label := Label3D.new()
 	status_label.name = "StatusLabel"
 	unit.add_child(status_label)

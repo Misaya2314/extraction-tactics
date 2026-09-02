@@ -114,23 +114,46 @@ static func find_best_combat_move_cell(
 ## - intent: IntentType (INVESTIGATE_STEP, PATROL_STEP, CALM_DOWN, PASS)
 ## - destination: Vector3i
 ## - path: Array[Vector3i]
-## - facing: Vector2i
 ## - should_calm_down: bool
 ## - updated_investigation: Dictionary
 static func plan_exploration_step(
 	enemy_cell: Vector3i,
-	enemy_facing: Vector2i,
-	alert: AlertState,
-	patrol_route: PatrolRoute,
-	investigation_data: Dictionary,
-	grid: GridModel,
-	move_range: int = 1
+	alert_or_facing: Variant,
+	patrol_or_alert: Variant = null,
+	investigation_or_route: Variant = null,
+	grid_or_investigation: Variant = null,
+	move_range_or_grid: Variant = null,
+	legacy_move_range: Variant = null
 ) -> Dictionary:
+	var alert: AlertState = null
+	var patrol_route: PatrolRoute = null
+	var investigation_data: Dictionary = {}
+	var grid: GridModel = null
+	var move_range: int = 1
+
+	if alert_or_facing is Vector2i:
+		# Legacy signature: (enemy_cell, enemy_facing, alert, patrol_route, investigation_data, grid, move_range)
+		alert = patrol_or_alert as AlertState
+		patrol_route = investigation_or_route as PatrolRoute
+		if grid_or_investigation is Dictionary:
+			investigation_data = grid_or_investigation
+		grid = move_range_or_grid as GridModel
+		if legacy_move_range is int:
+			move_range = legacy_move_range
+	else:
+		# Standard signature: (enemy_cell, alert, patrol_route, investigation_data, grid, move_range)
+		alert = alert_or_facing as AlertState
+		patrol_route = patrol_or_alert as PatrolRoute
+		if investigation_or_route is Dictionary:
+			investigation_data = investigation_or_route
+		grid = grid_or_investigation as GridModel
+		if move_range_or_grid is int:
+			move_range = move_range_or_grid
+
 	var result := {
 		&"intent": IntentType.PASS,
 		&"destination": enemy_cell,
 		&"path": [] as Array[Vector3i],
-		&"facing": enemy_facing,
 		&"should_calm_down": false,
 		&"updated_investigation": investigation_data.duplicate(),
 	}
@@ -138,7 +161,7 @@ static func plan_exploration_step(
 	# 1. Suspicious investigation takes priority
 	if alert != null and alert.is_suspicious():
 		var target_cell := alert.get_last_known_cell()
-		if target_cell != AlertState.INVALID_CELL:
+		if target_cell != AlertState.INVALID_CELL and grid != null:
 			var full_path := find_path_towards(enemy_cell, target_cell, grid)
 			if full_path.size() >= 2:
 				var max_steps := mini(maxi(move_range, 1), full_path.size() - 1)
@@ -146,12 +169,9 @@ static func plan_exploration_step(
 				for i in range(max_steps + 1):
 					sub_path.append(full_path[i])
 				var destination: Vector3i = sub_path.back()
-				var prev_cell: Vector3i = sub_path[sub_path.size() - 2]
-				var move_dir := Vector2i(destination.x - prev_cell.x, destination.z - prev_cell.z)
 				result[&"intent"] = IntentType.INVESTIGATE_STEP
 				result[&"destination"] = destination
 				result[&"path"] = sub_path
-				result[&"facing"] = move_dir if move_dir != Vector2i.ZERO else enemy_facing
 				return result
 			else:
 				# Cannot get closer or already at target
@@ -165,16 +185,14 @@ static func plan_exploration_step(
 				return result
 
 	# 2. Patrol route step
-	if patrol_route != null:
+	if patrol_route != null and grid != null:
 		var next_cell := patrol_route.peek_next()
 		if next_cell != enemy_cell:
 			var path := grid.find_path(enemy_cell, next_cell)
 			if path.size() == 2:
-				var move_dir := Vector2i(next_cell.x - enemy_cell.x, next_cell.z - enemy_cell.z)
 				result[&"intent"] = IntentType.PATROL_STEP
 				result[&"destination"] = next_cell
 				result[&"path"] = path
-				result[&"facing"] = move_dir if move_dir != Vector2i.ZERO else enemy_facing
 				return result
 
 	return result

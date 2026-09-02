@@ -40,15 +40,13 @@ func _test_exploration_patrol_decision() -> void:
 	route.configure([Vector3i(2, 0, 2), Vector3i(2, 0, 3), Vector3i(2, 0, 4)], true)
 	var alert := AlertStateScript.new()
 	var enemy_cell := Vector3i(2, 0, 2)
-	var enemy_facing := Vector2i(1, 0)
 
 	# Enemy at (2,0,2), route next is (2,0,3)
 	var plan := EnemyTacticalAIScript.plan_exploration_step(
-		enemy_cell, enemy_facing, alert, route, {}, grid
+		enemy_cell, alert, route, {}, grid
 	)
 	_expect(plan[&"intent"] == EnemyTacticalAIScript.IntentType.PATROL_STEP, "ai: unaware enemy should follow patrol")
 	_expect(plan[&"destination"] == Vector3i(2, 0, 3), "ai: patrol step destination should be (2, 0, 3)")
-	_expect(plan[&"facing"] == Vector2i(0, 1), "ai: patrol facing should update to (0, 1)")
 
 
 func _test_exploration_investigation_and_calm_down() -> void:
@@ -62,7 +60,7 @@ func _test_exploration_investigation_and_calm_down() -> void:
 
 	# Step towards target with move_range 4 (target neighbor is (2, 0, 4))
 	var plan1 := EnemyTacticalAIScript.plan_exploration_step(
-		enemy_cell, Vector2i(0, 1), alert, null, {}, grid, 4
+		enemy_cell, alert, null, {}, grid, 4
 	)
 	_expect(plan1[&"intent"] == EnemyTacticalAIScript.IntentType.INVESTIGATE_STEP, "ai: suspicious enemy should investigate")
 	_expect(plan1[&"destination"] == Vector3i(2, 0, 4), "ai: full move_range should reach (2, 0, 4)")
@@ -71,14 +69,14 @@ func _test_exploration_investigation_and_calm_down() -> void:
 	# Enemy reaches adjacent cell (2, 0, 4) where path cannot advance further
 	var at_target_cell := Vector3i(2, 0, 4)
 	var plan_at_target := EnemyTacticalAIScript.plan_exploration_step(
-		at_target_cell, Vector2i(0, 1), alert, null, {&"idle_ticks": 0}, grid
+		at_target_cell, alert, null, {&"idle_ticks": 0}, grid
 	)
 	_expect(plan_at_target[&"intent"] == EnemyTacticalAIScript.IntentType.PASS, "ai: first idle tick should pass")
 	_expect(plan_at_target[&"updated_investigation"][&"idle_ticks"] == 1, "ai: idle ticks should increment to 1")
 
 	# Second idle tick -> calm down
 	var plan_calm := EnemyTacticalAIScript.plan_exploration_step(
-		at_target_cell, Vector2i(0, 1), alert, null, {&"idle_ticks": 1}, grid
+		at_target_cell, alert, null, {&"idle_ticks": 1}, grid
 	)
 	_expect(plan_calm[&"intent"] == EnemyTacticalAIScript.IntentType.CALM_DOWN, "ai: second idle tick should trigger CALM_DOWN")
 	_expect(plan_calm[&"should_calm_down"] == true, "ai: should_calm_down should be true")

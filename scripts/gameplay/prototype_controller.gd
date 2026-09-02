@@ -475,7 +475,6 @@ func _capture_undo_state() -> Dictionary:
 			&"legacy_faction": unit.faction,
 			&"legacy_hp": unit.current_hp,
 			&"legacy_ap": unit.current_action_points,
-			&"legacy_facing": unit.facing,
 		}
 		unit_entries.append(unit_entry)
 		if unit.is_alive():
@@ -641,7 +640,6 @@ func _restore_undo_state_internal(checkpoint: Dictionary) -> bool:
 				unit.call("_apply_weapon_stats")
 				unit.call("_refresh_weapon_model")
 				unit.call("_capture_feedback_rest_pose")
-				unit.call("_apply_facing_visual")
 				unit.call("_apply_visual_color")
 				unit.call("_update_status_label")
 				unit.call("_update_alert_badge")
@@ -654,7 +652,6 @@ func _restore_undo_state_internal(checkpoint: Dictionary) -> bool:
 			unit.faction = entry.get(&"legacy_faction", unit.faction)
 			unit.current_hp = int(entry.get(&"legacy_hp", unit.current_hp))
 			unit.current_action_points = int(entry.get(&"legacy_ap", unit.current_action_points))
-			unit.facing = entry.get(&"legacy_facing", unit.facing)
 			unit.visual_color = entry.get(&"visual_color", unit.visual_color)
 		var unit_id := unit.unit_id
 		if unit_id == &"":
@@ -903,7 +900,6 @@ func _handle_attack_action(request: Variant, _context: Variant) -> Variant:
 		return false
 	if payload.get(&"enter_combat", false) and not _start_combat(true, target, attacker.grid_cell, attacker.unit_id):
 		return _action_rejected(&"wrong_phase", ACTION_ATTACK, attacker.unit_id, target.unit_id)
-	attacker.set_facing(target.grid_cell - attacker.grid_cell)
 	var accepted := ActionResultScript.accepted(request.actor_id, request.target_id, request.ap_cost, ACTION_ATTACK)
 	var requested_damage := int(payload.get(ActionExecutorScript.KEY_DAMAGE, attacker.attack_damage))
 	var resolved := CombatResolver.resolve_attack(accepted, target.current_hp, requested_damage)
@@ -1103,9 +1099,7 @@ func _apply_map_rules() -> void:
 func _spawn_initial_units() -> void:
 	for index in map_definition.spawns.size():
 		var spawn: MapSpawnData = map_definition.spawns[index]
-		var unit := _spawn_unit_from_spawn(spawn, index)
-		if is_instance_valid(unit):
-			unit.set_facing(spawn.facing)
+		_spawn_unit_from_spawn(spawn, index)
 
 
 func _spawn_unit(unit_name: StringName, cell: Vector3i, faction: StringName, color: Color, archetype: UnitArchetype = null, weapon: WeaponDefinition = null) -> PrototypeUnit:
@@ -1911,7 +1905,7 @@ func _run_exploration_tick() -> void:
 		var patrol_route := enemy_patrols.get(enemy_id) as PatrolRoute
 		var invest_info: Dictionary = suspicious_investigations.get(enemy_id, {})
 		var plan := EnemyTacticalAI.plan_exploration_step(
-			enemy.grid_cell, enemy.facing, alert, patrol_route, invest_info, grid, enemy.move_range
+			enemy.grid_cell, alert, patrol_route, invest_info, grid, enemy.move_range
 		)
 		suspicious_investigations[enemy_id] = plan.get(&"updated_investigation", invest_info)
 		match plan.get(&"intent"):
@@ -1919,23 +1913,17 @@ func _run_exploration_tick() -> void:
 				var next_cell: Vector3i = plan[&"destination"]
 				var path: Array[Vector3i] = []
 				path.assign(plan[&"path"])
-				var facing: Vector2i = plan[&"facing"]
 				if not grid.is_occupied(next_cell) or next_cell == enemy.grid_cell:
 					await _move_unit(enemy, next_cell, path, 0)
-					if facing != Vector2i.ZERO:
-						enemy.set_facing(facing)
 					if _evaluate_detection():
 						break
 			EnemyTacticalAI.IntentType.PATROL_STEP:
 				var next_cell: Vector3i = plan[&"destination"]
 				var path: Array[Vector3i] = []
 				path.assign(plan[&"path"])
-				var facing: Vector2i = plan[&"facing"]
 				await _move_unit(enemy, next_cell, path, 0)
 				if is_instance_valid(patrol_route):
 					patrol_route.advance()
-				if facing != Vector2i.ZERO:
-					enemy.set_facing(facing)
 				if _evaluate_detection():
 					break
 			EnemyTacticalAI.IntentType.CALM_DOWN:
@@ -1985,9 +1973,6 @@ func _evaluate_detection() -> bool:
 								&"target_cell": player.grid_cell,
 								&"idle_ticks": 0,
 							}
-							var diff := Vector2i(player.grid_cell.x - enemy.grid_cell.x, player.grid_cell.z - enemy.grid_cell.z)
-							if diff != Vector2i.ZERO:
-								enemy.set_facing(diff)
 							_log("%s 注意到了可疑动静，进入警戒状态并前往探查 %s。" % [enemy.name, player.grid_cell])
 							_update_enemy_visibility()
 							_refresh_highlights()
@@ -1999,9 +1984,6 @@ func _evaluate_detection() -> bool:
 									&"target_cell": player.grid_cell,
 									&"idle_ticks": 0,
 								}
-								var diff := Vector2i(player.grid_cell.x - enemy.grid_cell.x, player.grid_cell.z - enemy.grid_cell.z)
-								if diff != Vector2i.ZERO:
-									enemy.set_facing(diff)
 	return false
 
 
@@ -2185,7 +2167,7 @@ func _can_attack_target(target: PrototypeUnit) -> bool:
 	return can_attack_line(selected_unit.grid_cell, target.grid_cell, selected_unit.attack_range)
 
 
-## Tints the cells that the given enemies can actually detect (facing vision cone + line of sight)
+## Tints the cells that the given enemies can actually detect (vision range + line of sight)
 ## matching the detection rules used to trigger combat.
 ## Overlapping cells between multiple enemies take the highest threat tier (INNER_DISCOVERY > OUTER_ALERT).
 func _refresh_enemies_range_overlays(enemies: Array) -> void:
@@ -2225,7 +2207,7 @@ func _refresh_enemies_range_overlays(enemies: Array) -> void:
 
 
 ## When an enemy unit is selected, tints the cells it can actually detect
-## (facing vision cone + line of sight) so the overlay matches the detection
+## (vision range + line of sight) so the overlay matches the detection
 ## rules used to trigger combat.
 func _refresh_enemy_range_overlays(enemy: PrototypeUnit) -> void:
 	if is_instance_valid(enemy):

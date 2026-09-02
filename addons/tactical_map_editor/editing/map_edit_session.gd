@@ -1769,13 +1769,7 @@ func _rotate_at(cell: Vector3i) -> bool:
 			marker.set("facing", _rotate_facing(facing))
 		return true
 	if target_layer == TargetLayer.SPAWNER:
-		var spawn_markers := _spawn_markers_at(cell)
-		if spawn_markers.is_empty():
-			return false
-		for marker in spawn_markers:
-			var spawn := marker as UnitSpawnMarker3D
-			spawn.facing = _rotate_facing(spawn.facing)
-		return true
+		return false
 	if not _is_grid_layer(target_layer):
 		return false
 	var grid := _grid_for_layer(target_layer)
@@ -1878,13 +1872,11 @@ func _spawn_configuration_equal(marker: UnitSpawnMarker3D, entry: Dictionary) ->
 	if marker == null:
 		return false
 	var expected_faction := _spawn_faction(entry)
-	var expected_facing: Vector2i = _facing_for_quarters()
 	var expected_color := _spawn_visual_color(entry, expected_faction)
 	var expected_patrol_route := StringName(entry.get(&"patrol_route_id", &""))
 	var expected_encounter := StringName(entry.get(&"encounter_id", &""))
 	return (
 		marker.faction == expected_faction
-		and marker.facing == expected_facing
 		and marker.visual_color.is_equal_approx(expected_color)
 		and marker.patrol_route_id == expected_patrol_route
 		and _resources_equivalent(marker.archetype, entry.get(&"archetype", null))
@@ -2239,7 +2231,6 @@ func _create_spawn_marker(record: Dictionary, spawns_root: Node) -> UnitSpawnMar
 	marker.name = String(record.get(&"name", record.get(&"unit_name", "Spawn")))
 	marker.unit_name = StringName(record.get(&"unit_name", marker.name))
 	marker.faction = String(record.get(&"faction", "enemy"))
-	marker.facing = record.get(&"facing", Vector2i.DOWN)
 	marker.visual_color = record.get(&"visual_color", Color.WHITE)
 	marker.patrol_route_id = StringName(record.get(&"patrol_route_id", &""))
 	marker.archetype = record.get(&"archetype", null) as UnitArchetype
@@ -2298,7 +2289,6 @@ func _capture_spawn_records() -> Array:
 			&"unit_name": marker.unit_name,
 			&"faction": marker.faction,
 			&"cell": marker.cell,
-			&"facing": marker.facing,
 			&"visual_color": marker.visual_color,
 			&"patrol_route_id": marker.patrol_route_id,
 			&"archetype": marker.archetype,

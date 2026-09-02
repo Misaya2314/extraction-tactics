@@ -22,7 +22,6 @@ func _run() -> void:
 			archetype,
 			&"player",
 			Vector3i(-3, 1, 4),
-			Vector2i(1, 0),
 			weapon_instance
 	)
 	var original_hp := archetype.max_hp
@@ -38,7 +37,7 @@ func _run() -> void:
 	await process_frame
 	_expect(unit.runtime_state == state, "adapter: bound state should be retained")
 	_expect(unit.unit_id == state.instance_id and unit.faction == state.faction, "adapter: identity and faction should proxy state")
-	_expect(unit.grid_cell == state.cell and unit.facing == state.facing, "adapter: cell and facing should proxy state")
+	_expect(unit.grid_cell == state.cell, "adapter: cell should proxy state")
 	_expect(unit.current_hp == original_hp and unit.current_action_points == original_ap, "adapter: initial HP/AP should come from state")
 	_expect(unit.archetype == archetype and unit.weapon == rifle, "adapter: definitions should proxy state/equipment")
 	_expect(unit.inner_vision_range == archetype.inner_vision_range and unit.vision_range == archetype.vision_range, "adapter: vision ranges should proxy archetype")
@@ -52,9 +51,8 @@ func _run() -> void:
 	_expect(state.apply_damage(3), "adapter: state damage should succeed")
 	_expect(state.spend_ap(1), "adapter: state AP spend should succeed")
 	_expect(state.set_cell(Vector3i(-8, 2, -1)), "adapter: state cell change should succeed")
-	_expect(state.set_facing(Vector2i(-1, 0)), "adapter: state facing change should succeed")
 	_expect(unit.current_hp == original_hp - 3 and unit.current_action_points == original_ap - 1, "adapter: view should follow state HP/AP")
-	_expect(unit.grid_cell == Vector3i(-8, 2, -1) and unit.facing == Vector2i(-1, 0), "adapter: view should follow state cell/facing")
+	_expect(unit.grid_cell == Vector3i(-8, 2, -1), "adapter: view should follow state cell")
 	_expect(archetype.max_hp == original_hp and archetype.max_action_points == original_ap and rifle.damage == original_damage, "adapter: state changes must not mutate definitions")
 	var view_damage_hp := state.current_hp
 	var view_damage_ap := state.current_action_points
@@ -67,7 +65,6 @@ func _run() -> void:
 			archetype,
 			&"player",
 			Vector3i(2, 0, 5),
-			Vector2i(0, -1),
 			second_weapon
 	)
 	_expect(second_state.spend_ap(2), "adapter: second state should have independent AP")
@@ -87,7 +84,7 @@ func _run() -> void:
 		get_root().add_child(rebuilt)
 		await process_frame
 		_expect(rebuilt.unit_id == second_state.instance_id and rebuilt.current_hp == second_hp and rebuilt.current_action_points == second_ap, "adapter: recreated View should preserve state")
-		_expect(rebuilt.grid_cell == second_state.cell and rebuilt.facing == second_state.facing, "adapter: recreated View should preserve cell/facing")
+		_expect(rebuilt.grid_cell == second_state.cell, "adapter: recreated View should preserve cell")
 		second_state.died.connect(_on_state_died)
 		rebuilt.died.connect(_on_view_died)
 		_expect(second_state.apply_damage(second_state.current_hp), "adapter: lethal damage should succeed once")

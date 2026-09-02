@@ -28,19 +28,19 @@ func _run() -> void:
 	var original_ap := PLAYER_ALPHA.max_action_points
 	var first_weapon: WeaponInstance = WeaponInstanceScript.new(&"weapon_alpha", ASSAULT_RIFLE)
 	var second_weapon: WeaponInstance = WeaponInstanceScript.new(&"weapon_bravo", ASSAULT_RIFLE)
-	var first: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_alpha", PLAYER_ALPHA, &"player", Vector3i(1, 0, 2), Vector2i(1, 0), first_weapon)
-	var second: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_bravo", PLAYER_ALPHA, &"player", Vector3i(2, 0, 2), Vector2i(0, 1), second_weapon)
+	var first: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_alpha", PLAYER_ALPHA, &"player", Vector3i(1, 0, 2), first_weapon)
+	var second: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_bravo", PLAYER_ALPHA, &"player", Vector3i(2, 0, 2), second_weapon)
 	_expect(first.is_valid() and second.is_valid(), "state: initialized states should be valid")
 	_expect(first.current_hp == original_hp and first.current_action_points == original_ap, "state: defaults should come from archetype")
 	_expect(first.weapon_instance == first_weapon and second.weapon_instance == second_weapon, "state: unit should retain externally-created weapon instances")
 	_expect(first.weapon_instance_id != second.weapon_instance_id, "state: same definition instances should keep distinct IDs")
 	_expect(PLAYER_ALPHA.max_hp == original_hp and PLAYER_ALPHA.max_action_points == original_ap, "state: initialization must not mutate archetype")
-	var no_implicit_weapon: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_empty", PLAYER_ALPHA, &"player", Vector3i(0, 0, 0), Vector2i(0, 1))
+	var no_implicit_weapon: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_empty", PLAYER_ALPHA, &"player", Vector3i(0, 0, 0))
 	_expect(no_implicit_weapon.weapon_instance == null, "state: unit must not create a weapon from the archetype default")
 
 	var shared_weapon: WeaponInstance = WeaponInstanceScript.new(&"weapon_shared", ASSAULT_RIFLE)
-	var ownership_holder: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_holder", PLAYER_ALPHA, &"player", Vector3i(4, 0, 4), Vector2i(0, 1))
-	var ownership_contender: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_contender", PLAYER_ALPHA, &"player", Vector3i(5, 0, 4), Vector2i(0, 1))
+	var ownership_holder: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_holder", PLAYER_ALPHA, &"player", Vector3i(4, 0, 4))
+	var ownership_contender: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_contender", PLAYER_ALPHA, &"player", Vector3i(5, 0, 4))
 	var contender_weapon: WeaponInstance = WeaponInstanceScript.new(&"weapon_contender", ASSAULT_RIFLE)
 	_expect(ownership_holder.equip(shared_weapon), "ownership: first unit should claim a weapon instance")
 	_expect(ownership_contender.equip(contender_weapon), "ownership: second unit should equip its own weapon instance")
@@ -53,16 +53,16 @@ func _run() -> void:
 	_expect(ownership_holder.equip(shared_weapon), "ownership: released replacement should be reusable")
 
 	var constructor_weapon: WeaponInstance = WeaponInstanceScript.new(&"weapon_constructor_shared", ASSAULT_RIFLE)
-	var constructor_owner: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_constructor_owner", PLAYER_ALPHA, &"player", Vector3i(6, 0, 4), Vector2i(0, 1), constructor_weapon)
-	var constructor_contender: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_constructor_contender", PLAYER_ALPHA, &"player", Vector3i(7, 0, 4), Vector2i(0, 1), constructor_weapon)
+	var constructor_owner: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_constructor_owner", PLAYER_ALPHA, &"player", Vector3i(6, 0, 4), constructor_weapon)
+	var constructor_contender: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_constructor_contender", PLAYER_ALPHA, &"player", Vector3i(7, 0, 4), constructor_weapon)
 	_expect(constructor_owner.weapon_instance == constructor_weapon, "ownership: constructor should claim an external weapon instance")
 	_expect(constructor_contender.weapon_instance == null and constructor_contender.get_last_operation_reason() == &"weapon_already_owned", "ownership: constructor must reject an already-owned weapon instance")
 
 	var disposable_weapon: WeaponInstance = WeaponInstanceScript.new(&"weapon_disposable", ASSAULT_RIFLE)
-	var disposable_state: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_disposable", PLAYER_ALPHA, &"player", Vector3i(8, 0, 4), Vector2i(0, 1), disposable_weapon)
+	var disposable_state: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_disposable", PLAYER_ALPHA, &"player", Vector3i(8, 0, 4), disposable_weapon)
 	_expect(disposable_state.weapon_instance == disposable_weapon, "ownership: disposable state should claim its weapon")
 	disposable_state = null
-	var replacement_state: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_after_dispose", PLAYER_ALPHA, &"player", Vector3i(9, 0, 4), Vector2i(0, 1))
+	var replacement_state: UnitRuntimeState = UnitRuntimeStateScript.new(&"unit_after_dispose", PLAYER_ALPHA, &"player", Vector3i(9, 0, 4))
 	_expect(replacement_state.equip(disposable_weapon), "ownership: state destruction should release the weapon claim")
 
 	_expect(first.apply_damage(5), "state: damage should mutate only the selected state")
@@ -70,12 +70,10 @@ func _run() -> void:
 	_expect(first.spend_ap(1), "state: AP spend should succeed within budget")
 	_expect(first.current_action_points == original_ap - 1 and second.current_action_points == original_ap, "state: AP should remain independent")
 	_expect(first.set_cell(Vector3i(-4, 1, -3)), "state: negative cell coordinates should be accepted")
-	_expect(first.set_facing(Vector2i(-1, 0)), "state: cardinal facing should be accepted")
-	_expect(first.cell == Vector3i(-4, 1, -3) and first.facing == Vector2i(-1, 0), "state: movement/facing should retain values")
+	_expect(first.cell == Vector3i(-4, 1, -3), "state: movement should retain cell")
 	_expect(not first.apply_damage(-1) and first.get_last_operation_reason() == &"invalid_damage", "state: negative damage should be rejected")
 	_expect(not first.spend_ap(99) and first.get_last_operation_reason() == &"insufficient_ap", "state: excessive AP should be rejected")
 	_expect(not first.set_cell(Vector2i(-1, 0)) and first.get_last_operation_reason() == &"invalid_cell", "state: non-Vector3i cell should be rejected")
-	_expect(not first.set_facing(Vector2i(1, 1)) and first.get_last_operation_reason() == &"invalid_facing", "state: diagonal facing should be rejected")
 
 	var replacement: WeaponInstance = WeaponInstanceScript.new(&"unit_alpha.sidearm", ASSAULT_RIFLE)
 	_expect(first.equip(replacement), "state: valid weapon instance should equip")
@@ -94,7 +92,7 @@ func _run() -> void:
 	if restored != null:
 		_expect(restored.instance_id == first.instance_id, "snapshot: unit identity should round-trip")
 		_expect(restored.current_hp == first.current_hp and restored.current_action_points == first.current_action_points, "snapshot: HP/AP should round-trip")
-		_expect(restored.cell == first.cell and restored.facing == first.facing, "snapshot: cell/facing should round-trip")
+		_expect(restored.cell == first.cell, "snapshot: cell should round-trip")
 		_expect(restored.weapon_instance_id == replacement.instance_id and restored.weapon_instance == resolved_weapon, "snapshot: weapon relation should resolve by ID")
 		_expect(PLAYER_ALPHA.max_hp == original_hp and PLAYER_ALPHA.default_weapon == first.weapon_instance.definition, "snapshot: hydration must not mutate definitions")
 
@@ -122,7 +120,7 @@ func _run() -> void:
 	_expect(generic_restored != null and generic_restored.instance_id == first.instance_id, "snapshot: generic RuntimeInstance dictionary should hydrate")
 	_expect(restored != null and restored.cell == Vector3i(-4, 1, -3), "snapshot: negative cell should round-trip")
 
-	var dead := UnitRuntimeStateScript.new(&"unit_dead", PLAYER_ALPHA, &"player", Vector3i(3, 0, 3), Vector2i(0, -1))
+	var dead := UnitRuntimeStateScript.new(&"unit_dead", PLAYER_ALPHA, &"player", Vector3i(3, 0, 3))
 	_expect(dead.apply_damage(dead.current_hp), "state: lethal damage should be accepted")
 	_expect(not dead.alive and dead.current_hp == 0, "state: lethal damage should mark only state as dead")
 	_expect(not dead.reset_ap() and dead.get_last_operation_reason() == &"not_alive", "state: dead unit cannot reset AP")

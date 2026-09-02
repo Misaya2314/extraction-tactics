@@ -100,7 +100,6 @@ func _test_outer_vision_investigation_flow() -> void:
 	var grid := GridModelScript.new(Vector2i(10, 10))
 	var enemy_cell := Vector3i(2, 0, 2)
 	var player_cell := Vector3i(2, 0, 7) # Outer vision range (distance 5)
-	var facing := Vector2i(0, 1)
 
 	# Mark player cell as occupied by player
 	grid.occupy(player_cell, &"player_unit")

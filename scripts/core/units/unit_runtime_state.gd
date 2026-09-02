@@ -7,7 +7,6 @@ extends RuntimeInstance
 
 const DEFINITION_TYPE: StringName = &"unit_archetype"
 const CURRENT_STATE_VERSION: int = 1
-const DEFAULT_FACING: Vector2i = Vector2i(0, 1)
 const DEFAULT_CELL: Vector3i = Vector3i.ZERO
 ## This metadata key is intentionally runtime-only.  The native Object ID
 ## stored in it identifies the live owner, but is never persisted in a
@@ -21,7 +20,6 @@ const UnitStateSnapshotScript = preload("res://scripts/core/runtime/snapshots/un
 signal health_changed(current: int, maximum: int)
 signal action_points_changed(current: int, maximum: int)
 signal cell_changed(previous: Vector3i, current: Vector3i)
-signal facing_changed(previous: Vector2i, current: Vector2i)
 signal weapon_changed(previous: WeaponInstance, current: WeaponInstance)
 signal alive_changed(alive: bool)
 signal died
@@ -31,7 +29,6 @@ var faction: StringName = &""
 var current_hp: int = 0
 var current_action_points: int = 0
 var cell: Vector3i = DEFAULT_CELL
-var facing: Vector2i = DEFAULT_FACING
 var inventory_id: StringName = &""
 var alive: bool = false
 var state_version: int = CURRENT_STATE_VERSION
@@ -47,9 +44,9 @@ func _init(
 	new_archetype: Variant = null,
 	new_faction: Variant = &"",
 	new_cell: Variant = DEFAULT_CELL,
-	new_facing: Variant = DEFAULT_FACING,
 	new_weapon_instance: Variant = null,
 	new_inventory_id: Variant = &"",
+	extra_arg: Variant = null,
 ) -> void:
 	var resolved_instance_id := _coerce_string_name(new_instance_id)
 	var resolved_archetype: UnitArchetype = null
@@ -67,9 +64,14 @@ func _init(
 	faction = _coerce_string_name(new_faction)
 	if new_cell is Vector3i:
 		cell = new_cell
-	if new_facing is Vector2i:
-		facing = new_facing
-	inventory_id = _coerce_string_name(new_inventory_id)
+
+	var actual_weapon_instance: Variant = new_weapon_instance
+	var actual_inventory_id: Variant = new_inventory_id
+	if new_weapon_instance is Vector2i:
+		actual_weapon_instance = new_inventory_id
+		actual_inventory_id = extra_arg
+
+	inventory_id = _coerce_string_name(actual_inventory_id)
 
 	current_hp = max_hp
 	current_action_points = max_action_points
@@ -180,7 +182,6 @@ func is_valid(registry: Variant = null) -> bool:
 		and _definition_is_resolved(registry)
 		and faction != &""
 		and is_valid_cell(cell)
-		and is_valid_facing(facing)
 		and current_hp >= 0
 		and current_hp <= max_hp
 		and current_action_points >= 0
@@ -233,10 +234,6 @@ func get_outer_vision_range() -> int:
 
 func get_cell() -> Vector3i:
 	return cell
-
-
-func get_facing() -> Vector2i:
-	return facing
 
 
 func get_weapon_instance() -> WeaponInstance:
@@ -338,19 +335,6 @@ func move_to_cell(new_cell: Variant) -> bool:
 	return set_cell(new_cell)
 
 
-func set_facing(new_facing: Variant) -> bool:
-	if not is_valid_facing(new_facing):
-		return _reject(&"invalid_facing")
-	var typed_facing: Vector2i = new_facing
-	if facing == typed_facing:
-		last_operation_reason = &"no_change"
-		return false
-	var previous_facing := facing
-	facing = typed_facing
-	facing_changed.emit(previous_facing, facing)
-	return _accept(&"facing_set")
-
-
 func equip(new_weapon_instance: Variant) -> bool:
 	if not new_weapon_instance is WeaponInstance:
 		return _reject(&"invalid_weapon_instance")
@@ -418,7 +402,6 @@ func to_snapshot_resource() -> UnitStateSnapshot:
 	snapshot.current_hp = current_hp
 	snapshot.current_action_points = current_action_points
 	snapshot.cell = cell
-	snapshot.facing = facing
 	snapshot.weapon_instance_id = weapon_instance_id
 	snapshot.inventory_id = inventory_id
 	snapshot.alive = alive
@@ -465,7 +448,6 @@ func hydrate_from_snapshot(
 	current_hp = typed_snapshot.current_hp
 	current_action_points = typed_snapshot.current_action_points
 	cell = typed_snapshot.cell
-	facing = typed_snapshot.facing
 	inventory_id = typed_snapshot.inventory_id
 	alive = typed_snapshot.alive
 	_weapon_instance = resolved_weapon_instance
@@ -479,18 +461,6 @@ static func is_valid_cell(candidate: Variant) -> bool:
 	if not candidate is Vector3i:
 		return false
 	return true
-
-
-static func is_valid_facing(candidate: Variant) -> bool:
-	if not candidate is Vector2i:
-		return false
-	var typed_facing: Vector2i = candidate
-	return (
-		typed_facing == Vector2i(0, -1)
-		or typed_facing == Vector2i(-1, 0)
-		or typed_facing == Vector2i(0, 1)
-		or typed_facing == Vector2i(1, 0)
-	)
 
 
 func _validate_snapshot(

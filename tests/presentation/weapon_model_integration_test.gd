@@ -70,7 +70,6 @@ func _test_runtime_replacement_and_missing_model() -> void:
 
 func _test_feedback_follows_model_and_resets() -> void:
 	var unit := await _spawn_unit("FeedbackModelUnit", &"player", Vector3i(3, 0, 2), SHOTGUN)
-	unit.set_facing(Vector2i(1, 0))
 	var model := _current_model(unit)
 	var weapon_pivot := unit.get_node("VisualRoot/WeaponPivot") as Node3D
 	var muzzle_flash := unit.get_node("VisualRoot/WeaponPivot/MuzzleFlash") as MeshInstance3D

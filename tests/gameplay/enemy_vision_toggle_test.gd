@@ -90,21 +90,19 @@ func _test_vision_overlay_rendering_visibility() -> void:
 	player.inner_vision_range = 3
 	controller.units_by_id[&"player_1"] = player
 
-	# Visible Enemy 1 at (2, 0, 0), facing RIGHT (1, 0), vision_range = 3, inner_vision_range = 1
+	# Visible Enemy 1 at (2, 0, 0), vision_range = 3, inner_vision_range = 1
 	var enemy1 = PrototypeUnitScript.new()
 	enemy1.faction = &"enemy"
 	enemy1.grid_cell = Vector3i(2, 0, 0)
-	enemy1.facing = Vector2i(1, 0)
 	enemy1.vision_range = 3
 	enemy1.inner_vision_range = 1
 	enemy1.visible = true
 	controller.units_by_id[&"enemy_1"] = enemy1
 
-	# Hidden Enemy 2 at (9, 0, 9), facing LEFT (-1, 0), vision_range = 3, inner_vision_range = 1
+	# Hidden Enemy 2 at (9, 0, 9), vision_range = 3, inner_vision_range = 1
 	var enemy2 = PrototypeUnitScript.new()
 	enemy2.faction = &"enemy"
 	enemy2.grid_cell = Vector3i(9, 0, 9)
-	enemy2.facing = Vector2i(-1, 0)
 	enemy2.vision_range = 3
 	enemy2.inner_vision_range = 1
 	enemy2.visible = false
@@ -181,21 +179,19 @@ func _test_overlapping_vision_cones_deduplication() -> void:
 	player.vision_range = 10
 	controller.units_by_id[&"player_1"] = player
 
-	# Enemy 1 at (2, 0, 2) facing RIGHT (1, 0)
+	# Enemy 1 at (2, 0, 2)
 	var enemy1 = PrototypeUnitScript.new()
 	enemy1.faction = &"enemy"
 	enemy1.grid_cell = Vector3i(2, 0, 2)
-	enemy1.facing = Vector2i(1, 0)
 	enemy1.vision_range = 4
 	enemy1.inner_vision_range = 2
 	enemy1.visible = true
 	controller.units_by_id[&"enemy_1"] = enemy1
 
-	# Enemy 2 at (2, 0, 3) facing RIGHT (1, 0)
+	# Enemy 2 at (2, 0, 3)
 	var enemy2 = PrototypeUnitScript.new()
 	enemy2.faction = &"enemy"
 	enemy2.grid_cell = Vector3i(2, 0, 3)
-	enemy2.facing = Vector2i(1, 0)
 	enemy2.vision_range = 4
 	enemy2.inner_vision_range = 2
 	enemy2.visible = true

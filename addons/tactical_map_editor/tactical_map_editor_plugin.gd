@@ -1605,7 +1605,6 @@ func _update_special_overlay() -> void:
 				spawn_points.append({
 				&"position": author.call("cell_to_local", marker.cell),
 				&"color": marker.visual_color,
-				&"facing": marker.facing,
 			})
 		elif node is TraversalLink3D:
 			var link := node as TraversalLink3D
@@ -1636,7 +1635,6 @@ func _update_special_overlay() -> void:
 	for child in _special_overlay_root.get_children():
 		child.free()
 	_add_special_points(spawn_points, "SpawnMarkers", dimensions, 0.24)
-	_add_special_needles(spawn_points, "SpawnFacing", dimensions)
 	_add_special_points(traversal_points, "TraversalEndpoints", dimensions, 0.18)
 	_add_special_points(patrol_points, "PatrolPoints", dimensions, 0.16)
 	_add_special_lines(traversal_segments, "TraversalLines", Color("d58cff"))
@@ -1667,44 +1665,6 @@ func _add_special_points(points: Array[Dictionary], node_name: String, dimension
 		var local_position: Vector3 = point.get(&"position", Vector3.ZERO)
 		local_position.y += dimensions.y * 0.55
 		multi_mesh.set_instance_transform(index, Transform3D(Basis.IDENTITY, local_position))
-		multi_mesh.set_instance_color(index, point.get(&"color", Color.WHITE))
-	var instance := MultiMeshInstance3D.new()
-	instance.name = node_name
-	instance.multimesh = multi_mesh
-	var material := StandardMaterial3D.new()
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.vertex_color_use_as_albedo = true
-	material.albedo_color = Color.WHITE
-	instance.material_override = material
-	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_special_overlay_root.add_child(instance)
-	instance.owner = null
-
-func _add_special_needles(points: Array[Dictionary], node_name: String, dimensions: Vector3) -> void:
-	if _special_overlay_root == null or points.is_empty():
-		return
-	var length := maxf(dimensions.x, dimensions.z) * 0.95
-	var radius := maxf(dimensions.x * 0.07, 0.03)
-	var raise := dimensions.y * 0.34
-	var multi_mesh := MultiMesh.new()
-	multi_mesh.transform_format = MultiMesh.TRANSFORM_3D
-	multi_mesh.use_colors = true
-	var needle := CylinderMesh.new()
-	needle.top_radius = radius * 0.12
-	needle.bottom_radius = radius
-	needle.height = length
-	needle.radial_segments = 8
-	multi_mesh.mesh = needle
-	multi_mesh.instance_count = points.size()
-	for index in range(points.size()):
-		var point: Dictionary = points[index]
-		var facing: Vector2i = point.get(&"facing", Vector2i.DOWN)
-		var local_position: Vector3 = point.get(&"position", Vector3.ZERO)
-		var y := Vector3(float(facing.x), 0.0, float(facing.y)).normalized()
-		local_position += y * (length * 0.5) + Vector3.UP * raise
-		var transform := Transform3D(PREVIEW_BUILDER.facing_basis(facing), local_position)
-		multi_mesh.set_instance_transform(index, transform)
 		multi_mesh.set_instance_color(index, point.get(&"color", Color.WHITE))
 	var instance := MultiMeshInstance3D.new()
 	instance.name = node_name
@@ -1810,8 +1770,6 @@ func _rebuild_preview_content(author: Node3D) -> void:
 			tintable.append(_preview_mesh)
 	if selected_kind == "cell":
 		_build_preview_cover_directions(selected, author)
-	if selected_kind == "spawn":
-		_build_preview_facing_needle(selected, author)
 	for visual_node in tintable:
 		if visual_node != null and is_instance_valid(visual_node):
 			_apply_preview_visual_defaults(visual_node)
@@ -1870,23 +1828,6 @@ func _preview_cover_profile(profile: TacticalCoverProfile) -> Dictionary:
 		&"reduction": profile.damage_reduction_ratio,
 		&"debug_color": profile.debug_color,
 	}
-
-func _build_preview_facing_needle(selected: Dictionary, author: Node3D) -> void:
-	if _preview_root == null or author == null or _session == null:
-		return
-	var facing_quarters: Array[Vector2i] = [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]
-	var facing := facing_quarters[posmod(_session.rotation_quarters, 4)]
-	var dimensions: Vector3 = author.get("cell_dimensions")
-	var length := maxf(dimensions.x, dimensions.z) * 0.95
-	var radius := maxf(dimensions.x * 0.07, 0.03)
-	var raise := dimensions.y * 0.34
-	var color: Variant = selected.get("visual_color", null)
-	var tint := color as Color if color is Color else Color(0.25, 0.95, 0.4, 0.55)
-	var needle := PREVIEW_BUILDER.build_facing_needle(length, radius, tint)
-	var y := Vector3(float(facing.x), 0.0, float(facing.y)).normalized()
-	needle.transform = Transform3D(PREVIEW_BUILDER.facing_basis(facing), y * (length * 0.5) + Vector3.UP * raise)
-	_preview_root.add_child(needle)
-	needle.owner = null
 
 func _build_cell_preview(selected: Dictionary, author: Node3D) -> MeshInstance3D:
 	if String(selected.get("kind", "cell")) != "cell":

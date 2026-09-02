@@ -45,7 +45,6 @@ func _test_runtime_feedback() -> void:
 	await process_frame
 	unit.configure(Vector3i(2, 0, 3), &"player", Color("4f9dff"), null, ASSAULT_RIFLE)
 	unit.global_position = Vector3(4.0, 0.0, 6.0)
-	unit.set_facing(Vector2i(1, 0))
 	unit.attack_feedback_started.connect(_on_feedback_started)
 	unit.attack_feedback_finished.connect(_on_feedback_finished)
 
@@ -89,7 +88,6 @@ func _test_runtime_feedback() -> void:
 	_expect(visual_root.scale.is_equal_approx(visual_rest_scale), "runtime: VisualRoot scale should reset")
 	_expect(weapon_pivot.position.is_equal_approx(pivot_rest_position), "runtime: WeaponPivot position should reset")
 	_expect(weapon_pivot.rotation.is_equal_approx(pivot_rest_rotation), "runtime: WeaponPivot rotation should reset")
-	_expect(is_equal_approx(weapon_pivot.rotation.y, PI * 0.5), "runtime: WeaponPivot should follow horizontal facing")
 	_expect(weapon_pivot.scale.is_equal_approx(pivot_rest_scale), "runtime: WeaponPivot scale should reset")
 	_expect(not muzzle_flash.visible, "runtime: muzzle flash should be hidden after feedback")
 
@@ -132,7 +130,6 @@ func _test_exit_tree_cancels_feedback() -> void:
 	await process_frame
 	unit.configure(Vector3i(3, 0, 2), &"player", Color("4f9dff"), null, ASSAULT_RIFLE)
 	unit.global_position = Vector3(6.0, 0.0, 4.0)
-	unit.set_facing(Vector2i(1, 0))
 	unit.attack_feedback_started.connect(_on_feedback_started)
 	unit.attack_feedback_finished.connect(_on_feedback_finished)
 	var visual_root := unit.get_node("VisualRoot") as Node3D

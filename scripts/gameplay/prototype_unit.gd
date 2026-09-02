@@ -27,7 +27,6 @@ var _legacy_weapon: WeaponDefinition
 var _legacy_current_hp := 10
 var _legacy_current_action_points := 2
 var _legacy_unit_id: StringName = &""
-var _legacy_facing := Vector2i(0, 1)
 
 @export var grid_cell: Vector3i = Vector3i.ZERO:
 	get:
@@ -155,7 +154,7 @@ var unit_id: StringName:
 @onready var visual_root: Node3D = get_node_or_null("VisualRoot") as Node3D
 @onready var body_mesh: MeshInstance3D = get_node_or_null("VisualRoot/Body") as MeshInstance3D
 @onready var selection_marker: MeshInstance3D = $SelectionMarker
-@onready var facing_marker: MeshInstance3D = $FacingMarker
+@onready var facing_marker: MeshInstance3D = get_node_or_null("FacingMarker") as MeshInstance3D
 @onready var status_label: Label3D = $StatusLabel
 @onready var alert_badge: Label3D = get_node_or_null("AlertBadge") as Label3D
 @onready var weapon_pivot: Node3D = get_node_or_null("VisualRoot/WeaponPivot") as Node3D
@@ -167,12 +166,6 @@ var alert_level: int = 0:
 		alert_level = value
 		_update_alert_badge()
 
-var facing: Vector2i:
-	get:
-		return runtime_state.facing if runtime_state != null else _legacy_facing
-	set(value):
-		if runtime_state == null:
-			_legacy_facing = value
 var last_attack_feedback_profile_id: StringName = &""
 var attack_feedback_play_count: int = 0
 var is_attack_feedback_playing: bool = false
@@ -197,7 +190,6 @@ func _ready() -> void:
 	_capture_feedback_rest_pose()
 	_apply_visual_color()
 	set_selected(false)
-	_apply_facing_visual()
 	_update_status_label()
 	_update_alert_badge()
 
@@ -218,7 +210,6 @@ func bind_runtime_state(new_state: UnitRuntimeState, new_color: Color = Color.WH
 		_apply_weapon_stats()
 		_refresh_weapon_model()
 		_capture_feedback_rest_pose()
-		_apply_weapon_facing()
 		_apply_visual_color()
 		_update_status_label()
 		_update_alert_badge()
@@ -268,7 +259,6 @@ func configure(
 			_reset_attack_feedback_visuals()
 		_refresh_weapon_model()
 		_capture_feedback_rest_pose()
-		_apply_weapon_facing()
 		_apply_visual_color()
 		_update_status_label()
 
@@ -286,7 +276,6 @@ func set_weapon(new_weapon: WeaponDefinition) -> void:
 	_apply_weapon_stats(new_weapon == null)
 	_refresh_weapon_model()
 	_capture_feedback_rest_pose()
-	_apply_weapon_facing()
 	_update_status_label()
 
 
@@ -303,36 +292,6 @@ func get_weapon_summary() -> String:
 func set_selected(is_selected: bool) -> void:
 	if is_instance_valid(selection_marker):
 		selection_marker.visible = is_selected
-
-
-func set_facing(direction: Variant) -> void:
-	var normalized := _normalize_facing(direction)
-	if normalized == Vector2i.ZERO:
-		return
-	if runtime_state != null:
-		runtime_state.set_facing(normalized)
-	else:
-		facing = normalized
-	_apply_facing_visual()
-
-
-func _apply_facing_visual() -> void:
-	if is_instance_valid(facing_marker):
-		facing_marker.position = Vector3(float(facing.x) * 0.55, 0.66, float(facing.y) * 0.55)
-	_apply_weapon_facing()
-
-
-static func _normalize_facing(direction: Variant) -> Vector2i:
-	if direction is Vector3i:
-		direction = Vector2i(direction.x, direction.z)
-	if not direction is Vector2i:
-		return Vector2i.ZERO
-	var typed_direction: Vector2i = direction
-	if typed_direction == Vector2i.ZERO:
-		return Vector2i.ZERO
-	if absi(typed_direction.x) >= absi(typed_direction.y):
-		return Vector2i(1 if typed_direction.x > 0 else -1, 0)
-	return Vector2i(0, 1 if typed_direction.y > 0 else -1)
 
 
 ## Plays only local presentation feedback. Gameplay rules and root/grid state
@@ -389,19 +348,6 @@ func _feedback_nodes_are_ready() -> bool:
 		and is_instance_valid(muzzle_flash)
 
 
-func _apply_weapon_facing() -> void:
-	if not is_instance_valid(weapon_pivot):
-		return
-	var pivot_rotation := _weapon_pivot_rest_rotation
-	pivot_rotation.y = atan2(float(facing.x), float(facing.y))
-	weapon_pivot.rotation = pivot_rotation
-
-
-func _facing_forward() -> Vector3:
-	var forward := Vector3(float(facing.x), 0.0, float(facing.y))
-	return forward.normalized() if forward.length_squared() > 0.0 else Vector3.FORWARD
-
-
 func _queue_feedback_tween(
 		target: Object,
 		property: NodePath,
@@ -431,7 +377,7 @@ func _queue_feedback_tween(
 
 
 func _start_attack_feedback_tweens(profile: WeaponAttackFeedbackProfile) -> void:
-	var recoil_offset := -_facing_forward() * profile.recoil_distance
+	var recoil_offset := Vector3.BACK * profile.recoil_distance
 	var visual_recoil_position := _visual_root_rest_position + recoil_offset
 	var visual_recoil_rotation := _visual_root_rest_rotation + Vector3(
 		deg_to_rad(profile.weapon_kick_degrees * 0.25),
@@ -468,7 +414,6 @@ func _start_attack_feedback_tweens(profile: WeaponAttackFeedbackProfile) -> void
 
 	var pivot_recoil_position := _weapon_pivot_rest_position + recoil_offset * 1.35
 	var pivot_rest_rotation := _weapon_pivot_rest_rotation
-	pivot_rest_rotation.y = atan2(float(facing.x), float(facing.y))
 	var pivot_recoil_rotation := pivot_rest_rotation
 	pivot_recoil_rotation.x += deg_to_rad(profile.weapon_kick_degrees)
 	_queue_feedback_tween(
@@ -526,10 +471,8 @@ func _reset_attack_feedback_visuals() -> void:
 		visual_root.scale = _visual_root_rest_scale
 	if is_instance_valid(weapon_pivot):
 		weapon_pivot.position = _weapon_pivot_rest_position
+		weapon_pivot.rotation = _weapon_pivot_rest_rotation
 		weapon_pivot.scale = _weapon_pivot_rest_scale
-		_apply_weapon_facing()
-		weapon_pivot.rotation.x = _weapon_pivot_rest_rotation.x
-		weapon_pivot.rotation.z = _weapon_pivot_rest_rotation.z
 	if is_instance_valid(muzzle_flash):
 		muzzle_flash.position = _muzzle_flash_rest_position
 		muzzle_flash.scale = _muzzle_flash_rest_scale
@@ -563,7 +506,6 @@ func _connect_runtime_state_signals() -> void:
 	var health_callback := Callable(self, "_on_runtime_health_changed")
 	var ap_callback := Callable(self, "_on_runtime_action_points_changed")
 	var cell_callback := Callable(self, "_on_runtime_cell_changed")
-	var facing_callback := Callable(self, "_on_runtime_facing_changed")
 	var weapon_callback := Callable(self, "_on_runtime_weapon_changed")
 	var alive_callback := Callable(self, "_on_runtime_alive_changed")
 	var died_callback := Callable(self, "_on_runtime_died")
@@ -573,8 +515,6 @@ func _connect_runtime_state_signals() -> void:
 		runtime_state.action_points_changed.connect(ap_callback)
 	if not runtime_state.cell_changed.is_connected(cell_callback):
 		runtime_state.cell_changed.connect(cell_callback)
-	if not runtime_state.facing_changed.is_connected(facing_callback):
-		runtime_state.facing_changed.connect(facing_callback)
 	if not runtime_state.weapon_changed.is_connected(weapon_callback):
 		runtime_state.weapon_changed.connect(weapon_callback)
 	if not runtime_state.alive_changed.is_connected(alive_callback):
@@ -590,7 +530,6 @@ func _disconnect_runtime_state_signals() -> void:
 		Callable(self, "_on_runtime_health_changed"),
 		Callable(self, "_on_runtime_action_points_changed"),
 		Callable(self, "_on_runtime_cell_changed"),
-		Callable(self, "_on_runtime_facing_changed"),
 		Callable(self, "_on_runtime_weapon_changed"),
 		Callable(self, "_on_runtime_alive_changed"),
 		Callable(self, "_on_runtime_died"),
@@ -599,7 +538,6 @@ func _disconnect_runtime_state_signals() -> void:
 		runtime_state.health_changed,
 		runtime_state.action_points_changed,
 		runtime_state.cell_changed,
-		runtime_state.facing_changed,
 		runtime_state.weapon_changed,
 		runtime_state.alive_changed,
 		runtime_state.died,
@@ -625,10 +563,6 @@ func _on_runtime_cell_changed(_previous: Vector3i, _current: Vector3i) -> void:
 	_update_status_label()
 
 
-func _on_runtime_facing_changed(_previous: Vector2i, _current: Vector2i) -> void:
-	_apply_facing_visual()
-
-
 func _on_runtime_weapon_changed(_previous: WeaponInstance, _current: WeaponInstance) -> void:
 	_apply_weapon_stats(true)
 	if is_node_ready():
@@ -638,7 +572,6 @@ func _on_runtime_weapon_changed(_previous: WeaponInstance, _current: WeaponInsta
 			_reset_attack_feedback_visuals()
 		_refresh_weapon_model()
 		_capture_feedback_rest_pose()
-		_apply_weapon_facing()
 		_update_status_label()
 
 
@@ -702,8 +635,6 @@ func move_along_world_path(
 		destination_cell: Vector3i
 ) -> void:
 	for target_position in world_points:
-		var movement_delta := target_position - global_position
-		set_facing(Vector2i(roundi(movement_delta.x), roundi(movement_delta.z)))
 		var movement_tween := create_tween()
 		movement_tween.set_trans(Tween.TRANS_SINE)
 		movement_tween.set_ease(Tween.EASE_IN_OUT)

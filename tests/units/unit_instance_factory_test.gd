@@ -124,7 +124,6 @@ func _spawn(id: StringName, label: StringName, archetype: UnitArchetype, cell: V
 	result.unit_name = label
 	result.faction = &"player"
 	result.cell = cell
-	result.facing = Vector2i(0, 1)
 	result.archetype = archetype
 	return result
 

@@ -152,7 +152,6 @@ func _create_from_spawn_result(
 			resolved_archetype,
 			spawn.faction,
 			spawn.cell,
-			spawn.facing,
 			weapon_instance
 	)
 	if not unit_state.is_valid(definition_registry):
