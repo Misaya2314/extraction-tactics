@@ -93,6 +93,7 @@ var open_loot_container_id: StringName = &""
 var world_tick := 0
 var input_locked := false
 var debug_reveal_all := false
+var show_enemy_vision := false
 var action_mode: int = ACTION_MODE_MOVE
 const VISION_BLOCK_COLOR := Color(0.0, 0.0, 0.0, 0.6)
 const ENEMY_OUTER_VISION_COLOR := Color(0.95, 0.75, 0.15, 0.22)
@@ -974,9 +975,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
-		if key_event.pressed and not key_event.echo and key_event.keycode == KEY_X:
-			_set_debug_reveal_all(not debug_reveal_all)
-			return
+		if key_event.pressed and not key_event.echo:
+			if key_event.keycode == KEY_X:
+				_set_debug_reveal_all(not debug_reveal_all)
+				return
+			elif key_event.keycode == KEY_Z:
+				_set_show_enemy_vision(not show_enemy_vision)
+				return
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
 		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed:
@@ -987,6 +992,12 @@ func _set_debug_reveal_all(enabled: bool) -> void:
 	debug_reveal_all = enabled
 	_update_enemy_visibility()
 	_refresh_highlights()
+
+
+func _set_show_enemy_vision(enabled: bool) -> void:
+	show_enemy_vision = enabled
+	_refresh_highlights()
+	_update_hud("敌人视野显示：%s。" % ("开启" if show_enemy_vision else "关闭"))
 
 
 func _on_move_action_pressed() -> void:
@@ -2154,8 +2165,18 @@ func _refresh_highlights() -> void:
 	_refresh_unit_cover_icons()
 	if can_show_move_highlights and is_instance_valid(grid) and grid.has_cell(_hovered_cell) and _is_cursor_visible():
 		_update_cover_preview(_hovered_cell)
-	if is_instance_valid(selected_unit) and selected_unit.faction == &"enemy":
-		_refresh_enemy_range_overlays(selected_unit)
+	var enemies_to_display: Array[PrototypeUnit] = []
+	if show_enemy_vision:
+		for enemy_id in _living_enemy_ids():
+			var enemy := _unit_by_id(enemy_id)
+			if is_instance_valid(enemy) and enemy.is_alive() and enemy.visible and enemy.faction == &"enemy":
+				if not enemies_to_display.has(enemy):
+					enemies_to_display.append(enemy)
+	if is_instance_valid(selected_unit) and selected_unit.faction == &"enemy" and selected_unit.is_alive():
+		if not enemies_to_display.has(selected_unit):
+			enemies_to_display.append(selected_unit)
+	if not enemies_to_display.is_empty():
+		_refresh_enemies_range_overlays(enemies_to_display)
 	_refresh_action_bar()
 
 
@@ -2171,27 +2192,51 @@ func _can_attack_target(target: PrototypeUnit) -> bool:
 	return can_attack_line(selected_unit.grid_cell, target.grid_cell, selected_unit.attack_range)
 
 
+## Tints the cells that the given enemies can actually detect (facing vision cone + line of sight)
+## matching the detection rules used to trigger combat.
+## Overlapping cells between multiple enemies take the highest threat tier (INNER_DISCOVERY > OUTER_ALERT).
+func _refresh_enemies_range_overlays(enemies: Array) -> void:
+	if enemies.is_empty() or not is_instance_valid(grid):
+		return
+	var cell_tiers: Dictionary = {}
+	var footprint := grid.get_grid_size()
+	for enemy_val in enemies:
+		var enemy := enemy_val as PrototypeUnit
+		if not is_instance_valid(enemy) or not enemy.is_alive():
+			continue
+		var origin := enemy.grid_cell
+		for level in range(grid.get_level_count()):
+			for z in range(footprint.y):
+				for x in range(footprint.x):
+					var cell := Vector3i(x, level, z)
+					if not grid.has_cell(cell) or cell == origin:
+						continue
+					if cell_tiers.get(cell, DetectionRules.DetectionTier.NONE) == DetectionRules.DetectionTier.INNER_DISCOVERY:
+						continue
+					var tier := _evaluate_detection_tier_with_grid(
+						origin, cell, enemy.facing,
+						enemy.inner_vision_range, enemy.vision_range
+					)
+					if tier != DetectionRules.DetectionTier.NONE:
+						var current_highest: int = cell_tiers.get(cell, DetectionRules.DetectionTier.NONE)
+						if tier > current_highest:
+							cell_tiers[cell] = tier
+
+	for cell in cell_tiers:
+		var tier: int = cell_tiers[cell]
+		match tier:
+			DetectionRules.DetectionTier.INNER_DISCOVERY:
+				_add_highlight(vision_highlights_root, cell, ENEMY_INNER_VISION_COLOR, 0.045)
+			DetectionRules.DetectionTier.OUTER_ALERT:
+				_add_highlight(vision_highlights_root, cell, ENEMY_OUTER_VISION_COLOR, 0.045)
+
+
 ## When an enemy unit is selected, tints the cells it can actually detect
 ## (facing vision cone + line of sight) so the overlay matches the detection
 ## rules used to trigger combat.
 func _refresh_enemy_range_overlays(enemy: PrototypeUnit) -> void:
-	var origin := enemy.grid_cell
-	var footprint := grid.get_grid_size()
-	for level in range(grid.get_level_count()):
-		for z in range(footprint.y):
-			for x in range(footprint.x):
-				var cell := Vector3i(x, level, z)
-				if not grid.has_cell(cell) or cell == origin:
-					continue
-				var tier := _evaluate_detection_tier_with_grid(
-					origin, cell, enemy.facing,
-					enemy.inner_vision_range, enemy.vision_range
-				)
-				match tier:
-					DetectionRules.DetectionTier.INNER_DISCOVERY:
-						_add_highlight(vision_highlights_root, cell, ENEMY_INNER_VISION_COLOR, 0.045)
-					DetectionRules.DetectionTier.OUTER_ALERT:
-						_add_highlight(vision_highlights_root, cell, ENEMY_OUTER_VISION_COLOR, 0.045)
+	if is_instance_valid(enemy):
+		_refresh_enemies_range_overlays([enemy])
 
 
 func _refresh_move_highlights() -> void:
@@ -2452,9 +2497,10 @@ func _add_highlight(parent: Node3D, cell: Vector3i, color: Color, height_offset:
 	highlight.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	highlight.set_meta(&"grid_cell", cell)
 	parent.add_child(highlight)
-	# Use a world-space placement after parenting so the highlight remains on the
-	# correct 3D surface even if a presentation layer has a transform of its own.
-	highlight.global_position = grid.cell_to_world(cell) + Vector3.UP * height_offset
+	if highlight.is_inside_tree():
+		highlight.global_position = grid.cell_to_world(cell) + Vector3.UP * height_offset
+	else:
+		highlight.position = grid.cell_to_world(cell) + Vector3.UP * height_offset
 	highlight.visible = true
 
 
@@ -3163,35 +3209,39 @@ func _phase_name() -> String:
 func _update_hud(message: String = "") -> void:
 	if not is_instance_valid(turn_manager):
 		return
-	phase_label.text = "%s · 世界 Tick %d" % [_phase_name(), world_tick]
-	alert_label.text = "敌方警戒：%s" % _alert_summary()
-	if is_instance_valid(selected_unit):
-		if selected_unit.faction == &"enemy":
-			var alert_text := "未警戒"
-			if enemy_alerts.has(selected_unit.unit_id):
-				var alert := enemy_alerts[selected_unit.unit_id] as AlertState
-				match alert.get_level():
-					AlertState.Level.SUSPICIOUS: alert_text = "警戒"
-					AlertState.Level.ALERTED: alert_text = "发现!"
-					AlertState.Level.ENGAGED: alert_text = "交战"
-			selection_label.text = "%s | HP %d/%d | 移动 %d | 伤害 %d (危险 %d) | 视野 外%d/内%d | %s" % [
-				selected_unit.name, selected_unit.current_hp, selected_unit.max_hp,
-				selected_unit.move_range, selected_unit.attack_damage,
-				selected_unit.attack_range, selected_unit.vision_range, selected_unit.inner_vision_range, alert_text,
-			]
+	if is_instance_valid(phase_label):
+		phase_label.text = "%s · 世界 Tick %d" % [_phase_name(), world_tick]
+	if is_instance_valid(alert_label):
+		alert_label.text = "敌方警戒：%s" % _alert_summary()
+	if is_instance_valid(selection_label):
+		if is_instance_valid(selected_unit):
+			if selected_unit.faction == &"enemy":
+				var alert_text := "未警戒"
+				if enemy_alerts.has(selected_unit.unit_id):
+					var alert := enemy_alerts[selected_unit.unit_id] as AlertState
+					match alert.get_level():
+						AlertState.Level.SUSPICIOUS: alert_text = "警戒"
+						AlertState.Level.ALERTED: alert_text = "发现!"
+						AlertState.Level.ENGAGED: alert_text = "交战"
+				selection_label.text = "%s | HP %d/%d | 移动 %d | 伤害 %d (危险 %d) | 视野 外%d/内%d | %s" % [
+					selected_unit.name, selected_unit.current_hp, selected_unit.max_hp,
+					selected_unit.move_range, selected_unit.attack_damage,
+					selected_unit.attack_range, selected_unit.vision_range, selected_unit.inner_vision_range, alert_text,
+				]
+			else:
+				var archetype_name := selected_unit.archetype.display_name if selected_unit.archetype != null else "未配置原型"
+				selection_label.text = "%s | 原型 %s | 武器 %s\n伤害 %d | 射程 %d | 攻击 AP %d\nHP %d/%d | AP %d/%d | 格 %s" % [
+					selected_unit.name, archetype_name, selected_unit.get_weapon_display_name(),
+					selected_unit.attack_damage, selected_unit.attack_range, selected_unit.attack_ap_cost,
+					selected_unit.current_hp, selected_unit.max_hp,
+					selected_unit.current_action_points, selected_unit.max_action_points,
+					selected_unit.grid_cell,
+				]
 		else:
-			var archetype_name := selected_unit.archetype.display_name if selected_unit.archetype != null else "未配置原型"
-			selection_label.text = "%s | 原型 %s | 武器 %s\n伤害 %d | 射程 %d | 攻击 AP %d\nHP %d/%d | AP %d/%d | 格 %s" % [
-				selected_unit.name, archetype_name, selected_unit.get_weapon_display_name(),
-				selected_unit.attack_damage, selected_unit.attack_range, selected_unit.attack_ap_cost,
-				selected_unit.current_hp, selected_unit.max_hp,
-				selected_unit.current_action_points, selected_unit.max_action_points,
-				selected_unit.grid_cell,
-			]
-	else:
-		selection_label.text = "未选择单位"
-	end_turn_button.text = "推进探索 Tick" if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION else "结束玩家回合"
-	end_turn_button.disabled = input_locked or _is_terminal() or turn_manager.is_enemy_turn() or (session_manager != null and session_manager.get_state() == GameStateManagerScript.State.EXTRACTION)
+			selection_label.text = "未选择单位"
+	if is_instance_valid(end_turn_button):
+		end_turn_button.text = "推进探索 Tick" if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION else "结束玩家回合"
+		end_turn_button.disabled = input_locked or _is_terminal() or turn_manager.is_enemy_turn() or (session_manager != null and session_manager.get_state() == GameStateManagerScript.State.EXTRACTION)
 	_refresh_action_bar()
 	if is_instance_valid(inventory_summary_label) and squad_inventory != null:
 		inventory_summary_label.text = "背包 6×8 · %d/%d | 总价值 %d" % [squad_inventory.used, squad_inventory.capacity, squad_inventory.total_value()]
@@ -3204,7 +3254,7 @@ func _update_hud(message: String = "") -> void:
 			if container != null and not container.is_depleted():
 				available += 1
 		loot_overview_label.text = "Loot 容器：%d 个可搜刮" % available
-	if not message.is_empty():
+	if not message.is_empty() and is_instance_valid(hint_label):
 		hint_label.text = message
 	_sync_inventory_panel_layout()
 	_queue_inventory_panel_layout_sync()
