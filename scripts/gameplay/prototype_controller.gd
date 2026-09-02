@@ -1787,6 +1787,7 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 			_update_hud(_action_message("无法攻击", result.reason))
 		return result
 	result.metadata = cover_damage.duplicate(true)
+	attacker.look_at_cell(target.grid_cell)
 	await attacker.play_attack_feedback()
 	input_locked = previous_input_locked
 	_refresh_undo_buttons()

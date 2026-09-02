@@ -166,6 +166,14 @@ var alert_level: int = 0:
 		alert_level = value
 		_update_alert_badge()
 
+var visual_facing := Vector2i(0, 1)
+
+var facing: Vector2i:
+	get:
+		return visual_facing
+	set(value):
+		set_visual_facing(value)
+
 var last_attack_feedback_profile_id: StringName = &""
 var attack_feedback_play_count: int = 0
 var is_attack_feedback_playing: bool = false
@@ -190,6 +198,7 @@ func _ready() -> void:
 	_capture_feedback_rest_pose()
 	_apply_visual_color()
 	set_selected(false)
+	_apply_visual_facing()
 	_update_status_label()
 	_update_alert_badge()
 
@@ -210,6 +219,7 @@ func bind_runtime_state(new_state: UnitRuntimeState, new_color: Color = Color.WH
 		_apply_weapon_stats()
 		_refresh_weapon_model()
 		_capture_feedback_rest_pose()
+		_apply_visual_facing()
 		_apply_visual_color()
 		_update_status_label()
 		_update_alert_badge()
@@ -259,6 +269,7 @@ func configure(
 			_reset_attack_feedback_visuals()
 		_refresh_weapon_model()
 		_capture_feedback_rest_pose()
+		_apply_visual_facing()
 		_apply_visual_color()
 		_update_status_label()
 
@@ -276,6 +287,7 @@ func set_weapon(new_weapon: WeaponDefinition) -> void:
 	_apply_weapon_stats(new_weapon == null)
 	_refresh_weapon_model()
 	_capture_feedback_rest_pose()
+	_apply_visual_facing()
 	_update_status_label()
 
 
@@ -292,6 +304,55 @@ func get_weapon_summary() -> String:
 func set_selected(is_selected: bool) -> void:
 	if is_instance_valid(selection_marker):
 		selection_marker.visible = is_selected
+
+
+func set_visual_facing(direction: Variant) -> void:
+	var normalized := _normalize_facing(direction)
+	if normalized == Vector2i.ZERO:
+		return
+	visual_facing = normalized
+	_apply_visual_facing()
+
+
+func set_facing(direction: Variant) -> void:
+	set_visual_facing(direction)
+
+
+func look_at_cell(target_cell: Vector3i) -> void:
+	var delta := target_cell - grid_cell
+	set_visual_facing(Vector2i(delta.x, delta.z))
+
+
+func _apply_visual_facing() -> void:
+	if is_instance_valid(facing_marker):
+		facing_marker.position = Vector3(float(visual_facing.x) * 0.55, 0.66, float(visual_facing.y) * 0.55)
+	_apply_weapon_facing()
+
+
+func _apply_weapon_facing() -> void:
+	if not is_instance_valid(weapon_pivot):
+		return
+	var pivot_rotation := _weapon_pivot_rest_rotation
+	pivot_rotation.y = atan2(float(visual_facing.x), float(visual_facing.y))
+	weapon_pivot.rotation = pivot_rotation
+
+
+static func _normalize_facing(direction: Variant) -> Vector2i:
+	if direction is Vector3i:
+		direction = Vector2i(direction.x, direction.z)
+	if not direction is Vector2i:
+		return Vector2i.ZERO
+	var typed_direction: Vector2i = direction
+	if typed_direction == Vector2i.ZERO:
+		return Vector2i.ZERO
+	if absi(typed_direction.x) >= absi(typed_direction.y):
+		return Vector2i(1 if typed_direction.x > 0 else -1, 0)
+	return Vector2i(0, 1 if typed_direction.y > 0 else -1)
+
+
+func _facing_forward() -> Vector3:
+	var forward := Vector3(float(visual_facing.x), 0.0, float(visual_facing.y))
+	return forward.normalized() if forward.length_squared() > 0.0 else Vector3.FORWARD
 
 
 ## Plays only local presentation feedback. Gameplay rules and root/grid state
@@ -377,7 +438,7 @@ func _queue_feedback_tween(
 
 
 func _start_attack_feedback_tweens(profile: WeaponAttackFeedbackProfile) -> void:
-	var recoil_offset := Vector3.BACK * profile.recoil_distance
+	var recoil_offset := -_facing_forward() * profile.recoil_distance
 	var visual_recoil_position := _visual_root_rest_position + recoil_offset
 	var visual_recoil_rotation := _visual_root_rest_rotation + Vector3(
 		deg_to_rad(profile.weapon_kick_degrees * 0.25),
@@ -414,6 +475,7 @@ func _start_attack_feedback_tweens(profile: WeaponAttackFeedbackProfile) -> void
 
 	var pivot_recoil_position := _weapon_pivot_rest_position + recoil_offset * 1.35
 	var pivot_rest_rotation := _weapon_pivot_rest_rotation
+	pivot_rest_rotation.y = atan2(float(visual_facing.x), float(visual_facing.y))
 	var pivot_recoil_rotation := pivot_rest_rotation
 	pivot_recoil_rotation.x += deg_to_rad(profile.weapon_kick_degrees)
 	_queue_feedback_tween(
@@ -471,8 +533,10 @@ func _reset_attack_feedback_visuals() -> void:
 		visual_root.scale = _visual_root_rest_scale
 	if is_instance_valid(weapon_pivot):
 		weapon_pivot.position = _weapon_pivot_rest_position
-		weapon_pivot.rotation = _weapon_pivot_rest_rotation
 		weapon_pivot.scale = _weapon_pivot_rest_scale
+		_apply_weapon_facing()
+		weapon_pivot.rotation.x = _weapon_pivot_rest_rotation.x
+		weapon_pivot.rotation.z = _weapon_pivot_rest_rotation.z
 	if is_instance_valid(muzzle_flash):
 		muzzle_flash.position = _muzzle_flash_rest_position
 		muzzle_flash.scale = _muzzle_flash_rest_scale
@@ -635,6 +699,8 @@ func move_along_world_path(
 		destination_cell: Vector3i
 ) -> void:
 	for target_position in world_points:
+		var movement_delta := target_position - global_position
+		set_visual_facing(Vector2i(roundi(movement_delta.x), roundi(movement_delta.z)))
 		var movement_tween := create_tween()
 		movement_tween.set_trans(Tween.TRANS_SINE)
 		movement_tween.set_ease(Tween.EASE_IN_OUT)
