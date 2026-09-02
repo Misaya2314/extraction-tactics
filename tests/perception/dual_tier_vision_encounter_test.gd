@@ -1,4 +1,4 @@
-﻿extends SceneTree
+extends SceneTree
 
 const DetectionRulesScript = preload("res://scripts/core/perception/detection_rules.gd")
 const AlertStateScript = preload("res://scripts/core/encounter/alert_state.gd")
@@ -19,6 +19,8 @@ func _init() -> void:
 	_test_outer_vision_investigation_flow()
 	_test_inner_vision_assassination_flow()
 	_test_inner_vision_squad_alarm_propagation()
+	_test_proactive_attack_squad_alarm_propagation()
+	_test_proactive_attack_silent_assassination_flow()
 	_finish()
 
 
@@ -240,6 +242,113 @@ func _test_inner_vision_squad_alarm_propagation() -> void:
 	_expect(turn_mgr.is_enemy_turn(), "squad_alarm: phase transitioned to enemy turn")
 	_expect((enemy_alerts[scout_enemy_id] as AlertStateScript).is_engaged(), "squad_alarm: scout is now engaged")
 	_expect((enemy_alerts[guard_enemy_id] as AlertStateScript).is_engaged(), "squad_alarm: entire squad guard is now engaged!")
+
+
+func _test_proactive_attack_squad_alarm_propagation() -> void:
+	# Simulates player actively attacking an enemy during exploration, entering combat,
+	# and ending the player turn without killing the target.
+	# Verifies that whole squad alarm is propagated at end of turn.
+	var turn_mgr := TurnManagerScript.new()
+	var session_mgr := GameStateManagerScript.new()
+	session_mgr.start_exploration()
+
+	var player_id := &"player_1"
+	var target_enemy_id := &"enemy_target"
+	var squad_guard_id := &"enemy_guard"
+
+	var squad_members: Array[StringName] = [target_enemy_id, squad_guard_id]
+	var enemy_alerts := {
+		target_enemy_id: AlertStateScript.new(),
+		squad_guard_id: AlertStateScript.new(),
+	}
+
+	# Player attacks target_enemy in exploration
+	(enemy_alerts[target_enemy_id] as AlertStateScript).engage(player_id, Vector3i(3, 0, 3))
+	(enemy_alerts[squad_guard_id] as AlertStateScript).become_suspicious(Vector3i(3, 0, 3))
+
+	turn_mgr.configure([player_id], squad_members)
+	session_mgr.start_combat()
+	turn_mgr.start_combat(true)
+
+	_expect(turn_mgr.is_player_turn(), "proactive_alarm: combat begins in player turn")
+	_expect((enemy_alerts[target_enemy_id] as AlertStateScript).is_engaged(), "proactive_alarm: target is engaged")
+	_expect((enemy_alerts[squad_guard_id] as AlertStateScript).is_suspicious(), "proactive_alarm: guard is suspicious")
+
+	# Player ends turn WITHOUT killing target -> alarm propagation
+	var pending_squads: Array[Array] = []
+	for enemy_id in turn_mgr.get_enemy_ids():
+		var alert := enemy_alerts[enemy_id] as AlertStateScript
+		if alert.is_alerted() or alert.is_engaged():
+			var has_unengaged := false
+			for member_id in squad_members:
+				var m_alert := enemy_alerts[member_id] as AlertStateScript
+				if not m_alert.is_engaged():
+					has_unengaged = true
+					break
+			if has_unengaged:
+				pending_squads.append(squad_members)
+				break
+
+	for squad in pending_squads:
+		for member_id in squad:
+			(enemy_alerts[member_id] as AlertStateScript).engage(player_id, Vector3i(3, 0, 3))
+
+	turn_mgr.end_player_turn()
+
+	_expect(turn_mgr.is_enemy_turn(), "proactive_alarm: phase transitioned to enemy turn")
+	_expect((enemy_alerts[target_enemy_id] as AlertStateScript).is_engaged(), "proactive_alarm: target remains engaged")
+	_expect((enemy_alerts[squad_guard_id] as AlertStateScript).is_engaged(), "proactive_alarm: entire squad guard is now engaged!")
+
+
+func _test_proactive_attack_silent_assassination_flow() -> void:
+	# Simulates player actively attacking an enemy in exploration and killing it in player turn.
+	# Verifies that silent resolution resets to exploration and guard remains unaffected.
+	var turn_mgr := TurnManagerScript.new()
+	var session_mgr := GameStateManagerScript.new()
+	session_mgr.start_exploration()
+
+	var player_id := &"player_1"
+	var target_enemy_id := &"enemy_target"
+	var squad_guard_id := &"enemy_guard"
+
+	var squad_members: Array[StringName] = [target_enemy_id, squad_guard_id]
+	var enemy_alerts := {
+		target_enemy_id: AlertStateScript.new(),
+		squad_guard_id: AlertStateScript.new(),
+	}
+
+	# Player attacks target_enemy in exploration
+	(enemy_alerts[target_enemy_id] as AlertStateScript).engage(player_id, Vector3i(3, 0, 3))
+	(enemy_alerts[squad_guard_id] as AlertStateScript).become_suspicious(Vector3i(3, 0, 3))
+
+	turn_mgr.configure([player_id], squad_members)
+	session_mgr.start_combat()
+	turn_mgr.start_combat(true)
+
+	_expect(turn_mgr.is_player_turn(), "proactive_assassination: combat begins in player turn")
+
+	# Player kills target in player turn
+	turn_mgr.remove_unit(target_enemy_id)
+	var living_enemies: Array[StringName] = [squad_guard_id]
+
+	# Check silent assassination condition: no living enemies are engaged
+	var has_living_engaged := false
+	for enemy_id in living_enemies:
+		var alert := enemy_alerts[enemy_id] as AlertStateScript
+		if alert.is_engaged():
+			has_living_engaged = true
+			break
+
+	_expect(not has_living_engaged, "proactive_assassination: no living enemies are engaged")
+
+	# Reset back to exploration
+	turn_mgr.reset_to_exploration()
+	turn_mgr.configure([player_id], [])
+	session_mgr.resolve_combat()
+
+	_expect(turn_mgr.get_phase() == TurnManagerScript.Phase.EXPLORATION, "proactive_assassination: phase reset to exploration")
+	_expect(session_mgr.get_state() == GameStateManagerScript.State.EXPLORATION, "proactive_assassination: session reset to exploration")
+	_expect((enemy_alerts[squad_guard_id] as AlertStateScript).is_suspicious(), "proactive_assassination: guard remains only suspicious")
 
 
 func _expect(condition: bool, message: String) -> void:

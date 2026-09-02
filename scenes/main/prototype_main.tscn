@@ -69,9 +69,9 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -166.0
+offset_left = -220.0
 offset_top = -88.0
-offset_right = 166.0
+offset_right = 220.0
 offset_bottom = -16.0
 grow_horizontal = 2
 grow_vertical = 0
@@ -88,8 +88,16 @@ theme_override_constants/margin_bottom = 8
 layout_mode = 2
 theme_override_constants/separation = 10
 
+[node name="ApLabel" type="Label" parent="HUD/ActionBar/Margin/Buttons" unique_id=987654321]
+custom_minimum_size = Vector2(90, 54)
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "AP：2/2"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="MoveButton" type="Button" parent="HUD/ActionBar/Margin/Buttons" unique_id=1144404548]
-custom_minimum_size = Vector2(150, 54)
+custom_minimum_size = Vector2(140, 54)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true
@@ -97,7 +105,7 @@ button_pressed = true
 text = "移动"
 
 [node name="AttackButton" type="Button" parent="HUD/ActionBar/Margin/Buttons" unique_id=1362063905]
-custom_minimum_size = Vector2(150, 54)
+custom_minimum_size = Vector2(140, 54)
 layout_mode = 2
 size_flags_horizontal = 3
 toggle_mode = true

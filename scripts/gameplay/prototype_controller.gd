@@ -145,6 +145,7 @@ var _inventory_layout_sync_queued := false
 @onready var action_bar: PanelContainer = $HUD/ActionBar
 @onready var move_action_button: Button = $HUD/ActionBar/Margin/Buttons/MoveButton
 @onready var attack_action_button: Button = $HUD/ActionBar/Margin/Buttons/AttackButton
+@onready var action_bar_ap_label: Label = $HUD/ActionBar/Margin/Buttons/ApLabel
 @onready var inventory_summary_label: Label = $HUD/InventoryPanel/Margin/VBox/InventorySummary
 @onready var inventory_hint_label: Label = $HUD/InventoryPanel/Margin/VBox/InventoryHint
 @onready var inventory_panel: PanelContainer = $HUD/InventoryPanel
@@ -1901,8 +1902,8 @@ func can_attack_line(attacker_cell: Vector3i, target_cell: Vector3i, attack_rang
 
 
 func _has_any_engaged_enemy() -> bool:
-	for alert_value in enemy_alerts.values():
-		var alert := alert_value as AlertState
+	for enemy_id in _living_enemy_ids():
+		var alert := enemy_alerts.get(enemy_id) as AlertState
 		if alert != null and alert.is_engaged():
 			return true
 	return false
@@ -2252,6 +2253,11 @@ func _refresh_action_bar() -> void:
 	if is_instance_valid(action_bar):
 		action_bar.visible = has_player_selection \
 		and (not is_instance_valid(loot_panel) or not loot_panel.visible)
+	if is_instance_valid(action_bar_ap_label):
+		if has_player_selection:
+			action_bar_ap_label.text = "AP：%d/%d" % [selected_unit.current_action_points, selected_unit.max_action_points]
+		else:
+			action_bar_ap_label.text = "AP：0/0"
 	var can_show_actions := _can_show_tactical_highlights()
 	move_action_button.disabled = not can_show_actions \
 		or not selected_unit.can_spend_action_points(MOVE_ACTION_COST)
@@ -2618,29 +2624,59 @@ func _on_end_turn_pressed() -> void:
 		_log("世界 Tick %d：敌人巡逻，玩家 AP 重置。" % world_tick)
 		return
 
-	# If any enemy in discovering_enemy_ids is still alive in ALERTED state, sound alarm to whole squad!
-	var pending_alerts: Array[StringName] = []
+	# If any enemy in discovering_enemy_ids or active combat is alive in ALERTED/ENGAGED state, sound alarm to whole squad!
+	var alarmed_encounters: Dictionary = {}
+	var alarm_sources: Array[StringName] = []
+
 	for enemy_id in discovering_enemy_ids:
 		var enemy := _unit_by_id(enemy_id)
 		if is_instance_valid(enemy) and enemy.is_alive():
 			var alert := enemy_alerts.get(enemy_id) as AlertState
 			if alert != null and alert.is_alerted():
-				pending_alerts.append(enemy_id)
+				var encounter_id: StringName = encounter_by_unit.get(enemy_id, &"default")
+				if not alarmed_encounters.has(encounter_id):
+					alarmed_encounters[encounter_id] = true
+					alarm_sources.append(enemy_id)
 
-	if not pending_alerts.is_empty():
-		for enemy_id in pending_alerts:
-			var enemy := _unit_by_id(enemy_id)
-			var target_player_id := (enemy_alerts[enemy_id] as AlertState).get_target_id()
-			var target_cell := (enemy_alerts[enemy_id] as AlertState).get_last_known_cell()
-			(enemy_alerts[enemy_id] as AlertState).engage(target_player_id, target_cell)
-			var encounter_id: StringName = encounter_by_unit.get(enemy_id, &"default")
+	for enemy_id in turn_manager.get_enemy_ids():
+		var enemy := _unit_by_id(enemy_id)
+		if is_instance_valid(enemy) and enemy.is_alive():
+			var alert := enemy_alerts.get(enemy_id) as AlertState
+			if alert != null and (alert.is_alerted() or alert.is_engaged()):
+				var encounter_id: StringName = encounter_by_unit.get(enemy_id, &"default")
+				if not alarmed_encounters.has(encounter_id):
+					var has_unengaged_member := false
+					for member_id in encounter_members.get(encounter_id, []):
+						var member_alert := enemy_alerts.get(member_id) as AlertState
+						if member_alert != null and not member_alert.is_engaged():
+							has_unengaged_member = true
+							break
+					if has_unengaged_member:
+						alarmed_encounters[encounter_id] = true
+						alarm_sources.append(enemy_id)
+
+	if not alarm_sources.is_empty():
+		for source_enemy_id in alarm_sources:
+			var source_enemy := _unit_by_id(source_enemy_id)
+			var source_alert := enemy_alerts.get(source_enemy_id) as AlertState
+			var target_player_id := source_alert.get_target_id() if source_alert != null else &""
+			var target_cell := source_alert.get_last_known_cell() if source_alert != null else AlertState.INVALID_CELL
+			if target_player_id.is_empty() and not _living_player_ids().is_empty():
+				target_player_id = _living_player_ids()[0]
+				var player_unit := _unit_by_id(target_player_id)
+				if is_instance_valid(player_unit):
+					target_cell = player_unit.grid_cell
+			if source_alert != null:
+				source_alert.engage(target_player_id, target_cell)
+			var encounter_id: StringName = encounter_by_unit.get(source_enemy_id, &"default")
 			for member_id in encounter_members.get(encounter_id, []):
 				var member := _unit_by_id(member_id)
 				if is_instance_valid(member) and member.is_alive():
 					if enemy_alerts.has(member_id):
 						(enemy_alerts[member_id] as AlertState).engage(target_player_id, target_cell)
-			_log("【警报扩散】%s 发出警报，整个小组进入战斗状态！" % (enemy.name if is_instance_valid(enemy) else String(enemy_id)))
+			_log("【警报扩散】%s 发出警报，整个小组进入战斗状态！" % (source_enemy.name if is_instance_valid(source_enemy) else String(source_enemy_id)))
 		discovering_enemy_ids.clear()
+		_update_enemy_visibility()
 
 	if turn_manager.end_player_turn():
 		await _run_enemy_turn()

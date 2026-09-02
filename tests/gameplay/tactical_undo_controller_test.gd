@@ -59,6 +59,7 @@ func _test_main_scene_undo_controls() -> void:
 	_expect(scene_text.contains("name=\"UndoTurnButton\""), "HUD: main scene should declare turn undo button")
 	_expect(scene_text.contains("text = \"撤回上一步\""), "HUD: step undo label should be visible")
 	_expect(scene_text.contains("text = \"撤回至回合开始\""), "HUD: turn undo label should be visible")
+	_expect(scene_text.contains("name=\"ApLabel\""), "HUD: main scene should declare ApLabel in ActionBar")
 
 
 func _test_inventory_panel_bounds() -> void:
