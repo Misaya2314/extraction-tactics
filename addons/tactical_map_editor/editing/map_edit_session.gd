@@ -567,7 +567,7 @@ func debug_view_legend(value: int = debug_view) -> String:
 		DebugView.NORMAL:
 			return "正常模型；调试覆盖已关闭。"
 		DebugView.WALKABILITY:
-			return "绿色=可走，红色=不可走。"
+			return "绿色=地图初始可走；红色=被地格、Structure 或 Object 阻挡。"
 		DebugView.MOVE_COST:
 			return "绿色=低消耗，红色=高消耗。"
 		DebugView.SIGHT_BLOCK:
@@ -631,7 +631,12 @@ func inspect_debug_cells() -> Dictionary:
 	var map_author := author as TacticalMapAuthor
 	if map_author == null:
 		return {&"cells": [], &"errors": [], &"warnings": [], &"diagnostics": []}
-	return _merge_validation_debug_cells(_property_service.inspect_all_cells(map_author), get_validation_diagnostics())
+	var inspection := _merge_validation_debug_cells(
+		_property_service.inspect_all_cells(map_author),
+		get_validation_diagnostics()
+	)
+	_annotate_initial_object_walkability(inspection)
+	return inspection
 
 
 ## Read-only cover view contract. The Baker remains the sole source of final
@@ -924,6 +929,12 @@ func get_debug_focus_cell() -> Vector3i:
 
 func get_debug_value(cell_inspection: Dictionary, field: StringName) -> Variant:
 	var normalized := String(field).to_lower()
+	# Cell rules intentionally exclude dynamic Object occupancy so a destroyed
+	# blocker can make its cell available again at runtime. The authoring
+	# Walkability view, however, describes the initial playable map and must
+	# include blocking MapObjectPlacement instances just like Controller setup.
+	if normalized == "walkable" and cell_inspection.has(&"initial_walkable"):
+		return cell_inspection[&"initial_walkable"]
 	var descriptor := _property_descriptor(StringName(normalized.to_upper()))
 	var field_bit := int(descriptor.get(&"field", -1))
 	var rules: Variant = cell_inspection.get(&"effective_rules", cell_inspection.get(&"effective", cell_inspection.get(&"rules", null)))
@@ -2775,6 +2786,44 @@ func _merge_validation_debug_cells(base: Dictionary, diagnostics: Array[Dictiona
 	result[&"cells"] = records
 	result[&"diagnostics"] = diagnostics.duplicate(true)
 	return result
+
+
+func _annotate_initial_object_walkability(inspection: Dictionary) -> void:
+	var blocker_ids_by_cell: Dictionary = {}
+	var objects_root := _objects_root()
+	if objects_root != null:
+		for node in _descendants(objects_root):
+			if not node is MapObjectMarker3D:
+				continue
+			var marker := node as MapObjectMarker3D
+			if not marker.blocks_movement:
+				continue
+			var blocker_ids: PackedStringArray = blocker_ids_by_cell.get(marker.cell, PackedStringArray())
+			var blocker_id := String(marker.object_id).strip_edges()
+			if blocker_id.is_empty():
+				blocker_id = String(marker.name)
+			if not blocker_ids.has(blocker_id):
+				blocker_ids.append(blocker_id)
+				blocker_ids.sort()
+			blocker_ids_by_cell[marker.cell] = blocker_ids
+
+	var records: Array = inspection.get(&"cells", [])
+	for index in range(records.size()):
+		if not records[index] is Dictionary:
+			continue
+		var record: Dictionary = records[index]
+		var coordinate = record.get(&"coordinate", null)
+		if not coordinate is Vector3i or bool(record.get(&"validation_only", false)):
+			continue
+		var rules := record.get(&"effective_rules", null) as TacticalCellRules
+		if rules == null:
+			continue
+		var blocking_object_ids: PackedStringArray = blocker_ids_by_cell.get(coordinate, PackedStringArray())
+		record[&"cell_rule_walkable"] = rules.walkable
+		record[&"blocking_object_ids"] = blocking_object_ids.duplicate()
+		record[&"initial_walkable"] = rules.walkable and blocking_object_ids.is_empty()
+		records[index] = record
+	inspection[&"cells"] = records
 
 
 func _marker_entry_from_definition(definition: Object, special_kind: String) -> Dictionary:

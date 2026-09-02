@@ -695,10 +695,18 @@ func _test_property_override_batch_undo_and_inherit() -> void:
 func _test_debug_views_validation_and_focus() -> void:
 	var author := _make_author()
 	var catalog := MapTileCatalog.new()
-	catalog.rules = [_legacy_rule(0, 0, &"floor"), _legacy_rule(1, 1, &"wall")]
+	var floor_rule := _legacy_rule(0, 0, &"floor")
+	var wall_rule := _legacy_rule(1, 1, &"wall")
+	wall_rule.walkable = false
+	catalog.rules = [floor_rule, wall_rule]
 	author.tile_catalog = catalog
 	var structure_grid := author.get_node("StructureGrid") as GridMap
 	structure_grid.set_cell_item(Vector3i(0, 0, 0), 1)
+	var blocking_object := MapObjectMarker3D.new()
+	blocking_object.object_id = &"synthetic_blocker"
+	blocking_object.cell = Vector3i(1, 0, 0)
+	blocking_object.blocks_movement = true
+	author.get_node("Objects").add_child(blocking_object)
 	var session = SessionScript.new()
 	session.begin_for_author(author, author)
 	for view in range(SessionScript.DebugView.NORMAL, SessionScript.DebugView.VALIDATION + 1):
@@ -708,6 +716,19 @@ func _test_debug_views_validation_and_focus() -> void:
 	var inspection := session.inspect_debug_cells()
 	_expect(inspection.has("cells"), "debug: formal inspect_all_cells result should expose cells")
 	_expect((inspection.get("cells", []) as Array).size() == 2, "debug: formal all-cell inspection should include both Floor cells")
+	var initial_heatmap_records := session.get_debug_cells_for_view(SessionScript.DebugView.WALKABILITY)
+	var wall_walkable: Variant = null
+	var object_walkable: Variant = null
+	var object_blocker_ids := PackedStringArray()
+	for record in initial_heatmap_records:
+		if record.get("coordinate", null) == Vector3i(0, 0, 0):
+			wall_walkable = session.get_debug_value(record, &"walkable")
+		if record.get("coordinate", null) == Vector3i(1, 0, 0):
+			object_walkable = session.get_debug_value(record, &"walkable")
+			object_blocker_ids = record.get(&"blocking_object_ids", PackedStringArray())
+	_expect(wall_walkable == false, "debug: Structure walkability contribution should remain visible as blocked")
+	_expect(object_walkable == false, "debug: blocking Object markers should make the initial Walkability view blocked")
+	_expect(object_blocker_ids == PackedStringArray(["synthetic_blocker"]), "debug: Walkability records should identify blocking Object instances")
 	var diagnostics := session.get_validation_diagnostics()
 	for diagnostic in diagnostics:
 		_expect(diagnostic is Dictionary and diagnostic.has("severity") and diagnostic.has("message"), "debug: validation entries must remain structured")
@@ -740,7 +761,6 @@ func _test_debug_views_validation_and_focus() -> void:
 	for record in heatmap_records:
 		if record.get("coordinate", null) == empty_cell:
 			heatmap_missing_found = true
-			break
 	_expect(validation_only_found, "debug: Validation view should include the missing-Floor diagnostic record")
 	_expect(not heatmap_missing_found, "debug: heatmap views must exclude validation-only coordinates")
 	floor_grid.set_cell_item(Vector3i(0, 0, 0), old_item)

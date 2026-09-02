@@ -1296,6 +1296,9 @@ func _ensure_debug_overlay() -> void:
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.vertex_color_use_as_albedo = true
+	# Rule overlays must remain readable above tall Structure/Object visuals.
+	# They are editor-only and never participate in gameplay depth/physics.
+	material.no_depth_test = true
 	material.albedo_color = Color.WHITE
 	_debug_overlay.material_override = material
 	_debug_overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
