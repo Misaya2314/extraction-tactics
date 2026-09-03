@@ -19,6 +19,7 @@ const LootSettlementScript = preload("res://scripts/core/loot/loot_settlement.gd
 const CoverQueryScript = preload("res://scripts/core/cover/cover_query.gd")
 const CoverResolverScript = preload("res://scripts/core/cover/cover_resolver.gd")
 const CoverCombatSettingsScript = preload("res://scripts/core/cover/cover_combat_settings.gd")
+const TacticalStepOutScript = preload("res://scripts/core/cover/tactical_step_out.gd")
 const InventoryGridScript = preload("res://scripts/gameplay/ui/inventory_grid_control.gd")
 const LootGridScript = preload("res://scripts/gameplay/ui/loot_grid_control.gd")
 const MOVE_ACTION_COST := 1
@@ -1800,6 +1801,13 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 		await get_tree().create_timer(enemy_aim_duration).timeout
 	if result.killed and is_instance_valid(target):
 		target.visible = true
+
+	var is_step_out := cover_query.is_step_out and is_instance_valid(grid)
+	if is_step_out:
+		var step_world_pos := grid.cell_to_world(cover_query.step_out_cell)
+		var peek_pos := attacker.global_position.lerp(step_world_pos, 0.75)
+		await attacker.step_out_to(peek_pos, 0.15)
+
 	var on_impact := func() -> void:
 		if is_instance_valid(target) and applied > 0:
 			if result.killed:
@@ -1809,15 +1817,21 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 				target.play_hit_sound()
 	_schedule_attack_impact(on_impact)
 	await attacker.play_attack_feedback()
+
+	if is_step_out:
+		await attacker.step_back(0.15)
+
 	if attacker.faction == &"enemy" and enemy_post_attack_delay > 0.0 and is_inside_tree():
 		await get_tree().create_timer(enemy_post_attack_delay).timeout
 	input_locked = previous_input_locked
 	_refresh_undo_buttons()
 	var cover_level_name := String(cover_summary.get(&"cover_level_name", &"NONE"))
 	var reduction_percent := int(cover_summary.get(&"damage_reduction_percent", 0))
+	var step_out_note := "（探出射击）" if cover_query.is_step_out else ""
 	if bool(cover_summary.get(&"has_cover", false)):
-		_update_hud("%s 命中 %s：基础 %d → %s（减伤 %d%%）→ 最终 %d%s。" % [
+		_update_hud("%s%s 命中 %s：基础 %d → %s（减伤 %d%%）→ 最终 %d%s。" % [
 			attacker.name,
+			step_out_note,
 			target.name,
 			int(cover_summary.get(&"base_damage", attacker.attack_damage)),
 			cover_level_name,
@@ -1826,11 +1840,12 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 			"，击杀目标" if result.killed else "",
 		])
 	else:
-		_update_hud("%s 命中 %s，造成 %d 伤害%s。" % [
-			attacker.name, target.name, applied, "并击杀目标" if result.killed else ""
+		_update_hud("%s%s 命中 %s，造成 %d 伤害%s。" % [
+			attacker.name, step_out_note, target.name, applied, "并击杀目标" if result.killed else ""
 		])
-	_log("%s 攻击 %s：%s；实际造成 %d 伤害%s。" % [
+	_log("%s%s 攻击 %s：%s；实际造成 %d 伤害%s。" % [
 		attacker.name,
+		step_out_note,
 		target.name,
 		CoverResolverScript.format_debug_summary(cover_summary),
 		applied,
@@ -1853,10 +1868,10 @@ func _schedule_attack_impact(impact_callback: Callable) -> void:
 ## Public debug/test entry and the single authority used by player, AI and
 ## attack highlighting.  It deliberately delegates to the shared line query;
 ## callers must not recreate LOS or edge-cover rules.
-func query_attack_cover(attacker_cell: Vector3i, target_cell: Vector3i) -> CoverQueryResult:
+func query_attack_cover(attacker_cell: Vector3i, target_cell: Vector3i, allow_step_out: bool = true) -> CoverQueryResult:
 	if grid == null:
 		return CoverQueryResult.new()
-	return CoverQueryScript.query(
+	var direct_query := CoverQueryScript.query(
 		attacker_cell,
 		target_cell,
 		grid,
@@ -1864,6 +1879,22 @@ func query_attack_cover(attacker_cell: Vector3i, target_cell: Vector3i) -> Cover
 		cover_combat_settings,
 		opaque_cells
 	)
+	if direct_query.can_attack() or not allow_step_out:
+		return direct_query
+
+	var step_out_result := TacticalStepOutScript.find_step_out(
+		attacker_cell,
+		target_cell,
+		-1,
+		grid,
+		grid.get_edge_index(),
+		cover_combat_settings,
+		opaque_cells
+	)
+	if step_out_result != null and step_out_result.can_attack():
+		return step_out_result
+
+	return direct_query
 
 
 func _perception_edge_index() -> TacticalEdgeIndex:
@@ -1916,7 +1947,13 @@ func _can_player_see_with_grid(observer: Vector3i, target: Vector3i, vision_rang
 func can_attack_line(attacker_cell: Vector3i, target_cell: Vector3i, attack_range: int) -> bool:
 	if attack_range < 0 or _manhattan(attacker_cell, target_cell) > attack_range:
 		return false
-	return query_attack_cover(attacker_cell, target_cell).can_attack()
+	var query := query_attack_cover(attacker_cell, target_cell, true)
+	if query.can_attack():
+		if query.is_step_out:
+			if _manhattan(query.step_out_cell, target_cell) > attack_range:
+				return false
+		return true
+	return false
 
 
 func _has_any_engaged_enemy() -> bool:

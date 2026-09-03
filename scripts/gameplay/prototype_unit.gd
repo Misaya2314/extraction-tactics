@@ -410,6 +410,30 @@ func play_move_sound() -> void:
 	_play_sfx("AudioMove", move_sfx)
 
 
+var _step_out_rest_position: Vector3 = Vector3.ZERO
+var _step_out_active: bool = false
+
+
+func step_out_to(target_world_pos: Vector3, duration: float = 0.15) -> void:
+	if not is_inside_tree() or duration <= 0.0:
+		return
+	if not _step_out_active:
+		_step_out_rest_position = global_position
+		_step_out_active = true
+	var tween := create_tween()
+	tween.tween_property(self, "global_position", target_world_pos, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	await tween.finished
+
+
+func step_back(duration: float = 0.15) -> void:
+	if not is_inside_tree() or not _step_out_active:
+		return
+	var tween := create_tween()
+	tween.tween_property(self, "global_position", _step_out_rest_position, duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	await tween.finished
+	_step_out_active = false
+
+
 ## Plays only local presentation feedback. Gameplay rules and root/grid state
 ## are intentionally untouched by this coroutine.
 func play_attack_feedback() -> void:

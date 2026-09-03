@@ -35,6 +35,9 @@ var reduction_ratio: float = 0.0
 var source_edge: MapEdgeData
 var source_edge_key: String = ""
 var target_side: StringName = &""
+var is_step_out: bool = false
+var step_out_cell: Vector3i = Vector3i(-1, -1, -1)
+var original_attacker_cell: Vector3i = Vector3i(-1, -1, -1)
 
 
 static func cover_level_name(level: int) -> StringName:
@@ -102,6 +105,9 @@ func get_debug_summary(damage: Dictionary = {}) -> Dictionary:
 		&"projectile_block_reason": &"projectile_blocked" if projectile_blocked else &"",
 		&"block_reason": resolved_block_reason,
 		&"reason": reason,
+		&"is_step_out": is_step_out,
+		&"step_out_cell": step_out_cell,
+		&"original_attacker_cell": original_attacker_cell,
 	}
 
 
