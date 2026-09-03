@@ -13,6 +13,8 @@ const RuntimeInstanceRegistryScript = preload("res://scripts/core/runtime/runtim
 const InstanceIdGeneratorScript = preload("res://scripts/core/runtime/instance_id_generator.gd")
 const ItemInstanceFactoryScript = preload("res://scripts/core/items/item_instance_factory.gd")
 const UnitInstanceFactoryScript = preload("res://scripts/core/units/unit_instance_factory.gd")
+const EnvironmentObjectFactoryScript = preload("res://scripts/core/environment/environment_object_factory.gd")
+const EnvironmentEffectResolverScript = preload("res://scripts/core/environment/environment_effect_resolver.gd")
 const SquadInventoryScript = preload("res://scripts/core/inventory/squad_inventory.gd")
 const LootContainerScript = preload("res://scripts/core/loot/loot_container_model.gd")
 const LootSettlementScript = preload("res://scripts/core/loot/loot_settlement.gd")
@@ -76,6 +78,7 @@ var runtime_instance_registry: RuntimeInstanceRegistry
 var instance_id_generator: InstanceIdGenerator
 var item_instance_factory: ItemInstanceFactory
 var unit_instance_factory: UnitInstanceFactory
+var environment_object_factory: EnvironmentObjectFactory
 var tactical_undo_manager: TacticalUndoManager
 var last_action_result: ActionResult
 var last_cover_query: CoverQueryResult
@@ -97,6 +100,10 @@ var discovering_enemy_ids: Array[StringName] = []
 var suspicious_investigations: Dictionary = {}
 var opaque_cells: Dictionary = {}
 var object_placements: Dictionary = {}
+var environment_objects_by_placement_id: Dictionary = {}
+var environment_objects_by_instance_id: Dictionary = {}
+var environment_views_by_placement_id: Dictionary = {}
+var environment_visuals_by_placement_id: Dictionary = {}
 var loot_nodes_by_id: Dictionary = {}
 var loot_containers: Dictionary = {}
 var extraction_cells: Array[Vector3i] = []
@@ -439,6 +446,11 @@ func _configure_runtime_instances() -> void:
 		runtime_instance_registry,
 		instance_id_generator
 	)
+	environment_object_factory = EnvironmentObjectFactoryScript.new(
+		definition_registry,
+		runtime_instance_registry,
+		instance_id_generator
+	)
 
 
 func _execute_runtime_action(request: Variant, actor: PrototypeUnit = null) -> ActionResult:
@@ -449,11 +461,27 @@ func _execute_runtime_action(request: Variant, actor: PrototypeUnit = null) -> A
 	var current_ap := actor.current_action_points if is_instance_valid(actor) else 0
 	var context = ActionExecutionContextScript.new(current_ap)
 	if is_instance_valid(actor):
-		context.set_ap_committer(Callable(actor, "spend_action_points"))
+		var ap_committer := Callable(actor, "spend_action_points")
+		# An explosive object may synchronously kill the attacking unit before
+		# the executor reaches its post-handler AP commit.  Still call the same
+		# unit API; a dead actor has no future AP to spend, so that terminal
+		# commit is considered complete instead of turning a resolved explosion
+		# into an ap_commit_failed result.
+		if request is ActionRequest and request.action_type == ACTION_ATTACK \
+			and request.payload.get(&"environment_object", null) != null:
+			ap_committer = Callable(self, "_commit_environment_action_points").bind(actor)
+		context.set_ap_committer(ap_committer)
 	last_action_result = action_executor.execute(request, context)
 	_finish_undo_player_action(undo_started, last_action_result != null and last_action_result.success)
 	_refresh_undo_buttons()
 	return last_action_result
+
+
+func _commit_environment_action_points(cost: int, actor: PrototypeUnit) -> bool:
+	if not is_instance_valid(actor):
+		return false
+	var committed := actor.spend_action_points(cost)
+	return committed or not actor.is_alive()
 
 
 ## The undo manager stores this detached-by-convention dictionary.  Runtime
@@ -512,6 +540,7 @@ func _capture_undo_state() -> Dictionary:
 		&"active_encounter_id": active_encounter_id,
 		&"discovering_enemy_ids": discovering_enemy_ids.duplicate(),
 		&"suspicious_investigations": suspicious_investigations.duplicate(true),
+		&"environment_objects": _capture_undo_environment_objects(),
 		&"inventory": _capture_undo_inventory(),
 		&"instance_id_generator": instance_id_generator.capture_state() \
 			if instance_id_generator != null and instance_id_generator.has_method("capture_state") else {},
@@ -520,6 +549,24 @@ func _capture_undo_state() -> Dictionary:
 		&"open_loot_container_id": open_loot_container_id,
 		&"restore_inventory_after_loot": _restore_inventory_after_loot,
 	}
+
+
+func _capture_undo_environment_objects() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var placement_ids: Array = environment_objects_by_placement_id.keys()
+	placement_ids.sort_custom(func(first: Variant, second: Variant) -> bool:
+		return String(first) < String(second)
+	)
+	for raw_placement_id in placement_ids:
+		var state := environment_objects_by_placement_id[raw_placement_id] as EnvironmentObjectRuntimeState
+		if state == null:
+			continue
+		result.append({
+			&"placement_id": StringName(raw_placement_id),
+			&"state": state,
+			&"snapshot": state.to_snapshot(),
+		})
+	return result
 
 
 func _capture_undo_inventory() -> Dictionary:
@@ -730,6 +777,10 @@ func _restore_undo_state_internal(checkpoint: Dictionary) -> bool:
 			if not grid.occupy(cell, StringName(occupant_id)):
 				return false
 
+	if not _restore_undo_environment_objects(checkpoint.get(&"environment_objects", [])):
+		return false
+	_rebuild_dynamic_environment_rules()
+
 	if not _restore_undo_inventory(checkpoint.get(&"inventory", null)):
 		return false
 	var generator_snapshot: Variant = checkpoint.get(&"instance_id_generator", {})
@@ -758,6 +809,32 @@ func _restore_undo_state_internal(checkpoint: Dictionary) -> bool:
 	last_action_result = null
 	last_cover_query = null
 	last_cover_damage.clear()
+	return true
+
+
+func _restore_undo_environment_objects(raw_objects: Variant) -> bool:
+	if not raw_objects is Array:
+		return false
+	var seen: Dictionary = {}
+	for raw_entry in raw_objects:
+		if not raw_entry is Dictionary:
+			return false
+		var entry: Dictionary = raw_entry
+		var raw_placement_id: Variant = entry.get(&"placement_id", null)
+		if not (raw_placement_id is StringName or raw_placement_id is String):
+			return false
+		var placement_id := StringName(raw_placement_id)
+		if placement_id.is_empty() or seen.has(placement_id):
+			return false
+		seen[placement_id] = true
+		var state := environment_objects_by_placement_id.get(placement_id) as EnvironmentObjectRuntimeState
+		var snapshot: Variant = entry.get(&"snapshot", null)
+		if state == null or not state.hydrate_from_snapshot(snapshot, state.definition):
+			return false
+		var captured_state := entry.get(&"state") as EnvironmentObjectRuntimeState
+		if captured_state != null and captured_state != state:
+			return false
+		_sync_environment_object_views()
 	return true
 
 
@@ -906,6 +983,9 @@ func _handle_move_action(request: Variant, _context: Variant) -> Variant:
 
 func _handle_attack_action(request: Variant, _context: Variant) -> Variant:
 	var payload: Dictionary = request.payload
+	var environment_target := payload.get(&"environment_object") as EnvironmentObjectRuntimeState
+	if environment_target != null:
+		return _handle_environment_attack_action(request, environment_target)
 	var attacker := payload.get(&"attacker") as PrototypeUnit
 	var target := payload.get(&"target") as PrototypeUnit
 	if not is_instance_valid(attacker) or not is_instance_valid(target):
@@ -920,6 +1000,158 @@ func _handle_attack_action(request: Variant, _context: Variant) -> Variant:
 		resolved.metadata = cover_metadata.duplicate(true)
 	var applied := target.take_damage(resolved.damage, false)
 	return resolved
+
+
+func _handle_environment_attack_action(request: Variant, target: EnvironmentObjectRuntimeState) -> Variant:
+	var payload: Dictionary = request.payload
+	var attacker := payload.get(&"attacker") as PrototypeUnit
+	if not is_instance_valid(attacker) or target == null or not target.can_receive_damage():
+		return _action_rejected(&"target_unavailable", ACTION_ATTACK, request.actor_id, request.target_id)
+	if target.definition == null or not target.definition.targetable or not target.definition.damageable:
+		return _action_rejected(&"target_unavailable", ACTION_ATTACK, request.actor_id, request.target_id)
+	var accepted := ActionResultScript.accepted(request.actor_id, request.target_id, request.ap_cost, ACTION_ATTACK)
+	var requested_damage := int(payload.get(ActionExecutorScript.KEY_DAMAGE, attacker.attack_damage))
+	var resolved := CombatResolver.resolve_attack(accepted, target.current_hp, requested_damage)
+	var cover_metadata: Variant = payload.get(&"cover_metadata", {})
+	if cover_metadata is Dictionary:
+		resolved.metadata = cover_metadata.duplicate(true)
+	var applied := target.apply_damage(resolved.damage)
+	if not applied.success:
+		return _action_rejected(&"target_unavailable", ACTION_ATTACK, request.actor_id, request.target_id)
+	var destruction: Dictionary = {}
+	if target.destroyed:
+		destruction = _resolve_environment_destruction(target)
+	else:
+		var target_view := _get_environment_view(target.placement_id)
+		if target_view != null:
+			target_view.play_damage_feedback()
+	_sync_environment_object_views()
+	_rebuild_dynamic_environment_rules()
+	resolved.metadata[&"environment_object_id"] = target.instance_id
+	resolved.metadata[&"placement_id"] = target.placement_id
+	resolved.metadata[&"remaining_hp"] = target.current_hp
+	resolved.metadata[&"destroyed"] = target.destroyed
+	for key in destruction.keys():
+		resolved.metadata[key] = destruction[key]
+	return resolved
+
+
+## Applies one-shot environment effects breadth-first.  Each runtime object is
+## guarded by its stable instance ID, so chain reactions cannot re-enter the
+## same object or loop indefinitely.
+func _resolve_environment_destruction(source: EnvironmentObjectRuntimeState) -> Dictionary:
+	var summary: Dictionary = {
+		&"explosion_hit_count": 0,
+		&"explosion_hit_ids": [],
+		&"chain_count": 0,
+		&"chain_object_ids": [],
+		&"unit_damage": {},
+		&"destroyed_object_ids": [],
+	}
+	if source == null or not source.destroyed or not source.trigger_destroy_effects():
+		return summary
+	var destroyed_object_ids: Array = summary[&"destroyed_object_ids"]
+	destroyed_object_ids.append(source.instance_id)
+	var pending: Array[Dictionary] = []
+	for effect_value in source.get_destroy_effects():
+		if effect_value is ExplosionEffectDefinition:
+			var effect := effect_value as ExplosionEffectDefinition
+			if effect.is_valid():
+				pending.append({
+					&"source_cell": source.cell,
+					&"effect": effect,
+					&"allow_chain": effect.allow_chain,
+				})
+	var chain_guard: Dictionary = {source.instance_id: true}
+	while not pending.is_empty():
+		var event: Dictionary = pending.pop_front()
+		var effect := event.get(&"effect") as ExplosionEffectDefinition
+		var source_cell: Variant = event.get(&"source_cell", null)
+		if effect == null or not source_cell is Vector3i:
+			continue
+		var hits := EnvironmentEffectResolverScript.resolve_area_damage(
+			effect,
+			source_cell,
+			_environment_effect_candidates()
+		)
+		var hit_ids: Array = summary[&"explosion_hit_ids"]
+		for hit in hits:
+			var hit_id := StringName(hit.get(&"target_id", &""))
+			if hit_id == &"":
+				continue
+			hit_ids.append(hit_id)
+			var target_type := StringName(hit.get(&"target_type", &""))
+			if target_type == &"player" or target_type == &"enemy":
+				var unit := _unit_by_id(hit_id)
+				if not is_instance_valid(unit) or not unit.is_alive():
+					continue
+				var damage_done := unit.take_damage(int(hit.get(&"damage", effect.damage)))
+				var unit_damage: Dictionary = summary[&"unit_damage"]
+				unit_damage[hit_id] = int(unit_damage.get(hit_id, 0)) + damage_done
+				continue
+			var environment_target := environment_objects_by_instance_id.get(hit_id) as EnvironmentObjectRuntimeState
+			if environment_target == null or not environment_target.can_receive_damage():
+				continue
+			var damage_result := environment_target.apply_damage(int(hit.get(&"damage", effect.damage)))
+			if not damage_result.success:
+				continue
+			if environment_target.destroyed:
+				var destroyed_ids: Array = summary[&"destroyed_object_ids"]
+				if not destroyed_ids.has(environment_target.instance_id):
+					destroyed_ids.append(environment_target.instance_id)
+				var parent_allows_chain: bool = bool(event.get(&"allow_chain", false))
+				if parent_allows_chain and not chain_guard.has(environment_target.instance_id) \
+					and environment_target.trigger_destroy_effects():
+					chain_guard[environment_target.instance_id] = true
+					var chain_ids: Array = summary[&"chain_object_ids"]
+					chain_ids.append(environment_target.instance_id)
+					summary[&"chain_count"] = int(summary[&"chain_count"]) + 1
+					for chain_effect_value in environment_target.get_destroy_effects():
+						if chain_effect_value is ExplosionEffectDefinition:
+							var chain_effect := chain_effect_value as ExplosionEffectDefinition
+							if chain_effect.is_valid():
+								pending.append({
+									&"source_cell": environment_target.cell,
+									&"effect": chain_effect,
+									&"allow_chain": chain_effect.allow_chain,
+								})
+			_sync_environment_object_views()
+			_rebuild_dynamic_environment_rules()
+		summary[&"explosion_hit_ids"] = hit_ids
+		summary[&"explosion_hit_count"] = hit_ids.size()
+	return summary
+
+
+func _environment_effect_candidates() -> Array:
+	var candidates: Array = []
+	for player_id in _living_player_ids():
+		var player := _unit_by_id(player_id)
+		if is_instance_valid(player) and player.is_alive():
+			candidates.append({
+				&"target_id": player.unit_id,
+				&"cell": player.grid_cell,
+				&"target_type": &"player",
+				&"active": true,
+			})
+	for enemy_id in _living_enemy_ids():
+		var enemy := _unit_by_id(enemy_id)
+		if is_instance_valid(enemy) and enemy.is_alive():
+			candidates.append({
+				&"target_id": enemy.unit_id,
+				&"cell": enemy.grid_cell,
+				&"target_type": &"enemy",
+				&"active": true,
+			})
+	for raw_state in environment_objects_by_instance_id.values():
+		var state := raw_state as EnvironmentObjectRuntimeState
+		if state != null and state.active and not state.destroyed:
+			candidates.append({
+				&"target_id": state.instance_id,
+				&"cell": state.cell,
+				&"target_type": &"environment",
+				&"active": true,
+			})
+	return candidates
 
 
 func _handle_interact_action(request: Variant, _context: Variant) -> Variant:
@@ -1030,6 +1262,10 @@ func _set_action_mode(mode: int) -> void:
 
 func _index_map_objects() -> void:
 	object_placements.clear()
+	environment_objects_by_placement_id.clear()
+	environment_objects_by_instance_id.clear()
+	environment_views_by_placement_id.clear()
+	environment_visuals_by_placement_id.clear()
 	loot_nodes_by_id.clear()
 	loot_containers.clear()
 	extraction_cells.clear()
@@ -1055,6 +1291,24 @@ func _index_map_objects() -> void:
 				loot_containers[placement.object_id] = container
 			else:
 				push_warning("Loot placement %s has an invalid loot_table; container skipped." % placement.object_id)
+		else:
+			if not _runtime_content_ready or environment_object_factory == null:
+				push_error("Environment placement %s skipped: Game content manifest is invalid or unavailable." % placement.object_id)
+				continue
+			var creation := environment_object_factory.create_from_placement_result(placement, _runtime_map_id())
+			if not creation.success:
+				push_warning("Environment placement %s skipped: %s (%s)." % [
+					placement.object_id, creation.message, creation.reason_code
+				])
+				continue
+			var environment_state := creation.value as EnvironmentObjectRuntimeState
+			if environment_state == null:
+				push_warning("Environment placement %s skipped: factory returned no runtime state." % placement.object_id)
+				continue
+			environment_objects_by_placement_id[placement.object_id] = environment_state
+			environment_objects_by_instance_id[environment_state.instance_id] = environment_state
+	_index_environment_visual_nodes()
+	_sync_environment_object_views()
 
 
 func _index_loot_visual_nodes() -> void:
@@ -1070,6 +1324,133 @@ func _index_loot_visual_nodes() -> void:
 				loot_nodes_by_id[marker.object_id] = marker
 		for child in node.get_children():
 			pending.append(child)
+
+
+func _index_environment_visual_nodes() -> void:
+	var environment := get_node_or_null("Environment")
+	if not is_instance_valid(environment):
+		return
+	var pending: Array[Node] = [environment]
+	while not pending.is_empty():
+		var node: Node = pending.pop_front()
+		if node is MapObjectMarker3D:
+			var marker := node as MapObjectMarker3D
+			var placement_id := marker.object_id
+			if environment_objects_by_placement_id.has(placement_id):
+				var visual := _find_environment_view(node)
+				if visual != null and (not is_instance_valid(visual) \
+					or visual.is_queued_for_deletion() or not visual.is_inside_tree()):
+					visual = null
+				if visual == null:
+					var placement := object_placements.get(placement_id) as MapObjectPlacement
+					if placement != null and placement.scene != null:
+						var instance := placement.scene.instantiate()
+						if instance is Node3D:
+							var instance_node := instance as Node3D
+							if is_instance_valid(instance_node) and not instance_node.is_queued_for_deletion():
+								instance_node.name = "_RuntimeEnvironmentView"
+								node.add_child(instance_node)
+								if is_instance_valid(instance_node) and not instance_node.is_queued_for_deletion() \
+									and instance_node.is_inside_tree():
+									visual = instance_node
+								else:
+									instance_node.free()
+							else:
+								if is_instance_valid(instance):
+									instance.free()
+						else:
+							# PackedScene roots are not guaranteed to be Node3D.  Free
+							# that temporary immediately so preview fallback cannot leak.
+							if instance != null:
+								instance.free()
+				var raw_visual: Variant = visual
+				if is_instance_valid(raw_visual) and raw_visual is Node3D:
+					var stable_visual := raw_visual as Node3D
+					if not stable_visual.is_queued_for_deletion() and stable_visual.is_inside_tree():
+						environment_visuals_by_placement_id[placement_id] = stable_visual
+						var raw_view: Variant = stable_visual
+						if is_instance_valid(raw_view) and raw_view is EnvironmentObjectView:
+							var typed_view := raw_view as EnvironmentObjectView
+							if not typed_view.is_queued_for_deletion() and typed_view.is_inside_tree():
+								environment_views_by_placement_id[placement_id] = typed_view
+		for child in node.get_children():
+			pending.append(child)
+
+
+func _find_environment_view(root: Node) -> Node3D:
+	if not is_instance_valid(root):
+		return null
+	if root is EnvironmentObjectView:
+		var raw_view: Variant = root
+		if not is_instance_valid(raw_view) or not raw_view is EnvironmentObjectView:
+			return null
+		var view := raw_view as EnvironmentObjectView
+		if view.is_queued_for_deletion() or not view.is_inside_tree():
+			return null
+		return view
+	for child in root.get_children():
+		var found := _find_environment_view(child)
+		if found != null:
+			return found
+	return null
+
+
+func _get_environment_view(placement_id: StringName) -> EnvironmentObjectView:
+	var raw_view: Variant = environment_views_by_placement_id.get(placement_id, null)
+	if not is_instance_valid(raw_view):
+		environment_views_by_placement_id.erase(placement_id)
+		return null
+	if not raw_view is EnvironmentObjectView:
+		environment_views_by_placement_id.erase(placement_id)
+		return null
+	var view := raw_view as EnvironmentObjectView
+	if view.is_queued_for_deletion() or not view.is_inside_tree():
+		environment_views_by_placement_id.erase(placement_id)
+		return null
+	return view
+
+
+func _get_environment_visual(placement_id: StringName) -> Node3D:
+	var raw_visual: Variant = environment_visuals_by_placement_id.get(placement_id, null)
+	if not is_instance_valid(raw_visual):
+		environment_visuals_by_placement_id.erase(placement_id)
+		return null
+	if not raw_visual is Node3D:
+		environment_visuals_by_placement_id.erase(placement_id)
+		return null
+	var visual := raw_visual as Node3D
+	if visual.is_queued_for_deletion() or not visual.is_inside_tree():
+		environment_visuals_by_placement_id.erase(placement_id)
+		return null
+	return visual
+
+
+func _sync_environment_object_views() -> void:
+	var needs_reindex := false
+	for raw_placement_id in environment_objects_by_placement_id.keys():
+		var placement_id := StringName(raw_placement_id)
+		if _get_environment_view(placement_id) == null and _get_environment_visual(placement_id) == null:
+			needs_reindex = true
+			break
+	if needs_reindex:
+		_index_environment_visual_nodes()
+	for raw_placement_id in environment_objects_by_placement_id.keys():
+		var placement_id := StringName(raw_placement_id)
+		var state := environment_objects_by_placement_id[raw_placement_id] as EnvironmentObjectRuntimeState
+		var typed_view := _get_environment_view(placement_id)
+		if typed_view != null:
+			typed_view.sync_from_runtime_state(state)
+		else:
+			var visual := _get_environment_visual(placement_id)
+			if visual != null:
+				visual.visible = state != null and state.active and not state.destroyed
+
+
+func _runtime_map_id() -> StringName:
+	if map_definition == null:
+		return &"prototype"
+	var result := StringName(String(map_definition.map_id).strip_edges())
+	return result if not result.is_empty() else &"prototype"
 
 
 func _placement_has_property(placement: Object, property_name: StringName) -> bool:
@@ -1097,15 +1478,63 @@ func _apply_camera_bounds() -> void:
 
 
 func _apply_map_rules() -> void:
-	opaque_cells.clear()
+	_rebuild_dynamic_environment_rules()
+
+
+## Rebuilds only the dynamic overlay on top of the baked cell rules.  Destroying
+## an environment object therefore removes its own blocker while preserving
+## the authored floor, structure and any other live object at that cell.
+func _rebuild_dynamic_environment_rules() -> void:
+	if map_definition == null or grid == null:
+		return
+	var base_walkable: Dictionary = {}
+	var base_los: Dictionary = {}
+	var base_projectile: Dictionary = {}
 	for cell_data in map_definition.cells:
-		if cell_data.blocks_los:
-			opaque_cells[cell_data.coordinate] = true
-	for placement in map_definition.objects:
-		if placement.blocks_movement:
-			grid.set_walkable(placement.cell, false)
-		if placement.blocks_los:
+		if cell_data == null:
+			continue
+		var cell: Vector3i = cell_data.coordinate
+		var blocks_los := cell_data.blocks_los or cell_data.sight_block >= 1.0
+		var blocks_projectile := cell_data.projectile_block >= 1.0
+		base_walkable[cell] = cell_data.walkable
+		base_los[cell] = blocks_los
+		base_projectile[cell] = blocks_projectile
+		grid.set_walkable(cell, cell_data.walkable)
+		grid.set_cell_blockers(cell, blocks_los, blocks_projectile)
+
+	opaque_cells.clear()
+	for cell in base_los.keys():
+		if base_los[cell]:
+			opaque_cells[cell] = true
+	for raw_placement_id in object_placements.keys():
+		var placement := object_placements[raw_placement_id] as MapObjectPlacement
+		if placement == null or placement.kind == MapObjectPlacement.Kind.LOOT \
+			or placement.kind == MapObjectPlacement.Kind.EXTRACTION:
+			continue
+		var placement_id := StringName(raw_placement_id)
+		var environment_state := environment_objects_by_placement_id.get(placement_id) as EnvironmentObjectRuntimeState
+		var active := true
+		var blocks_movement := placement.blocks_movement
+		var blocks_los := placement.blocks_los
+		if environment_state != null:
+			active = environment_state.active and not environment_state.destroyed
+			if environment_state.definition != null:
+				blocks_movement = environment_state.definition.blocks_movement
+				blocks_los = environment_state.definition.blocks_los
+		if not active:
+			continue
+		if blocks_movement:
+			base_walkable[placement.cell] = false
+			if not grid.is_occupied(placement.cell):
+				grid.set_walkable(placement.cell, false)
+		if blocks_los:
+			base_los[placement.cell] = true
 			opaque_cells[placement.cell] = true
+	# Re-apply combined line blockers after all object overlays are known.  The
+	# two channels are intentionally independent: a projectile-only object does
+	# not become opaque to perception.
+	for cell in base_los.keys():
+		grid.set_cell_blockers(cell, bool(base_los[cell]), bool(base_projectile.get(cell, false)))
 
 
 func _spawn_initial_units() -> void:
@@ -1298,6 +1727,13 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 		else:
 			_select_unit(clicked_enemy, true)
 			_update_hud("已选择 %s（敌方单位，仅侦察）。" % clicked_enemy.name)
+		return
+	var environment_target := _environment_object_at_cell(clicked_cell)
+	if environment_target != null:
+		if action_mode == ACTION_MODE_ATTACK:
+			await attack_environment_object(selected_unit, environment_target)
+		else:
+			_update_hud("该环境对象只能在攻击模式下选中。")
 		return
 	var object_id := _object_at_cell(clicked_cell)
 	if object_id != &"":
@@ -1883,6 +2319,150 @@ func play_discover_sound() -> void:
 		audio_discover.play()
 
 
+## Public environment-object attack entry.  It uses the same ActionExecutor,
+## line/cover query and feedback path as a unit attack; only the damage target
+## adapter differs.
+func attack_environment_object(
+		attacker: PrototypeUnit,
+		target: EnvironmentObjectRuntimeState
+) -> ActionResult:
+	if not is_instance_valid(attacker) or target == null:
+		return _action_rejected(&"invalid_target", ACTION_ATTACK)
+	if _is_terminal() or session_manager == null:
+		return _action_rejected(&"terminal", ACTION_ATTACK, attacker.unit_id, target.instance_id)
+	var precondition_reason := _environment_attack_precondition_reason(attacker, target)
+	# Keep target/session guards local, but defer AP and range validation to the
+	# same ActionExecutor path used by unit attacks.  This keeps rejected object
+	# attacks observable as ordinary ActionResults and guarantees no handler or
+	# feedback runs before the executor's atomic validation.
+	if precondition_reason != &"" and precondition_reason != &"no_ap" \
+		and precondition_reason != &"out_of_range":
+		var precondition_result := _action_rejected(precondition_reason, ACTION_ATTACK, attacker.unit_id, target.instance_id)
+		_update_hud(_action_message("无法攻击环境对象", precondition_result.reason))
+		return precondition_result
+	var cover_query := query_attack_cover(attacker.grid_cell, target.cell)
+	last_cover_query = cover_query
+	var cover_damage := CoverResolverScript.resolve_damage(
+		attacker.attack_damage,
+		cover_query.profile,
+		cover_combat_settings,
+		cover_query.source_edge
+	)
+	var cover_summary := CoverResolverScript.build_debug_summary(cover_query, cover_damage)
+	cover_damage[&"cover_debug_summary"] = cover_summary
+	last_cover_damage = cover_damage.duplicate(true)
+	var request := ActionRequestScript.new(
+		ACTION_ATTACK,
+		attacker.unit_id,
+		target.instance_id,
+		attacker.attack_ap_cost,
+		{
+			&"attacker": attacker,
+			&"environment_object": target,
+			&"enter_combat": false,
+			ActionExecutorScript.KEY_ACTOR_CELL: attacker.grid_cell,
+			ActionExecutorScript.KEY_TARGET_CELL: target.cell,
+			ActionExecutorScript.KEY_ATTACK_RANGE: attacker.attack_range,
+			ActionExecutorScript.KEY_TARGET_ALIVE: target.can_receive_damage(),
+			ActionExecutorScript.KEY_HOSTILE: true,
+			ActionExecutorScript.KEY_HAS_LOS: cover_query.can_attack(),
+			ActionExecutorScript.KEY_DAMAGE: int(cover_damage.get(&"effective_damage", attacker.attack_damage)),
+			&"cover_metadata": cover_damage,
+		}
+	)
+	var previous_input_locked := input_locked
+	input_locked = true
+	if is_instance_valid(end_turn_button):
+		end_turn_button.disabled = true
+	_clear_highlights()
+	var result := _execute_runtime_action(request, attacker)
+	if not result.success:
+		result.metadata = cover_damage.duplicate(true)
+		input_locked = previous_input_locked
+		_refresh_undo_buttons()
+		_refresh_highlights()
+		if cover_query.is_blocked():
+			var block_reason: StringName = StringName(cover_summary.get(&"block_reason", result.reason))
+			_update_hud(_action_message("无法攻击环境对象", block_reason))
+			_log("%s 攻击环境对象 %s 被阻挡：%s；%s" % [
+				attacker.name,
+				target.placement_id,
+				_action_message("原因", block_reason).trim_suffix("。"),
+				CoverResolverScript.format_debug_summary(cover_summary),
+			])
+		else:
+			_update_hud(_action_message("无法攻击环境对象", result.reason))
+		return result
+	result.metadata = result.metadata.duplicate(true)
+	attacker.look_at_cell(target.cell)
+	await attacker.play_attack_feedback()
+	input_locked = previous_input_locked
+	_refresh_undo_buttons()
+	var destruction_summary := result.metadata
+	var destroyed_text := ""
+	if bool(destruction_summary.get(&"destroyed", false)):
+		destroyed_text = "，对象已摧毁"
+	_update_hud("%s 命中环境对象 %s：基础 %d → %s（减伤 %d%%）→ 最终 %d%s。" % [
+		attacker.name,
+		target.placement_id,
+		int(cover_summary.get(&"base_damage", attacker.attack_damage)),
+		String(cover_summary.get(&"cover_level_name", &"NONE")),
+		int(cover_summary.get(&"damage_reduction_percent", 0)),
+		result.damage,
+		destroyed_text,
+	])
+	_log("%s 攻击环境对象 %s：%s；实际造成 %d 伤害%s，剩余 HP %d。" % [
+		attacker.name,
+		target.placement_id,
+		CoverResolverScript.format_debug_summary(cover_summary),
+		result.damage,
+		"，对象已摧毁" if target.destroyed else "",
+		target.current_hp,
+	])
+	_refresh_highlights()
+	return result
+
+
+func _can_attack_environment_target_for_unit(
+		attacker: PrototypeUnit,
+		target: EnvironmentObjectRuntimeState
+) -> bool:
+	if _environment_attack_precondition_reason(attacker, target) != &"":
+		return false
+	return can_attack_line(attacker.grid_cell, target.cell, attacker.attack_range)
+
+
+func _environment_attack_precondition_reason(
+		attacker: PrototypeUnit,
+		target: EnvironmentObjectRuntimeState
+) -> StringName:
+	if not is_instance_valid(attacker) or target == null or _is_terminal() or session_manager == null:
+		return &"invalid_target"
+	if not attacker.is_alive() or not target.can_receive_damage() or target.definition == null:
+		return &"target_unavailable"
+	if not target.definition.targetable or not target.definition.damageable:
+		return &"target_unavailable"
+	if turn_manager != null:
+		if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION and attacker.faction != &"player":
+			return &"wrong_phase"
+		if turn_manager.is_player_turn() and attacker.faction != &"player":
+			return &"wrong_phase"
+		if turn_manager.is_enemy_turn() and attacker.faction != &"enemy":
+			return &"wrong_phase"
+	if not attacker.can_spend_action_points(attacker.attack_ap_cost):
+		return &"no_ap"
+	if _manhattan(attacker.grid_cell, target.cell) > attacker.attack_range:
+		return &"out_of_range"
+	return &""
+
+
+func can_attack_environment_object(
+		attacker: PrototypeUnit,
+		target: EnvironmentObjectRuntimeState
+) -> bool:
+	return _can_attack_environment_target_for_unit(attacker, target)
+
+
 ## Public debug/test entry and the single authority used by player, AI and
 ## attack highlighting.  It deliberately delegates to the shared line query;
 ## callers must not recreate LOS or edge-cover rules.
@@ -2235,6 +2815,10 @@ func _refresh_highlights() -> void:
 			var enemy := _unit_by_id(enemy_id)
 			if _can_attack_target(enemy):
 				_add_highlight(attack_highlights_root, enemy.grid_cell, ATTACK_HIGHLIGHT_COLOR)
+		for environment_state in _sorted_environment_object_states():
+			if _can_attack_environment_target_for_unit(selected_unit, environment_state) \
+				and _is_environment_object_visible(environment_state.placement_id):
+				_add_highlight(attack_highlights_root, environment_state.cell, ATTACK_HIGHLIGHT_COLOR)
 	_refresh_object_highlights()
 	_refresh_vision_overlay()
 	_refresh_unit_cover_icons()
@@ -2884,6 +3468,36 @@ func _object_at_cell(cell: Vector3i) -> StringName:
 	return &""
 
 
+func _environment_object_at_cell(cell: Vector3i) -> EnvironmentObjectRuntimeState:
+	for state in _sorted_environment_object_states():
+		if state != null and state.active and not state.destroyed and state.cell == cell:
+			return state
+	return null
+
+
+func _sorted_environment_object_states() -> Array[EnvironmentObjectRuntimeState]:
+	var ids: Array = environment_objects_by_placement_id.keys()
+	ids.sort_custom(func(first: Variant, second: Variant) -> bool:
+		return String(first) < String(second)
+	)
+	var result: Array[EnvironmentObjectRuntimeState] = []
+	for raw_id in ids:
+		var state := environment_objects_by_placement_id[raw_id] as EnvironmentObjectRuntimeState
+		if state != null:
+			result.append(state)
+	return result
+
+
+func _is_environment_object_visible(placement_id: StringName) -> bool:
+	if debug_reveal_all:
+		return true
+	var visual := _get_environment_visual(placement_id)
+	if visual != null:
+		return visual.visible
+	var typed_view := _get_environment_view(placement_id)
+	return true if typed_view == null else typed_view.visible
+
+
 func _extraction_at_cell(cell: Vector3i) -> StringName:
 	for object_id in object_placements.keys():
 		var placement = object_placements[object_id]
@@ -3172,6 +3786,10 @@ func _update_enemy_visibility() -> void:
 
 
 func _update_object_visibility() -> void:
+	# Visibility refreshes are also a safe reconciliation point for editor/map
+	# previews that were freed or queued while the controller still held a
+	# dictionary reference.  The helpers clear stale entries before any cast.
+	_sync_environment_object_views()
 	for object_id in loot_containers.keys():
 		var visual := loot_nodes_by_id.get(object_id) as Node3D
 		var placement := object_placements.get(object_id) as MapObjectPlacement
@@ -3188,6 +3806,28 @@ func _update_object_visibility() -> void:
 				visible_to_player = true
 				break
 		visual.visible = visible_to_player
+	for raw_placement_id in environment_objects_by_placement_id.keys():
+		var placement_id := StringName(raw_placement_id)
+		var state := environment_objects_by_placement_id[raw_placement_id] as EnvironmentObjectRuntimeState
+		var placement := object_placements.get(placement_id) as MapObjectPlacement
+		if state == null or placement == null:
+			continue
+		var visible_to_player := debug_reveal_all
+		if not visible_to_player:
+			for player_id in _living_player_ids():
+				var player := _unit_by_id(player_id)
+				if is_instance_valid(player) and _can_player_see_with_grid(
+					player.grid_cell, placement.cell, player.vision_range
+				):
+					visible_to_player = true
+					break
+		var typed_view := _get_environment_view(placement_id)
+		if typed_view != null:
+			typed_view.set_visibility_allowed(visible_to_player)
+		else:
+			var visual := _get_environment_visual(placement_id)
+			if visual != null:
+				visual.visible = visible_to_player and state.active and not state.destroyed
 
 
 func _is_loot_visible(container_id: StringName) -> bool:

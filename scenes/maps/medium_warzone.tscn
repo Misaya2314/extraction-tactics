@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://7boxf3uhxunf" path="res://scripts/map_authoring/map_object_marker_3d.gd" id="7_v5h6o"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_extraction_marker.tscn" id="8_6x84o"]
 [ext_resource type="Script" uid="uid://nwx8r6qag522" path="res://scripts/map_authoring/unit_spawn_marker_3d.gd" id="9_4y30j"]
+[ext_resource type="Script" uid="uid://ceb5k3hklnvmn" path="res://scripts/gameplay/environment/environment_object_view.gd" id="10_atd6i"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_explosive_barrel.tscn" id="11_vjtoi"]
 [ext_resource type="Resource" uid="uid://c4s2swg26llnf" path="res://resources/units/player_alpha.tres" id="13_atd6i"]
 [ext_resource type="Resource" uid="uid://h3ehge0ky7uj" path="res://resources/units/dummy_enemy.tres" id="13_g5ewa"]
@@ -71,7 +72,7 @@ kind = 1
 scene = ExtResource("8_6x84o")
 cell = Vector3i(1, 0, 19)
 
-[node name="_Preview" type="Node3D" parent="Objects/撤离点_010" unique_id=924008299 instance=ExtResource("8_6x84o")]
+[node name="_Preview" type="Node3D" parent="Objects/撤离点_010" unique_id=900680705 instance=ExtResource("8_6x84o")]
 metadata/map_marker_preview = true
 
 [node name="爆炸桶_001" type="Node3D" parent="Objects" unique_id=1529784217]
@@ -83,7 +84,78 @@ scene = ExtResource("11_vjtoi")
 blocks_movement = true
 cell = Vector3i(15, 0, 14)
 
-[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_001" unique_id=530348522 instance=ExtResource("11_vjtoi")]
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_001" unique_id=691506617 instance=ExtResource("11_vjtoi")]
+script = ExtResource("10_atd6i")
+metadata/map_marker_preview = true
+
+[node name="爆炸桶_016" type="Node3D" parent="Objects" unique_id=569970755]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 1, 31)
+script = ExtResource("7_v5h6o")
+object_id = &"爆炸桶_016"
+definition_id = &"prototype_explosive_barrel"
+kind = 2
+scene = ExtResource("11_vjtoi")
+blocks_movement = true
+cell = Vector3i(16, 0, 15)
+
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_016" unique_id=543479075 instance=ExtResource("11_vjtoi")]
+script = ExtResource("10_atd6i")
+metadata/map_marker_preview = true
+
+[node name="爆炸桶_019" type="Node3D" parent="Objects" unique_id=43150430]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 1, 33)
+script = ExtResource("7_v5h6o")
+object_id = &"爆炸桶_019"
+definition_id = &"prototype_explosive_barrel"
+kind = 2
+scene = ExtResource("11_vjtoi")
+blocks_movement = true
+cell = Vector3i(17, 0, 16)
+
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_019" unique_id=2077586276 instance=ExtResource("11_vjtoi")]
+script = ExtResource("10_atd6i")
+metadata/map_marker_preview = true
+
+[node name="爆炸桶_022" type="Node3D" parent="Objects" unique_id=940350094]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31, 1, 31)
+script = ExtResource("7_v5h6o")
+object_id = &"爆炸桶_022"
+definition_id = &"prototype_explosive_barrel"
+kind = 2
+scene = ExtResource("11_vjtoi")
+blocks_movement = true
+cell = Vector3i(15, 0, 15)
+
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_022" unique_id=1055614008 instance=ExtResource("11_vjtoi")]
+script = ExtResource("10_atd6i")
+metadata/map_marker_preview = true
+
+[node name="爆炸桶_025" type="Node3D" parent="Objects" unique_id=182903947]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 33, 1, 33)
+script = ExtResource("7_v5h6o")
+object_id = &"爆炸桶_025"
+definition_id = &"prototype_explosive_barrel"
+kind = 2
+scene = ExtResource("11_vjtoi")
+blocks_movement = true
+cell = Vector3i(16, 0, 16)
+
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_025" unique_id=27959575 instance=ExtResource("11_vjtoi")]
+script = ExtResource("10_atd6i")
+metadata/map_marker_preview = true
+
+[node name="爆炸桶_028" type="Node3D" parent="Objects" unique_id=1854386513]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31, 1, 33)
+script = ExtResource("7_v5h6o")
+object_id = &"爆炸桶_028"
+definition_id = &"prototype_explosive_barrel"
+kind = 2
+scene = ExtResource("11_vjtoi")
+blocks_movement = true
+cell = Vector3i(15, 0, 16)
+
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_028" unique_id=472341371 instance=ExtResource("11_vjtoi")]
+script = ExtResource("10_atd6i")
 metadata/map_marker_preview = true
 
 [node name="Spawns" type="Node3D" parent="." unique_id=2007344833]

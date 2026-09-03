@@ -176,6 +176,7 @@ func _test_library_integer_placement_and_layer_routing() -> void:
 	var marker := (author.get_node("Objects") as Node).get_child(0) as MapObjectMarker3D
 	_expect(marker != null and marker.blocks_movement, "library: placed object should retain blocks_movement")
 	_expect(marker != null and marker.blocks_los, "library: placed object should retain blocks_los")
+	_expect(marker != null and marker.definition_id == object.placeable_id, "library: placed object should retain its stable Definition association")
 	author.free()
 
 

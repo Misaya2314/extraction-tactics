@@ -1807,6 +1807,7 @@ func _replace_object_at(cell: Vector3i) -> bool:
 		"kind": int(entry.get("object_kind", 4)),
 		"cell": cell,
 		"facing": _facing_for_quarters(),
+		"definition_id": StringName(entry.get("definition_id", &"")),
 		"scene": entry.get("scene"),
 		"blocks_movement": bool(entry.get("blocks_movement", false)),
 		"blocks_los": bool(entry.get("blocks_los", false)),
@@ -2203,6 +2204,7 @@ func _capture_marker_records(cell: Vector3i) -> Array:
 	for marker in _markers_at(cell):
 		records.append({
 			"object_id": _property(marker, "object_id", marker.name),
+			"definition_id": StringName(_property(marker, "definition_id", &"")),
 			"kind": int(_property(marker, "kind", 4)),
 			"cell": _property(marker, "cell", cell),
 			"facing": _property(marker, "facing", Vector2i(0, 1)),
@@ -2223,6 +2225,7 @@ func _create_marker(record: Dictionary, objects_root: Node) -> Node:
 	var object_id := StringName(record.get("object_id", _next_object_id("object")))
 	marker.name = String(object_id)
 	marker.set("object_id", object_id)
+	marker.set("definition_id", StringName(record.get("definition_id", &"")))
 	marker.set("kind", int(record.get("kind", 4)))
 	marker.set("facing", record.get("facing", Vector2i(0, 1)))
 	marker.set("scene", record.get("scene"))
@@ -2417,6 +2420,7 @@ func _entry_from_marker(marker: Node) -> Dictionary:
 		"kind": "object",
 		"layer": TargetLayer.OBJECT,
 		"definition": null,
+		"definition_id": StringName(_property(marker, "definition_id", &"")),
 		"item_id": -1,
 		"object_kind": int(_property(marker, "kind", 4)),
 		"scene": _property(marker, "scene", null),
@@ -2481,6 +2485,7 @@ func _entry_from_definition(definition: Object) -> Dictionary:
 			"kind": "object",
 			"layer": TargetLayer.OBJECT,
 			"definition": definition,
+			"definition_id": StringName(_property(definition, "placeable_id", &"")),
 			"item_id": -1,
 			"object_kind": _object_kind_from_value(_property(definition, "object_kind", 4)),
 			"scene": _property(definition, "scene", _property(definition, "preview_scene", null)),
@@ -2584,6 +2589,7 @@ func _load_object_templates() -> void:
 			"definition": null,
 			"item_id": -1,
 			"object_kind": kind,
+			"definition_id": StringName(_property(node, "definition_id", &"")),
 			"scene": _property(node, "scene", null),
 			"blocks_movement": bool(_property(node, "blocks_movement", false)),
 			"blocks_los": bool(_property(node, "blocks_los", false)),

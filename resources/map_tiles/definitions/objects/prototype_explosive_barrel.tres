@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://ddkdc220ngslm" path="res://scripts/core/map/tactical_object_definition.gd" id="1_object"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_explosive_barrel.tscn" id="2_scene"]
+[ext_resource type="Resource" path="res://resources/environment_effects/barrel_explosion.tres" id="3_explosion"]
 
 [resource]
 script = ExtResource("1_object")
@@ -10,6 +11,10 @@ category = &"对象 / 爆炸物"
 description = "可被攻击触发的爆炸掩体对象。"
 scene = ExtResource("2_scene")
 blocks_movement = true
+targetable = true
+damageable = true
+max_hp = 4
+on_destroy_effects = Array[Resource]([ExtResource("3_explosion")])
 placeable_id = &"prototype_explosive_barrel"
 display_name = "爆炸桶"
 placement_kind = 2

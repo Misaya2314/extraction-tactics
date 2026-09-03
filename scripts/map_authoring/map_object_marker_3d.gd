@@ -3,6 +3,7 @@ class_name MapObjectMarker3D
 extends MapMarker3D
 
 @export var object_id: StringName = &"object"
+@export var definition_id: StringName = &""
 @export var kind: MapObjectPlacement.Kind = MapObjectPlacement.Kind.GENERIC
 @export var facing: Vector2i = Vector2i.DOWN
 @export var scene: PackedScene:
@@ -23,6 +24,7 @@ func _ready() -> void:
 func to_data() -> MapObjectPlacement:
 	var data := MapObjectPlacement.new()
 	data.object_id = object_id
+	data.definition_id = definition_id
 	data.kind = kind
 	data.cell = cell
 	data.facing = facing

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ExplosionEffectDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/environment/explosion_effect_definition.gd" id="1_explosion"]
+
+[resource]
+script = ExtResource("1_explosion")
+effect_id = &"barrel_explosion"
+display_name = "爆炸桶爆炸"
+radius = 1
+damage = 5
+affect_players = true
+affect_enemies = true
+affect_environment_objects = true
+allow_chain = true
