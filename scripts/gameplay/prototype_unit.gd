@@ -114,6 +114,12 @@ var outer_vision_range: int:
 
 @export var visual_color := Color("4f9dff")
 
+@export_group("Audio SFX")
+@export var shoot_sfx: AudioStream = preload("res://assets/audio/sfx/laserShoot.wav")
+@export var hit_sfx: AudioStream = preload("res://assets/audio/sfx/hit.wav")
+@export var death_sfx: AudioStream = preload("res://assets/audio/sfx/die.wav")
+@export var move_sfx: AudioStream = preload("res://assets/audio/sfx/move.wav")
+
 var archetype: UnitArchetype:
 	get:
 		return runtime_state.archetype if runtime_state != null else _legacy_archetype
@@ -160,6 +166,12 @@ var unit_id: StringName:
 @onready var weapon_pivot: Node3D = get_node_or_null("VisualRoot/WeaponPivot") as Node3D
 @onready var weapon_model_root: Node3D = get_node_or_null("VisualRoot/WeaponPivot/WeaponModelRoot") as Node3D
 @onready var muzzle_flash: MeshInstance3D = get_node_or_null("VisualRoot/WeaponPivot/MuzzleFlash") as MeshInstance3D
+@onready var audio_shoot: AudioStreamPlayer3D = get_node_or_null("AudioShoot") as AudioStreamPlayer3D
+@onready var audio_hit: AudioStreamPlayer3D = get_node_or_null("AudioHit") as AudioStreamPlayer3D
+@onready var audio_death: AudioStreamPlayer3D = get_node_or_null("AudioDeath") as AudioStreamPlayer3D
+@onready var audio_move: AudioStreamPlayer3D = get_node_or_null("AudioMove") as AudioStreamPlayer3D
+
+var _previous_observed_hp: int = -1
 
 var alert_level: int = 0:
 	set(value):
@@ -192,6 +204,7 @@ var _muzzle_flash_rest_scale := Vector3.ONE
 
 
 func _ready() -> void:
+	_previous_observed_hp = current_hp
 	_connect_runtime_state_signals()
 	_apply_weapon_stats()
 	_refresh_weapon_model()
@@ -208,6 +221,7 @@ func bind_runtime_state(new_state: UnitRuntimeState, new_color: Color = Color.WH
 		return false
 	_disconnect_runtime_state_signals()
 	runtime_state = new_state
+	_previous_observed_hp = current_hp
 	if new_color != Color.WHITE:
 		visual_color = new_color
 	_connect_runtime_state_signals()
@@ -262,6 +276,7 @@ func configure(
 	elif new_weapon != null:
 		weapon = new_weapon
 	_apply_weapon_stats()
+	_previous_observed_hp = current_hp
 	if is_node_ready():
 		if is_attack_feedback_playing:
 			_interrupt_attack_feedback()
@@ -355,6 +370,43 @@ func _facing_forward() -> Vector3:
 	return forward.normalized() if forward.length_squared() > 0.0 else Vector3.FORWARD
 
 
+func _play_sfx(player_name: String, stream: AudioStream) -> void:
+	if stream == null or not is_inside_tree():
+		return
+	var player: AudioStreamPlayer3D = get_node_or_null(player_name) as AudioStreamPlayer3D
+	if player == null:
+		player = AudioStreamPlayer3D.new()
+		player.name = player_name
+		player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_DISABLED
+		player.unit_size = 20.0
+		if player_name == "AudioDeath":
+			player.process_mode = Node.PROCESS_MODE_ALWAYS
+		add_child(player)
+	player.stream = stream
+	player.play()
+
+
+func play_shoot_sound() -> void:
+	var stream: AudioStream = null
+	if weapon != null and weapon.attack_feedback_profile != null:
+		stream = weapon.attack_feedback_profile.attack_sound
+	if stream == null:
+		stream = shoot_sfx
+	_play_sfx("AudioShoot", stream)
+
+
+func play_hit_sound() -> void:
+	_play_sfx("AudioHit", hit_sfx)
+
+
+func play_death_sound() -> void:
+	_play_sfx("AudioDeath", death_sfx)
+
+
+func play_move_sound() -> void:
+	_play_sfx("AudioMove", move_sfx)
+
+
 ## Plays only local presentation feedback. Gameplay rules and root/grid state
 ## are intentionally untouched by this coroutine.
 func play_attack_feedback() -> void:
@@ -378,6 +430,7 @@ func play_attack_feedback() -> void:
 	attack_feedback_play_count += 1
 	is_attack_feedback_playing = true
 	attack_feedback_started.emit(self, profile.profile_id)
+	play_shoot_sound()
 	_start_attack_feedback_tweens(profile)
 
 	if not is_inside_tree():
@@ -614,6 +667,9 @@ func _disconnect_runtime_state_signals() -> void:
 
 
 func _on_runtime_health_changed(current: int, maximum: int) -> void:
+	if _previous_observed_hp >= 0 and current < _previous_observed_hp and current > 0:
+		play_hit_sound()
+	_previous_observed_hp = current
 	health_changed.emit(current, maximum)
 	_update_status_label()
 
@@ -644,6 +700,7 @@ func _on_runtime_alive_changed(_is_alive: bool) -> void:
 
 
 func _on_runtime_died() -> void:
+	play_death_sound()
 	died.emit(self)
 
 
@@ -661,10 +718,14 @@ func take_damage(amount: int) -> int:
 		return previous_hp - runtime_state.current_hp
 	var applied_damage := mini(amount, current_hp)
 	current_hp -= applied_damage
+	_previous_observed_hp = current_hp
 	health_changed.emit(current_hp, max_hp)
 	_update_status_label()
 	if current_hp == 0:
+		play_death_sound()
 		died.emit(self)
+	else:
+		play_hit_sound()
 	return applied_damage
 
 
@@ -698,6 +759,8 @@ func move_along_world_path(
 		world_points: Array[Vector3],
 		destination_cell: Vector3i
 ) -> void:
+	if not world_points.is_empty():
+		play_move_sound()
 	for target_position in world_points:
 		var movement_delta := target_position - global_position
 		set_visual_facing(Vector2i(roundi(movement_delta.x), roundi(movement_delta.z)))
@@ -821,4 +884,8 @@ func _exit_tree() -> void:
 	_attack_feedback_generation += 1
 	_reset_attack_feedback_visuals()
 	is_attack_feedback_playing = false
+	if is_instance_valid(audio_shoot) and audio_shoot.playing:
+		audio_shoot.stop()
+	if is_instance_valid(audio_move) and audio_move.playing:
+		audio_move.stop()
 	_disconnect_runtime_state_signals()

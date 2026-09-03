@@ -19,3 +19,6 @@ current = true
 fov = 52.0
 near = 0.1
 far = 200.0
+
+[node name="AudioListener3D" type="AudioListener3D" parent="Camera3D"]
+current = true

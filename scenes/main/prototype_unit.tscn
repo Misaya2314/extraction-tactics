@@ -1,6 +1,10 @@
 [gd_scene format=3 uid="uid://r0b7bduwfyqh"]
 
 [ext_resource type="Script" uid="uid://caklhfm8p1wux" path="res://scripts/gameplay/prototype_unit.gd" id="1_unit"]
+[ext_resource type="AudioStream" uid="uid://dr6wg4s6blaas" path="res://assets/audio/sfx/laserShoot.wav" id="2_shoot"]
+[ext_resource type="AudioStream" uid="uid://c2rbhtm6wwyjt" path="res://assets/audio/sfx/hit.wav" id="3_hit"]
+[ext_resource type="AudioStream" uid="uid://cdcgbutemei28" path="res://assets/audio/sfx/die.wav" id="4_die"]
+[ext_resource type="AudioStream" uid="uid://bhcf1edfyg6m2" path="res://assets/audio/sfx/move.wav" id="5_move"]
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
 radius = 0.42
@@ -89,3 +93,25 @@ text = "❓"
 font_size = 44
 outline_size = 10
 pixel_size = 0.0065
+
+[node name="AudioShoot" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("2_shoot")
+attenuation_model = 3
+unit_size = 20.0
+
+[node name="AudioHit" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("3_hit")
+attenuation_model = 3
+unit_size = 20.0
+
+[node name="AudioDeath" type="AudioStreamPlayer3D" parent="."]
+process_mode = 3
+stream = ExtResource("4_die")
+attenuation_model = 3
+unit_size = 20.0
+
+[node name="AudioMove" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("5_move")
+attenuation_model = 3
+unit_size = 20.0
+

@@ -5,6 +5,7 @@ extends Resource
 ## Static, data-driven presentation settings for a weapon attack.
 ## This resource never participates in damage, range, AP, or hit validation.
 @export var profile_id: StringName = &""
+@export var attack_sound: AudioStream
 @export_range(0.0, 0.5, 0.005, "suffix:m") var recoil_distance: float = 0.05
 @export_range(0.0, 45.0, 0.5, "suffix:deg") var weapon_kick_degrees: float = 4.0
 @export_range(0.0, 0.5, 0.01) var body_squash: float = 0.03
