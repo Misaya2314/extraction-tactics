@@ -20,6 +20,8 @@ func _run() -> void:
 	await _test_move_sound()
 	await _test_hit_sound()
 	await _test_death_sound()
+	await _test_enemy_attack_feedback_duration()
+	await _test_attack_audio_order()
 	_test_audio_outside_tree_safe()
 	_finish()
 
@@ -174,6 +176,69 @@ func _test_death_sound() -> void:
 
 	_expect(unit.audio_death != null and unit.audio_death.playing, "death: AudioDeath should play on lethal damage")
 	unit.queue_free()
+	await process_frame
+
+
+func _test_enemy_attack_feedback_duration() -> void:
+	var player_unit := _create_test_unit(10)
+	await process_frame
+	player_unit.play_attack_feedback()
+	_expect(is_equal_approx(player_unit.last_attack_feedback_duration, ASSAULT_RIFLE.attack_feedback_profile.total_duration()), "timing: player feedback duration should not be scaled")
+	player_unit.queue_free()
+	await process_frame
+
+	var enemy_unit := UNIT_SCENE.instantiate() as PrototypeUnit
+	var archetype := UnitArchetypeScript.new()
+	archetype.archetype_id = &"enemy_audio_test"
+	archetype.display_name = "Enemy Audio Tester"
+	archetype.max_hp = 10
+	archetype.max_action_points = 2
+	archetype.move_range = 4
+	archetype.inner_vision_range = 4
+	archetype.vision_range = 7
+	archetype.default_weapon = ASSAULT_RIFLE
+	var weapon_inst := WeaponInstanceScript.new(&"audio:enemy_weapon:1", ASSAULT_RIFLE)
+	var state := UnitRuntimeStateScript.new(
+		&"audio:enemy_unit:1",
+		archetype,
+		&"enemy",
+		Vector3i.ZERO,
+		weapon_inst
+	)
+	enemy_unit.bind_runtime_state(state, Color.WHITE)
+	get_root().add_child(enemy_unit)
+	await process_frame
+
+	enemy_unit.play_attack_feedback()
+	var expected_enemy_duration := ASSAULT_RIFLE.attack_feedback_profile.total_duration() * enemy_unit.enemy_attack_feedback_multiplier
+	_expect(is_equal_approx(enemy_unit.last_attack_feedback_duration, expected_enemy_duration), "timing: enemy feedback duration should be scaled by multiplier")
+	enemy_unit.queue_free()
+	await process_frame
+
+
+func _test_attack_audio_order() -> void:
+	var attacker := _create_test_unit(10)
+	var target := _create_test_unit(10)
+	await process_frame
+
+	# Phase 1: Damage resolved at data layer with play_audio=false (mimicking _handle_attack_action)
+	target.take_damage(3, false)
+	await process_frame
+	_expect(not target.audio_hit.playing, "order: hit sound must NOT play during data resolution before shot")
+
+	# Phase 2: Attacker fires weapon (trigger pull)
+	attacker.play_attack_feedback()
+	await process_frame
+	_expect(attacker.audio_shoot.playing, "order: shoot sound MUST play first when attack feedback begins")
+	_expect(not target.audio_hit.playing, "order: hit sound must still NOT be playing immediately as gun fires")
+
+	# Phase 3: Projectile impact (simulating _schedule_attack_impact)
+	target.play_hit_sound()
+	await process_frame
+	_expect(target.audio_hit.playing, "order: hit sound plays on projectile impact after shoot sound")
+
+	attacker.queue_free()
+	target.queue_free()
 	await process_frame
 
 

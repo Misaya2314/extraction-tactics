@@ -120,6 +120,9 @@ var outer_vision_range: int:
 @export var death_sfx: AudioStream = preload("res://assets/audio/sfx/die.wav")
 @export var move_sfx: AudioStream = preload("res://assets/audio/sfx/move.wav")
 
+@export_group("Feedback Settings")
+@export var enemy_attack_feedback_multiplier: float = 2.0
+
 var archetype: UnitArchetype:
 	get:
 		return runtime_state.archetype if runtime_state != null else _legacy_archetype
@@ -423,15 +426,16 @@ func play_attack_feedback() -> void:
 		last_attack_feedback_duration = profile.total_duration() if profile != null else 0.0
 		return
 
+	var duration_multiplier := enemy_attack_feedback_multiplier if faction == &"enemy" else 1.0
 	_attack_feedback_generation += 1
 	var generation := _attack_feedback_generation
 	last_attack_feedback_profile_id = profile.profile_id
-	last_attack_feedback_duration = profile.total_duration()
+	last_attack_feedback_duration = profile.total_duration() * duration_multiplier
 	attack_feedback_play_count += 1
 	is_attack_feedback_playing = true
 	attack_feedback_started.emit(self, profile.profile_id)
 	play_shoot_sound()
-	_start_attack_feedback_tweens(profile)
+	_start_attack_feedback_tweens(profile, duration_multiplier)
 
 	if not is_inside_tree():
 		_complete_attack_feedback(generation, profile.profile_id)
@@ -467,7 +471,8 @@ func _queue_feedback_tween(
 		property: NodePath,
 		recoil_value: Variant,
 		rest_value: Variant,
-		profile: WeaponAttackFeedbackProfile
+		profile: WeaponAttackFeedbackProfile,
+		duration_multiplier: float = 1.0
 ) -> void:
 	var tween := create_tween()
 	_attack_feedback_tweens.append(tween)
@@ -475,22 +480,22 @@ func _queue_feedback_tween(
 		target,
 		property,
 		recoil_value,
-		maxf(profile.recoil_duration, 0.001)
+		maxf(profile.recoil_duration * duration_multiplier, 0.001)
 	)
 	recoil_tweener.set_trans(Tween.TRANS_QUAD)
 	recoil_tweener.set_ease(Tween.EASE_OUT)
-	tween.tween_interval(maxf(profile.hold_duration, 0.0))
+	tween.tween_interval(maxf(profile.hold_duration * duration_multiplier, 0.0))
 	var recover_tweener := tween.tween_property(
 		target,
 		property,
 		rest_value,
-		maxf(profile.recover_duration, 0.001)
+		maxf(profile.recover_duration * duration_multiplier, 0.001)
 	)
 	recover_tweener.set_trans(Tween.TRANS_QUAD)
 	recover_tweener.set_ease(Tween.EASE_IN_OUT)
 
 
-func _start_attack_feedback_tweens(profile: WeaponAttackFeedbackProfile) -> void:
+func _start_attack_feedback_tweens(profile: WeaponAttackFeedbackProfile, duration_multiplier: float = 1.0) -> void:
 	var recoil_offset := -_facing_forward() * profile.recoil_distance
 	var visual_recoil_position := _visual_root_rest_position + recoil_offset
 	var visual_recoil_rotation := _visual_root_rest_rotation + Vector3(
@@ -509,21 +514,24 @@ func _start_attack_feedback_tweens(profile: WeaponAttackFeedbackProfile) -> void
 		NodePath("position"),
 		visual_recoil_position,
 		_visual_root_rest_position,
-		profile
+		profile,
+		duration_multiplier
 	)
 	_queue_feedback_tween(
 		visual_root,
 		NodePath("rotation"),
 		visual_recoil_rotation,
 		_visual_root_rest_rotation,
-		profile
+		profile,
+		duration_multiplier
 	)
 	_queue_feedback_tween(
 		visual_root,
 		NodePath("scale"),
 		visual_recoil_scale,
 		_visual_root_rest_scale,
-		profile
+		profile,
+		duration_multiplier
 	)
 
 	var pivot_recoil_position := _weapon_pivot_rest_position + recoil_offset * 1.35
@@ -536,20 +544,22 @@ func _start_attack_feedback_tweens(profile: WeaponAttackFeedbackProfile) -> void
 		NodePath("position"),
 		pivot_recoil_position,
 		_weapon_pivot_rest_position,
-		profile
+		profile,
+		duration_multiplier
 	)
 	_queue_feedback_tween(
 		weapon_pivot,
 		NodePath("rotation"),
 		pivot_recoil_rotation,
 		pivot_rest_rotation,
-		profile
+		profile,
+		duration_multiplier
 	)
 
 	muzzle_flash.visible = true
 	muzzle_flash.scale = Vector3.ZERO
-	var flash_duration := maxf(profile.muzzle_flash_duration, 0.001)
-	var flash_rise_duration := minf(flash_duration * 0.35, 0.025)
+	var flash_duration := maxf(profile.muzzle_flash_duration * duration_multiplier, 0.001)
+	var flash_rise_duration := minf(flash_duration * 0.35, 0.025 * duration_multiplier)
 	var flash_fall_duration := maxf(flash_duration - flash_rise_duration, 0.001)
 	var flash_tween := create_tween()
 	_attack_feedback_tweens.append(flash_tween)
@@ -667,8 +677,6 @@ func _disconnect_runtime_state_signals() -> void:
 
 
 func _on_runtime_health_changed(current: int, maximum: int) -> void:
-	if _previous_observed_hp >= 0 and current < _previous_observed_hp and current > 0:
-		play_hit_sound()
 	_previous_observed_hp = current
 	health_changed.emit(current, maximum)
 	_update_status_label()
@@ -700,7 +708,6 @@ func _on_runtime_alive_changed(_is_alive: bool) -> void:
 
 
 func _on_runtime_died() -> void:
-	play_death_sound()
 	died.emit(self)
 
 
@@ -708,24 +715,33 @@ func is_alive() -> bool:
 	return runtime_state.alive if runtime_state != null else current_hp > 0
 
 
-func take_damage(amount: int) -> int:
+func take_damage(amount: int, play_audio: bool = true) -> int:
 	if amount <= 0 or not is_alive():
 		return 0
 	if runtime_state != null:
 		var previous_hp := runtime_state.current_hp
 		if not runtime_state.apply_damage(amount):
 			return 0
-		return previous_hp - runtime_state.current_hp
+		var applied := previous_hp - runtime_state.current_hp
+		_previous_observed_hp = current_hp
+		if play_audio and applied > 0:
+			if is_alive():
+				play_hit_sound()
+			else:
+				play_death_sound()
+		return applied
 	var applied_damage := mini(amount, current_hp)
 	current_hp -= applied_damage
 	_previous_observed_hp = current_hp
 	health_changed.emit(current_hp, max_hp)
 	_update_status_label()
+	if play_audio and applied_damage > 0:
+		if current_hp == 0:
+			play_death_sound()
+		else:
+			play_hit_sound()
 	if current_hp == 0:
-		play_death_sound()
 		died.emit(self)
-	else:
-		play_hit_sound()
 	return applied_damage
 
 

@@ -56,6 +56,13 @@ const COVER_ICON_PIXEL_SIZE: float = 0.003
 @export var map_definition: TacticalMapDefinition
 @export var cover_combat_settings: CoverCombatSettings
 
+@export_group("Enemy Action Pacing")
+@export var enemy_aim_duration: float = 0.35
+@export var enemy_post_attack_delay: float = 0.35
+@export var enemy_attack_interval: float = 0.8
+@export var enemy_move_interval: float = 0.3
+@export var enemy_switch_interval: float = 0.4
+
 var grid: GridModel
 var _environment_root: Node3D
 var turn_manager: TurnManager
@@ -906,7 +913,7 @@ func _handle_attack_action(request: Variant, _context: Variant) -> Variant:
 	var cover_metadata: Variant = payload.get(&"cover_metadata", {})
 	if cover_metadata is Dictionary:
 		resolved.metadata = cover_metadata.duplicate(true)
-	var applied := target.take_damage(resolved.damage)
+	var applied := target.take_damage(resolved.damage, false)
 	return resolved
 
 
@@ -1787,11 +1794,25 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 			_update_hud(_action_message("无法攻击", result.reason))
 		return result
 	result.metadata = cover_damage.duplicate(true)
+	var applied := result.damage
 	attacker.look_at_cell(target.grid_cell)
+	if attacker.faction == &"enemy" and enemy_aim_duration > 0.0 and is_inside_tree():
+		await get_tree().create_timer(enemy_aim_duration).timeout
+	if result.killed and is_instance_valid(target):
+		target.visible = true
+	var on_impact := func() -> void:
+		if is_instance_valid(target) and applied > 0:
+			if result.killed:
+				target.play_death_sound()
+				target.visible = false
+			else:
+				target.play_hit_sound()
+	_schedule_attack_impact(on_impact)
 	await attacker.play_attack_feedback()
+	if attacker.faction == &"enemy" and enemy_post_attack_delay > 0.0 and is_inside_tree():
+		await get_tree().create_timer(enemy_post_attack_delay).timeout
 	input_locked = previous_input_locked
 	_refresh_undo_buttons()
-	var applied := result.damage
 	var cover_level_name := String(cover_summary.get(&"cover_level_name", &"NONE"))
 	var reduction_percent := int(cover_summary.get(&"damage_reduction_percent", 0))
 	if bool(cover_summary.get(&"has_cover", false)):
@@ -1817,6 +1838,16 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 	])
 	_refresh_highlights()
 	return result
+
+
+func _schedule_attack_impact(impact_callback: Callable) -> void:
+	if not is_inside_tree() or not impact_callback.is_valid():
+		if impact_callback.is_valid():
+			impact_callback.call()
+		return
+	await get_tree().create_timer(0.06).timeout
+	if impact_callback.is_valid():
+		impact_callback.call()
 
 
 ## Public debug/test entry and the single authority used by player, AI and
@@ -2069,6 +2100,10 @@ func _run_enemy_turn() -> void:
 						break
 					if enemy.attack_ap_cost <= 0 or enemy.current_action_points < enemy.attack_ap_cost:
 						break
+					if enemy_attack_interval > 0.0 and is_inside_tree():
+						await get_tree().create_timer(enemy_attack_interval).timeout
+						if not turn_manager.is_enemy_turn() or turn_manager.is_terminal():
+							break
 					continue
 				EnemyTacticalAI.IntentType.MOVE:
 					var destination: Vector3i = plan[&"destination"]
@@ -2077,8 +2112,14 @@ func _run_enemy_turn() -> void:
 					var ap_cost: int = plan[&"ap_cost"]
 					if not await _move_unit(enemy, destination, path, ap_cost):
 						break
+					if enemy_move_interval > 0.0 and is_inside_tree():
+						await get_tree().create_timer(enemy_move_interval).timeout
+						if not turn_manager.is_enemy_turn() or turn_manager.is_terminal():
+							break
 				_:
 					break
+		if enemy_switch_interval > 0.0 and is_inside_tree() and turn_manager.is_enemy_turn() and not turn_manager.is_terminal():
+			await get_tree().create_timer(enemy_switch_interval).timeout
 	input_locked = false
 	_refresh_undo_buttons()
 	if turn_manager.is_enemy_turn():
