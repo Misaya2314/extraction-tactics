@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" path="res://scenes/presentation/tactical_camera_rig.tscn" id="3_camera"]
 [ext_resource type="Script" uid="uid://7nvcy1lvfl4y" path="res://scripts/gameplay/ui/inventory_grid_control.gd" id="5_inventory_grid"]
 [ext_resource type="Script" uid="uid://bfpsdve3ioxij" path="res://scripts/gameplay/ui/loot_grid_control.gd" id="6_loot_grid"]
+[ext_resource type="AudioStream" uid="uid://c1scmjuw1iypr" path="res://assets/audio/sfx/discover.wav" id="7_discover"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_action"]
 bg_color = Color(0.035, 0.047, 0.064, 0.92)
@@ -60,6 +61,9 @@ zoom_max = 30.0
 [node name="ObjectHighlights" type="Node3D" parent="." unique_id=1976509904]
 
 [node name="VisionHighlights" type="Node3D" parent="." unique_id=1742020001]
+
+[node name="AudioDiscover" type="AudioStreamPlayer" parent="." unique_id=1849201923]
+stream = ExtResource("7_discover")
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1699104427]
 

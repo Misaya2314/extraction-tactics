@@ -1,6 +1,7 @@
 extends SceneTree
 
 const UNIT_SCENE: PackedScene = preload("res://scenes/main/prototype_unit.tscn")
+const MAIN_SCENE: PackedScene = preload("res://scenes/main/prototype_main.tscn")
 const ASSAULT_RIFLE: WeaponDefinition = preload("res://resources/weapons/assault_rifle.tres")
 const UnitRuntimeStateScript = preload("res://scripts/core/units/unit_runtime_state.gd")
 const UnitArchetypeScript = preload("res://scripts/core/units/unit_archetype.gd")
@@ -20,6 +21,7 @@ func _run() -> void:
 	await _test_move_sound()
 	await _test_hit_sound()
 	await _test_death_sound()
+	await _test_discover_sound()
 	await _test_enemy_attack_feedback_duration()
 	await _test_attack_audio_order()
 	_test_audio_outside_tree_safe()
@@ -46,11 +48,13 @@ func _test_audio_resources_loaded() -> void:
 	var hit: AudioStream = load("res://assets/audio/sfx/hit.wav")
 	var die: AudioStream = load("res://assets/audio/sfx/die.wav")
 	var move: AudioStream = load("res://assets/audio/sfx/move.wav")
+	var discover: AudioStream = load("res://assets/audio/sfx/discover.wav")
 
 	_expect(shoot != null, "resource: laserShoot.wav should load")
 	_expect(hit != null, "resource: hit.wav should load")
 	_expect(die != null, "resource: die.wav should load")
 	_expect(move != null, "resource: move.wav should load")
+	_expect(discover != null, "resource: discover.wav should load")
 
 	if shoot != null:
 		_expect(shoot.get_length() > 0.0, "resource: laserShoot.wav duration should be positive")
@@ -60,6 +64,8 @@ func _test_audio_resources_loaded() -> void:
 		_expect(die.get_length() > 0.0, "resource: die.wav duration should be positive")
 	if move != null:
 		_expect(move.get_length() > 0.0, "resource: move.wav duration should be positive")
+	if discover != null:
+		_expect(discover.get_length() > 0.0, "resource: discover.wav duration should be positive")
 
 
 func _test_unit_scene_audio_nodes() -> void:
@@ -176,6 +182,23 @@ func _test_death_sound() -> void:
 
 	_expect(unit.audio_death != null and unit.audio_death.playing, "death: AudioDeath should play on lethal damage")
 	unit.queue_free()
+	await process_frame
+
+
+func _test_discover_sound() -> void:
+	var controller := MAIN_SCENE.instantiate() as PrototypeController
+	root.add_child(controller)
+	await process_frame
+
+	_expect(controller.discover_sfx != null, "discover: discover_sfx should be assigned on controller")
+	_expect(controller.audio_discover != null, "discover: AudioDiscover node should exist in PrototypeMain scene")
+
+	controller.play_discover_sound()
+	await process_frame
+
+	_expect(controller.audio_discover != null and controller.audio_discover.playing, "discover: AudioDiscover should be playing after play_discover_sound")
+
+	controller.queue_free()
 	await process_frame
 
 

@@ -64,6 +64,9 @@ const COVER_ICON_PIXEL_SIZE: float = 0.003
 @export var enemy_move_interval: float = 0.3
 @export var enemy_switch_interval: float = 0.4
 
+@export_group("Audio SFX")
+@export var discover_sfx: AudioStream = preload("res://assets/audio/sfx/discover.wav")
+
 var grid: GridModel
 var _environment_root: Node3D
 var turn_manager: TurnManager
@@ -142,6 +145,7 @@ var _inventory_layout_sync_queued := false
 @onready var attack_highlights_root: Node3D = $AttackHighlights
 @onready var object_highlights_root: Node3D = $ObjectHighlights
 @onready var vision_highlights_root: Node3D = $VisionHighlights
+@onready var audio_discover: AudioStreamPlayer = get_node_or_null("AudioDiscover") as AudioStreamPlayer
 @onready var selection_label: Label = $HUD/TopLeftPanel/Margin/VBox/SelectionLabel
 @onready var phase_label: Label = $HUD/TopLeftPanel/Margin/VBox/PhaseLabel
 @onready var alert_label: Label = $HUD/TopLeftPanel/Margin/VBox/AlertLabel
@@ -1865,6 +1869,20 @@ func _schedule_attack_impact(impact_callback: Callable) -> void:
 		impact_callback.call()
 
 
+func play_discover_sound() -> void:
+	if discover_sfx == null or not is_inside_tree():
+		return
+	if audio_discover == null:
+		audio_discover = get_node_or_null("AudioDiscover") as AudioStreamPlayer
+	if audio_discover == null:
+		audio_discover = AudioStreamPlayer.new()
+		audio_discover.name = "AudioDiscover"
+		add_child(audio_discover)
+	if not audio_discover.playing:
+		audio_discover.stream = discover_sfx
+		audio_discover.play()
+
+
 ## Public debug/test entry and the single authority used by player, AI and
 ## attack highlighting.  It deliberately delegates to the shared line query;
 ## callers must not recreate LOS or edge-cover rules.
@@ -2028,6 +2046,7 @@ func _evaluate_detection() -> bool:
 						alert.become_alerted(player.unit_id, player.grid_cell)
 					if not discovering_enemy_ids.has(enemy.unit_id):
 						discovering_enemy_ids.append(enemy.unit_id)
+					play_discover_sound()
 					_start_combat(true, enemy, player.grid_cell, player.unit_id, "发现玩家（暗杀击杀窗口）")
 					_update_enemy_visibility()
 					_refresh_highlights()
@@ -2087,6 +2106,8 @@ func _start_combat(player_first: bool, alert_enemy: PrototypeUnit, known_cell: V
 		return false
 	if not player_first:
 		_run_enemy_turn.call_deferred()
+	if reason.begins_with("发现玩家") or (not player_first and reason == ""):
+		play_discover_sound()
 	return true
 
 
