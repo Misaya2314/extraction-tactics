@@ -969,8 +969,31 @@ func _bake_and_play() -> void:
 
 	_dock.show_result("Bake", bake_result)
 	_refresh_validation_outputs(bake_result)
-	EditorInterface.play_main_scene()
-	_dock.set_status_message("Bake & Play 已启动主场景。", true)
+
+	var target_map_path: String = String(_session.author.get("output_resource_path")).strip_edges()
+	if target_map_path.begins_with("uid://"):
+		var uid := ResourceUID.text_to_id(target_map_path)
+		if uid >= 0 and ResourceUID.has_id(uid):
+			target_map_path = ResourceUID.get_id_path(uid)
+
+	var runner_tscn := """[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/main/prototype_main.tscn" id="1_main"]
+[ext_resource type="Resource" path="%s" id="2_map"]
+
+[node name="PrototypeMain" instance=ExtResource("1_main")]
+map_definition = ExtResource("2_map")
+""" % target_map_path
+
+	var runner_path := "user://bake_and_play_runner.tscn"
+	var file := FileAccess.open(runner_path, FileAccess.WRITE)
+	if file != null:
+		file.store_string(runner_tscn)
+		file.close()
+		EditorInterface.play_custom_scene(runner_path)
+		_dock.set_status_message("Bake & Play 已启动当前地图（%s）。" % target_map_path, true)
+	else:
+		_dock.set_status_message("Bake & Play 启动失败：无法创建运行场景。", false)
 	_bake_and_play_in_progress = false
 
 func _target_from_screen(camera: Camera3D, screen_position: Vector2, requested_tool: int = -1) -> TacticalPlacementTarget:

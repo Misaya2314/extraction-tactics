@@ -7,9 +7,9 @@
 [ext_resource type="Resource" uid="uid://bj2kr4r68en1o" path="res://resources/map_tiles/definitions/structure/wall.tres" id="4_wall"]
 [ext_resource type="Resource" uid="uid://diayffi08yec" path="res://resources/map_tiles/definitions/structure/low_cover.tres" id="5_cover"]
 [ext_resource type="Script" uid="uid://b7acgjg4ejn32" path="res://scripts/core/map/mesh_item_binding.gd" id="6_binding"]
-[ext_resource type="MeshLibrary" uid="uid://cmsgm4xtx1wug" path="res://resources/map_tiles/mesh_libraries/default_mesh_library.tres" id="7_mesh_library"]
 [ext_resource type="Resource" path="res://resources/map_tiles/definitions/objects/prototype_loot_crate.tres" id="8_loot_crate"]
 [ext_resource type="Resource" uid="uid://cr6m2t7o8eq1x" path="res://resources/map_tiles/definitions/objects/prototype_extraction_marker.tres" id="9_extraction"]
+[ext_resource type="MeshLibrary" uid="uid://ghwggyobq5va" path="res://resources/map_tiles/mesh_libraries/prototype_mesh_library.tres" id="9_vb8n6"]
 [ext_resource type="Resource" uid="uid://c5i48svkmnu7k" path="res://resources/map_tiles/definitions/objects/prototype_explosive_barrel.tres" id="10_barrel"]
 
 [sub_resource type="Resource" id="MeshItemBinding_floor"]
@@ -37,5 +37,5 @@ mesh_item_id = 3
 [resource]
 script = ExtResource("1_library")
 definitions = Array[ExtResource("1_a4ee3")]([ExtResource("2_floor"), ExtResource("3_floor_alt"), ExtResource("4_wall"), ExtResource("5_cover"), ExtResource("8_loot_crate"), ExtResource("9_extraction"), ExtResource("10_barrel")])
-generated_mesh_library = ExtResource("7_mesh_library")
+generated_mesh_library = ExtResource("9_vb8n6")
 item_bindings = Array[ExtResource("6_binding")]([SubResource("MeshItemBinding_floor"), SubResource("MeshItemBinding_floor_alt"), SubResource("MeshItemBinding_wall"), SubResource("MeshItemBinding_cover")])

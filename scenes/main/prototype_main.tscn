@@ -161,17 +161,17 @@ custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 text = "结束回合 / 推进世界 Tick"
 
-[node name="UndoStepButton" type="Button" parent="HUD/TopLeftPanel/Margin/VBox"]
+[node name="UndoStepButton" type="Button" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=1306343763]
 custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
+disabled = true
 text = "撤回上一步"
-disabled = true
 
-[node name="UndoTurnButton" type="Button" parent="HUD/TopLeftPanel/Margin/VBox"]
+[node name="UndoTurnButton" type="Button" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=1666817598]
 custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
-text = "撤回至回合开始"
 disabled = true
+text = "撤回至回合开始"
 
 [node name="InventoryPanel" type="PanelContainer" parent="HUD" unique_id=1914501418]
 offset_left = 16.0

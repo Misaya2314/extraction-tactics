@@ -247,6 +247,8 @@ func _ready() -> void:
 	var player_cells := map_definition.get_player_spawn_cells()
 	if not player_cells.is_empty():
 		_select_unit(_find_player_at(player_cells[0]))
+		if is_instance_valid(camera_rig):
+			camera_rig.focus_world_position(grid.cell_to_world(player_cells[0]))
 	_evaluate_detection()
 	_init_hover_cursor()
 	_update_hud("探索中：用底部按钮切换移动/攻击；移动模式看蓝格，攻击模式看红格。")

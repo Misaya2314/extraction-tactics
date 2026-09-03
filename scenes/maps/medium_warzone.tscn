@@ -72,7 +72,7 @@ kind = 1
 scene = ExtResource("8_6x84o")
 cell = Vector3i(1, 0, 19)
 
-[node name="_Preview" type="Node3D" parent="Objects/撤离点_010" unique_id=900680705 instance=ExtResource("8_6x84o")]
+[node name="_Preview" type="Node3D" parent="Objects/撤离点_010" unique_id=1220797617 instance=ExtResource("8_6x84o")]
 metadata/map_marker_preview = true
 
 [node name="爆炸桶_001" type="Node3D" parent="Objects" unique_id=1529784217]
@@ -84,7 +84,7 @@ scene = ExtResource("11_vjtoi")
 blocks_movement = true
 cell = Vector3i(15, 0, 14)
 
-[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_001" unique_id=691506617 instance=ExtResource("11_vjtoi")]
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_001" unique_id=496402644 instance=ExtResource("11_vjtoi")]
 script = ExtResource("10_atd6i")
 metadata/map_marker_preview = true
 
@@ -98,7 +98,7 @@ scene = ExtResource("11_vjtoi")
 blocks_movement = true
 cell = Vector3i(16, 0, 15)
 
-[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_016" unique_id=543479075 instance=ExtResource("11_vjtoi")]
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_016" unique_id=1554029713 instance=ExtResource("11_vjtoi")]
 script = ExtResource("10_atd6i")
 metadata/map_marker_preview = true
 
@@ -112,7 +112,7 @@ scene = ExtResource("11_vjtoi")
 blocks_movement = true
 cell = Vector3i(17, 0, 16)
 
-[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_019" unique_id=2077586276 instance=ExtResource("11_vjtoi")]
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_019" unique_id=261873384 instance=ExtResource("11_vjtoi")]
 script = ExtResource("10_atd6i")
 metadata/map_marker_preview = true
 
@@ -126,7 +126,7 @@ scene = ExtResource("11_vjtoi")
 blocks_movement = true
 cell = Vector3i(15, 0, 15)
 
-[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_022" unique_id=1055614008 instance=ExtResource("11_vjtoi")]
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_022" unique_id=555302441 instance=ExtResource("11_vjtoi")]
 script = ExtResource("10_atd6i")
 metadata/map_marker_preview = true
 
@@ -140,7 +140,7 @@ scene = ExtResource("11_vjtoi")
 blocks_movement = true
 cell = Vector3i(16, 0, 16)
 
-[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_025" unique_id=27959575 instance=ExtResource("11_vjtoi")]
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_025" unique_id=151676579 instance=ExtResource("11_vjtoi")]
 script = ExtResource("10_atd6i")
 metadata/map_marker_preview = true
 
@@ -154,7 +154,7 @@ scene = ExtResource("11_vjtoi")
 blocks_movement = true
 cell = Vector3i(15, 0, 16)
 
-[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_028" unique_id=472341371 instance=ExtResource("11_vjtoi")]
+[node name="_Preview" type="Node3D" parent="Objects/爆炸桶_028" unique_id=1751365012 instance=ExtResource("11_vjtoi")]
 script = ExtResource("10_atd6i")
 metadata/map_marker_preview = true
 

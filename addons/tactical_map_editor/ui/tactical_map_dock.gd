@@ -298,7 +298,7 @@ func _build_ui() -> void:
 	_play_button = Button.new()
 	_play_button.name = "BakeAndPlayButton"
 	_play_button.text = "Bake & Play"
-	_play_button.tooltip_text = "保存当前作者场景，Bake 成功后运行主场景。"
+	_play_button.tooltip_text = "保存当前作者场景，Bake 成功后运行当前编辑的地图。"
 	_play_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_play_button.pressed.connect(_emit_play_requested)
 	run_row.add_child(_play_button)
