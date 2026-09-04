@@ -446,6 +446,23 @@ func get_reachable(start: Variant, movement_points: int) -> Array[Vector3i]:
 	return get_reachable_cells(start, movement_points)
 
 
+## Returns all existing cells within Manhattan distance of `center`.
+func get_cells_in_manhattan_range(center: Variant, max_range: int) -> Array[Vector3i]:
+	var coordinate := _as_cell3(center)
+	var result: Array[Vector3i] = []
+	if max_range < 0 or not _initialized:
+		return result
+	for cell_variant in _cells.keys():
+		var cell: Vector3i = cell_variant
+		var dist: int = absi(cell.x - coordinate.x) + absi(cell.z - coordinate.z) + absi(cell.y - coordinate.y)
+		if dist <= max_range:
+			result.append(cell)
+	result.sort_custom(func(a: Vector3i, b: Vector3i) -> bool:
+		return _cell_less(a, b)
+	)
+	return result
+
+
 func invalid_cell() -> Vector3i:
 	return Vector3i(-1, -1, -1)
 

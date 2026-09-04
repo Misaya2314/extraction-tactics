@@ -35,12 +35,15 @@ const ACTION_MOVE: StringName = &"move"
 const ACTION_INTERACT: StringName = &"interact"
 const ACTION_LOOT: StringName = &"loot"
 const ACTION_ATTACK: StringName = &"attack"
+const ACTION_SKILL: StringName = &"skill"
 const ACTION_MODE_MOVE: int = 0
 const ACTION_MODE_ATTACK: int = 1
+const ACTION_MODE_SKILL: int = 2
 const PLAYER_COLOR := Color("4f9dff")
 const ENEMY_COLOR := Color("ef5b5b")
 const MOVE_HIGHLIGHT_COLOR := Color(0.2, 0.72, 1.0, 0.34)
 const ATTACK_HIGHLIGHT_COLOR := Color(1.0, 0.23, 0.16, 0.48)
+const SKILL_HIGHLIGHT_COLOR := Color(1.0, 0.62, 0.15, 0.46)
 const LOOT_HIGHLIGHT_COLOR := Color(1.0, 0.82, 0.16, 0.56)
 const EXTRACTION_HIGHLIGHT_COLOR := Color(0.2, 0.95, 0.42, 0.56)
 const MOVE_HIGHLIGHT_SURFACE_OFFSET := 0.025
@@ -113,6 +116,7 @@ var input_locked := false
 var debug_reveal_all := false
 var show_enemy_vision := false
 var action_mode: int = ACTION_MODE_MOVE
+var _active_skill_slot: int = -1
 const VISION_BLOCK_COLOR := Color(0.0, 0.0, 0.0, 0.6)
 const ENEMY_OUTER_VISION_COLOR := Color(0.95, 0.75, 0.15, 0.22)
 const ENEMY_INNER_VISION_COLOR := Color(0.95, 0.22, 0.22, 0.35)
@@ -164,6 +168,8 @@ var _inventory_layout_sync_queued := false
 @onready var action_bar: PanelContainer = $HUD/ActionBar
 @onready var move_action_button: Button = $HUD/ActionBar/Margin/Buttons/MoveButton
 @onready var attack_action_button: Button = $HUD/ActionBar/Margin/Buttons/AttackButton
+@onready var skill_0_action_button: Button = get_node_or_null("HUD/ActionBar/Margin/Buttons/Skill0Button") as Button
+@onready var skill_1_action_button: Button = get_node_or_null("HUD/ActionBar/Margin/Buttons/Skill1Button") as Button
 @onready var action_bar_ap_label: Label = $HUD/ActionBar/Margin/Buttons/ApLabel
 @onready var inventory_summary_label: Label = $HUD/InventoryPanel/Margin/VBox/InventorySummary
 @onready var inventory_hint_label: Label = $HUD/InventoryPanel/Margin/VBox/InventoryHint
@@ -238,6 +244,10 @@ func _ready() -> void:
 		undo_turn_button.pressed.connect(_on_undo_turn_pressed)
 	move_action_button.pressed.connect(_on_move_action_pressed)
 	attack_action_button.pressed.connect(_on_attack_action_pressed)
+	if is_instance_valid(skill_0_action_button):
+		skill_0_action_button.pressed.connect(_on_skill_0_action_pressed)
+	if is_instance_valid(skill_1_action_button):
+		skill_1_action_button.pressed.connect(_on_skill_1_action_pressed)
 	loot_all_button.pressed.connect(_on_loot_all_button_pressed)
 	loot_close_button.pressed.connect(_close_loot_panel)
 	extraction_confirm_button.pressed.connect(_on_extraction_confirm_pressed)
@@ -272,6 +282,55 @@ func _configure_action_executor() -> void:
 	action_executor.register_handler(ACTION_ATTACK, Callable(self, "_handle_attack_action"))
 	action_executor.register_handler(ACTION_INTERACT, Callable(self, "_handle_interact_action"))
 	action_executor.register_handler(ACTION_LOOT, Callable(self, "_handle_loot_action"))
+	action_executor.register_handler(ACTION_SKILL, Callable(self, "_handle_skill_action"))
+
+
+func _handle_skill_action(request: Variant, context: Variant) -> ActionResult:
+	var payload: Dictionary = request.payload if request != null and request.payload is Dictionary else {}
+	var slot_index: int = payload.get(&"slot_index", -1)
+	var actor := _unit_by_id(request.actor_id)
+	if not is_instance_valid(actor) or actor.runtime_state == null:
+		return ActionResultScript.rejected(&"invalid_actor", request.actor_id, &"", ACTION_SKILL)
+	var skill_inst = actor.runtime_state.get_skill(slot_index)
+	if skill_inst == null or skill_inst.definition == null:
+		return ActionResultScript.rejected(&"skill_not_equipped", request.actor_id, &"", ACTION_SKILL)
+
+	context.state[&"actor"] = actor.runtime_state
+	context.state[&"units_query"] = Callable(self, "_query_units_in_radius")
+	context.state[&"env_query"] = Callable(self, "_query_env_objects_in_radius")
+	context.state[&"resolve_env_destruction"] = Callable(self, "_resolve_environment_destruction")
+
+	var result: ActionResult = skill_inst.definition.execute_skill(request, context)
+	if result.success:
+		skill_inst.trigger_cooldown()
+		actor.runtime_state.skill_cooldown_changed.emit(slot_index, skill_inst.current_cooldown)
+		_sync_environment_object_views()
+		_rebuild_dynamic_environment_rules()
+	return result
+
+
+func _query_units_in_radius(center: Vector3i, radius: int) -> Array:
+	var list: Array = []
+	for u in units_by_id.values():
+		if is_instance_valid(u) and u.is_alive():
+			var dx: int = absi(u.grid_cell.x - center.x)
+			var dz: int = absi(u.grid_cell.z - center.z)
+			var dy: int = absi(u.grid_cell.y - center.y)
+			if maxi(dx, dz) <= radius and dy <= 1:
+				list.append(u)
+	return list
+
+
+func _query_env_objects_in_radius(center: Vector3i, radius: int) -> Array:
+	var list: Array = []
+	for obj in environment_objects_by_instance_id.values():
+		if obj != null and obj.active and not obj.destroyed:
+			var dx: int = absi(obj.cell.x - center.x)
+			var dz: int = absi(obj.cell.z - center.z)
+			var dy: int = absi(obj.cell.y - center.y)
+			if maxi(dx, dz) <= radius and dy <= 1:
+				list.append(obj)
+	return list
 
 
 func _configure_undo_manager() -> void:
@@ -1259,16 +1318,52 @@ func _on_attack_action_pressed() -> void:
 	_set_action_mode(ACTION_MODE_ATTACK)
 
 
-func _set_action_mode(mode: int) -> void:
-	if mode != ACTION_MODE_MOVE and mode != ACTION_MODE_ATTACK:
+func _on_skill_0_action_pressed() -> void:
+	_toggle_skill_action(0)
+
+
+func _on_skill_1_action_pressed() -> void:
+	_toggle_skill_action(1)
+
+
+func _toggle_skill_action(slot_index: int) -> void:
+	if not is_instance_valid(selected_unit) or selected_unit.runtime_state == null:
+		return
+	var skill_inst = selected_unit.runtime_state.get_skill(slot_index)
+	if skill_inst == null or skill_inst.definition == null:
+		return
+	if not skill_inst.is_ready() or not selected_unit.can_spend_action_points(skill_inst.definition.ap_cost):
+		_refresh_action_bar()
+		return
+
+	if skill_inst.definition.target_type == SkillDefinition.TargetType.SELF:
+		_cast_skill_direct(selected_unit, skill_inst, slot_index)
+		return
+
+	if action_mode == ACTION_MODE_SKILL and _active_skill_slot == slot_index:
+		_set_action_mode(ACTION_MODE_MOVE)
+	else:
+		_set_action_mode(ACTION_MODE_SKILL, slot_index)
+
+
+func _set_action_mode(mode: int, slot_index: int = -1) -> void:
+	if mode != ACTION_MODE_MOVE and mode != ACTION_MODE_ATTACK and mode != ACTION_MODE_SKILL:
 		return
 	action_mode = mode
+	_active_skill_slot = slot_index if mode == ACTION_MODE_SKILL else -1
 	if action_mode != ACTION_MODE_MOVE:
 		_hide_cover_preview()
 	elif is_instance_valid(grid) and grid.has_cell(_hovered_cell) and _is_cursor_visible():
 		_update_cover_preview(_hovered_cell)
 	_refresh_highlights()
-	_update_hud("行动模式：移动。" if mode == ACTION_MODE_MOVE else "行动模式：攻击。")
+	if mode == ACTION_MODE_MOVE:
+		_update_hud("行动模式：移动。")
+	elif mode == ACTION_MODE_ATTACK:
+		_update_hud("行动模式：攻击。")
+	elif mode == ACTION_MODE_SKILL and is_instance_valid(selected_unit):
+		var s = selected_unit.runtime_state.get_skill(slot_index)
+		var sname: String = s.definition.display_name if s != null and s.definition != null else "技能"
+		_update_hud("行动模式：准备施放【%s】。请用鼠标左键选择目标地格。" % sname)
 
 func _index_map_objects() -> void:
 	object_placements.clear()
@@ -1712,11 +1807,67 @@ func _handle_world_click(screen_position: Vector2) -> void:
 	await _handle_cell_click(clicked_cell)
 
 
+func _cast_skill_direct(unit: PrototypeUnit, skill_inst: Variant, slot_index: int) -> void:
+	await _cast_skill_at_cell(unit, skill_inst, slot_index, unit.grid_cell)
+
+
+func _cast_skill_at_cell(unit: PrototypeUnit, skill_inst: Variant, slot_index: int, target_cell: Vector3i) -> void:
+	if not is_instance_valid(unit) or unit.runtime_state == null or skill_inst == null:
+		return
+	var skill_def = skill_inst.definition
+	if skill_def == null:
+		return
+	var ap_cost: int = skill_def.ap_cost
+	var undo_started := _begin_undo_player_action(unit)
+	var request = ActionRequestScript.new(
+		ACTION_SKILL,
+		unit.unit_id,
+		&"",
+		ap_cost,
+		{
+			&"slot_index": slot_index,
+			&"target_cell": target_cell,
+			ActionExecutorScript.KEY_SKILL_EQUIPPED: true,
+			ActionExecutorScript.KEY_SKILL_READY: skill_inst.is_ready(),
+			ActionExecutorScript.KEY_TARGET_IN_RANGE: true,
+			ActionExecutorScript.KEY_HAS_LOS: true,
+			ActionExecutorScript.KEY_TARGET_ALIVE: true,
+		}
+	)
+	var context = ActionExecutionContextScript.new(unit.current_action_points)
+	context.set_ap_committer(Callable(unit.runtime_state, "spend_ap"))
+	var result: ActionResult = action_executor.execute(request, context)
+	last_action_result = result
+	_finish_undo_player_action(undo_started, result.success)
+
+	if result.success:
+		if unit.has_method("play_shoot_sound"):
+			unit.play_shoot_sound()
+		_update_hud("【%s】施放成功！" % skill_def.display_name)
+		_set_action_mode(ACTION_MODE_MOVE)
+		_refresh_action_bar()
+		_refresh_highlights()
+	else:
+		_update_hud("【%s】施放失败：%s。" % [skill_def.display_name, result.reason])
+		_set_action_mode(ACTION_MODE_MOVE)
+
+
 ## Stable cell-level input entry used by both the world raycast and tests.
 ## Unit selection and object handling happen before movement so an extraction
 ## cell can be approached and confirmed through the same click path.
 func _handle_cell_click(clicked_cell: Vector3i) -> void:
 	if input_locked or not grid.in_bounds(clicked_cell) or not _player_can_act():
+		return
+	if action_mode == ACTION_MODE_SKILL:
+		if is_instance_valid(selected_unit) and selected_unit.runtime_state != null and _active_skill_slot >= 0:
+			var skill_inst = selected_unit.runtime_state.get_skill(_active_skill_slot)
+			if skill_inst != null and skill_inst.definition != null:
+				var valid_cells: Array[Vector3i] = skill_inst.definition.get_valid_target_cells(selected_unit.grid_cell, grid)
+				if valid_cells.has(clicked_cell):
+					await _cast_skill_at_cell(selected_unit, skill_inst, _active_skill_slot, clicked_cell)
+					return
+		_select_unit(null)
+		_update_hud("左键选择/移动；底部按钮切换移动/攻击；WASD 平移；滚轮缩放；X切换Debug视野。")
 		return
 	var clicked_player := _find_player_at(clicked_cell)
 	if is_instance_valid(clicked_player):
@@ -2616,6 +2767,8 @@ func _run_exploration_tick() -> void:
 		var unit := unit_value as PrototypeUnit
 		if unit.faction == &"player":
 			unit.reset_action_points()
+			if unit.runtime_state != null and unit.runtime_state.has_method("on_round_turn_started"):
+				unit.runtime_state.on_round_turn_started()
 
 
 func _evaluate_detection() -> bool:
@@ -2800,6 +2953,9 @@ func _select_unit(unit: PrototypeUnit, allow_enemy: bool = false) -> void:
 		selected_unit.set_selected(true)
 		if selected_unit.faction == &"player":
 			action_mode = ACTION_MODE_MOVE
+	else:
+		action_mode = ACTION_MODE_MOVE
+		_active_skill_slot = -1
 	_refresh_highlights()
 	_update_hud()
 
@@ -2814,10 +2970,18 @@ func _refresh_highlights() -> void:
 	var can_show_attack_highlights := can_show_tactical_highlights \
 		and action_mode == ACTION_MODE_ATTACK \
 		and selected_unit.can_spend_action_points(selected_unit.attack_ap_cost)
+	var active_skill_inst = selected_unit.runtime_state.get_skill(_active_skill_slot) if (is_instance_valid(selected_unit) and selected_unit.runtime_state != null and _active_skill_slot >= 0) else null
+	var can_show_skill_highlights: bool = (
+		can_show_tactical_highlights
+		and action_mode == ACTION_MODE_SKILL
+		and active_skill_inst != null
+		and active_skill_inst.is_ready()
+		and selected_unit.can_spend_action_points(active_skill_inst.definition.ap_cost)
+	)
 	if is_instance_valid(highlights_root):
 		highlights_root.visible = can_show_move_highlights
 	if is_instance_valid(attack_highlights_root):
-		attack_highlights_root.visible = can_show_attack_highlights
+		attack_highlights_root.visible = can_show_attack_highlights or can_show_skill_highlights
 	if is_instance_valid(object_highlights_root):
 		object_highlights_root.visible = can_show_tactical_highlights
 	if can_show_move_highlights:
@@ -2833,6 +2997,10 @@ func _refresh_highlights() -> void:
 			if _can_attack_environment_target_for_unit(selected_unit, environment_state) \
 				and _is_environment_object_visible(environment_state.placement_id):
 				_add_highlight(attack_highlights_root, environment_state.cell, ATTACK_HIGHLIGHT_COLOR)
+	if can_show_skill_highlights and active_skill_inst != null and active_skill_inst.definition != null:
+		var valid_cells: Array[Vector3i] = active_skill_inst.definition.get_valid_target_cells(selected_unit.grid_cell, grid)
+		for cell in valid_cells:
+			_add_highlight(attack_highlights_root, cell, SKILL_HIGHLIGHT_COLOR)
 	_refresh_object_highlights()
 	_refresh_vision_overlay()
 	_refresh_unit_cover_icons()
@@ -2937,6 +3105,43 @@ func _refresh_action_bar() -> void:
 		or not selected_unit.can_spend_action_points(selected_unit.attack_ap_cost)
 	move_action_button.button_pressed = action_mode == ACTION_MODE_MOVE
 	attack_action_button.button_pressed = action_mode == ACTION_MODE_ATTACK
+	if is_instance_valid(move_action_button):
+		move_action_button.tooltip_text = "移动\n消耗：%d AP\n点击进入移动模式，左键选择蓝色高亮地格行走。" % MOVE_ACTION_COST
+	if is_instance_valid(attack_action_button):
+		var atk_cost := selected_unit.attack_ap_cost if has_player_selection else 1
+		var atk_dmg := selected_unit.attack_damage if has_player_selection else 0
+		var atk_range := selected_unit.attack_range if has_player_selection else 0
+		attack_action_button.tooltip_text = "攻击\n消耗：%d AP | 伤害：%d | 射程：%d\n点击进入攻击模式，左键选择红色高亮目标射击。" % [atk_cost, atk_dmg, atk_range]
+	if is_instance_valid(skill_0_action_button):
+		_refresh_single_skill_button(skill_0_action_button, 0, has_player_selection, can_show_actions)
+	if is_instance_valid(skill_1_action_button):
+		_refresh_single_skill_button(skill_1_action_button, 1, has_player_selection, can_show_actions)
+
+
+func _refresh_single_skill_button(btn: Button, slot_index: int, has_player_selection: bool, can_show_actions: bool) -> void:
+	if not has_player_selection or selected_unit == null or selected_unit.runtime_state == null:
+		btn.visible = false
+		btn.button_pressed = false
+		btn.tooltip_text = ""
+		return
+	var skill_inst = selected_unit.runtime_state.get_skill(slot_index)
+	if skill_inst == null or skill_inst.definition == null:
+		btn.visible = false
+		btn.button_pressed = false
+		btn.tooltip_text = ""
+		return
+	btn.visible = true
+	var skill_def = skill_inst.definition
+	var cd: int = skill_inst.current_cooldown
+	var is_ready: bool = skill_inst.is_ready()
+	var can_afford := selected_unit.can_spend_action_points(skill_def.ap_cost)
+	if cd > 0:
+		btn.text = "%s (CD:%d)" % [skill_def.display_name, cd]
+	else:
+		btn.text = "%s (%dAP)" % [skill_def.display_name, skill_def.ap_cost]
+	btn.disabled = not can_show_actions or not is_ready or not can_afford
+	btn.button_pressed = (action_mode == ACTION_MODE_SKILL and _active_skill_slot == slot_index)
+	btn.tooltip_text = skill_inst.get_tooltip_text() if skill_inst.has_method("get_tooltip_text") else skill_def.get_summary()
 
 
 func _init_hover_cursor() -> void:
@@ -2991,6 +3196,29 @@ func _update_cursor_highlights(center_cell: Vector3i) -> void:
 	_hide_cursor_highlights()
 	if not is_instance_valid(grid) or not is_instance_valid(_cursor_indicators_root):
 		return
+
+	if action_mode == ACTION_MODE_SKILL and is_instance_valid(selected_unit) and selected_unit.runtime_state != null and _active_skill_slot >= 0:
+		var skill_inst = selected_unit.runtime_state.get_skill(_active_skill_slot)
+		if skill_inst != null and skill_inst.definition != null and skill_inst.definition.aoe_radius > 0:
+			var valid_cells: Array[Vector3i] = skill_inst.definition.get_valid_target_cells(selected_unit.grid_cell, grid)
+			if valid_cells.has(center_cell):
+				var aoe_mat := _get_cached_highlight_material(Color(1.0, 0.35, 0.15, 0.55))
+				var radius: int = skill_inst.definition.aoe_radius
+				var mesh_idx := 0
+				for dx in range(-radius, radius + 1):
+					for dz in range(-radius, radius + 1):
+						var aoe_cell := Vector3i(center_cell.x + dx, center_cell.y, center_cell.z + dz)
+						if grid.has_cell(aoe_cell):
+							var h := _get_or_create_cursor_mesh(mesh_idx)
+							mesh_idx += 1
+							h.material_override = aoe_mat
+							var pos := grid.cell_to_world(aoe_cell) + Vector3.UP * CURSOR_SURFACE_OFFSET
+							if is_inside_tree():
+								h.global_position = pos
+							else:
+								h.position = pos
+							h.visible = true
+				return
 
 	var material := _get_cached_highlight_material(CURSOR_HIGHLIGHT_COLOR)
 	var highlight := _get_or_create_cursor_mesh(0)
@@ -3420,6 +3648,8 @@ func _reset_faction_ap(faction: StringName) -> void:
 		var unit := unit_value as PrototypeUnit
 		if unit.faction == faction and unit.is_alive():
 			unit.reset_action_points()
+			if unit.runtime_state != null and unit.runtime_state.has_method("on_round_turn_started"):
+				unit.runtime_state.on_round_turn_started()
 
 
 func _find_player_at(cell: Vector3i) -> PrototypeUnit:

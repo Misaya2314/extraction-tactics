@@ -7,6 +7,7 @@ const ACTION_MOVE: StringName = &"move"
 const ACTION_ATTACK: StringName = &"attack"
 const ACTION_INTERACT: StringName = &"interact"
 const ACTION_LOOT: StringName = &"loot"
+const ACTION_SKILL: StringName = &"skill"
 
 const REASON_INVALID_COST: StringName = &"invalid_cost"
 const REASON_INVALID_TARGET: StringName = &"invalid_target"
@@ -92,6 +93,35 @@ static func validate_loot(actor_id: StringName, container_id: StringName, curren
 
 static func validate_loot_action(actor_id: StringName, container_id: StringName, current_ap: int, ap_cost: int, actor_cell: Vector3i, container_cell: Vector3i, interaction_range: int, container_valid: bool = true, container_available: bool = true, inventory_can_receive: bool = true) -> ActionResult:
 	return validate_loot(actor_id, container_id, current_ap, ap_cost, actor_cell, container_cell, interaction_range, container_valid, container_available, inventory_can_receive)
+
+
+static func validate_skill(
+		actor_id: StringName,
+		current_ap: int,
+		ap_cost: int,
+		skill_equipped: bool,
+		skill_ready: bool,
+		target_in_range: bool,
+		target_has_los: bool = true,
+		target_alive: bool = true
+) -> ActionResult:
+	if ap_cost < 0:
+		return ActionResultScript.rejected(REASON_INVALID_COST, actor_id, &"", ACTION_SKILL)
+	if actor_id == &"":
+		return ActionResultScript.rejected(REASON_INVALID_TARGET, actor_id, &"", ACTION_SKILL)
+	if not skill_equipped:
+		return ActionResultScript.rejected(&"skill_not_equipped", actor_id, &"", ACTION_SKILL)
+	if not skill_ready:
+		return ActionResultScript.rejected(&"skill_not_ready", actor_id, &"", ACTION_SKILL)
+	if current_ap < ap_cost:
+		return ActionResultScript.rejected(REASON_NO_AP, actor_id, &"", ACTION_SKILL)
+	if not target_in_range:
+		return ActionResultScript.rejected(REASON_OUT_OF_RANGE, actor_id, &"", ACTION_SKILL)
+	if not target_has_los:
+		return ActionResultScript.rejected(&"no_los", actor_id, &"", ACTION_SKILL)
+	if not target_alive:
+		return ActionResultScript.rejected(&"target_dead", actor_id, &"", ACTION_SKILL)
+	return ActionResultScript.accepted(actor_id, &"", ap_cost, ACTION_SKILL)
 
 
 static func _manhattan_distance(from_cell: Vector3i, to_cell: Vector3i) -> int:

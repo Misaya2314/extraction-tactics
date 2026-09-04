@@ -17,6 +17,11 @@ const ACTION_MOVE: StringName = &"move"
 const ACTION_ATTACK: StringName = &"attack"
 const ACTION_INTERACT: StringName = &"interact"
 const ACTION_LOOT: StringName = &"loot"
+const ACTION_SKILL: StringName = &"skill"
+
+const KEY_SKILL_EQUIPPED: StringName = &"skill_equipped"
+const KEY_SKILL_READY: StringName = &"skill_ready"
+const KEY_TARGET_IN_RANGE: StringName = &"target_in_range"
 
 const REASON_INVALID_REQUEST: StringName = &"invalid_request"
 const REASON_INVALID_CONTEXT: StringName = &"invalid_context"
@@ -148,6 +153,22 @@ func _validate(request: Variant, context: Variant) -> ActionResult:
 				_payload_bool(payload, KEY_CONTAINER_AVAILABLE, true),
 				_payload_bool(payload, KEY_INVENTORY_CAN_RECEIVE, true)
 			)
+		ACTION_SKILL:
+			var skill_equipped := _payload_bool(payload, KEY_SKILL_EQUIPPED, true)
+			var skill_ready := _payload_bool(payload, KEY_SKILL_READY, true)
+			var target_in_range := _payload_bool(payload, KEY_TARGET_IN_RANGE, true)
+			var has_los := _payload_bool(payload, KEY_HAS_LOS, true)
+			var target_alive := _payload_bool(payload, KEY_TARGET_ALIVE, true)
+			return ActionValidatorScript.validate_skill(
+				request.actor_id,
+				context.current_ap,
+				request.ap_cost,
+				skill_equipped,
+				skill_ready,
+				target_in_range,
+				has_los,
+				target_alive
+			)
 	return ActionResultScript.rejected(REASON_UNKNOWN_ACTION)
 
 
@@ -231,7 +252,7 @@ func _copy_result(source: ActionResult) -> ActionResult:
 
 
 func _is_known_action(action_type: StringName) -> bool:
-	return action_type == ACTION_MOVE or action_type == ACTION_ATTACK or action_type == ACTION_INTERACT or action_type == ACTION_LOOT
+	return action_type == ACTION_MOVE or action_type == ACTION_ATTACK or action_type == ACTION_INTERACT or action_type == ACTION_LOOT or action_type == ACTION_SKILL
 
 
 func _path_length(payload: Dictionary) -> int:

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SprintSkillDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/skills/sprint_skill_definition.gd" id="1_sprint_script"]
+
+[resource]
+script = ExtResource("1_sprint_script")
+skill_id = &"tactical_sprint"
+display_name = "战术冲刺"
+description = "激发机动潜能，立即为自身提供 +3 格临时移动力（本回合内生效）。"
+ap_cost = 1
+cooldown_turns = 2
+max_charges = 0
+target_type = 0
+cast_range = 0
+aoe_radius = 0
+require_los = false
+bonus_movement = 3

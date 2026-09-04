@@ -12,6 +12,7 @@ const TYPE_UNIT_ARCHETYPE: StringName = &"unit_archetype"
 const TYPE_MAP: StringName = &"map"
 const TYPE_PLACEABLE: StringName = &"placeable"
 const TYPE_COVER: StringName = &"cover"
+const TYPE_SKILL: StringName = &"skill"
 const DIAG_MISSING_DEFINITION_REFERENCE: StringName = &"missing_definition_reference"
 const DefinitionKeyScript = preload("res://scripts/core/content/definition_key.gd")
 
@@ -223,6 +224,8 @@ func _extract_definition_id(definition_type: StringName, definition: Resource) -
 			property_name = "placeable_id"
 		TYPE_COVER:
 			property_name = "cover_id"
+		TYPE_SKILL:
+			property_name = "skill_id"
 		_:
 			return &""
 	var raw_value = definition.get(property_name)

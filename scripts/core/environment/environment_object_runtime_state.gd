@@ -85,6 +85,10 @@ func can_receive_damage() -> bool:
 	return active and not destroyed and is_damageable()
 
 
+func is_alive() -> bool:
+	return active and not destroyed
+
+
 func get_max_hp() -> int:
 	return definition.max_hp if definition != null else 0
 

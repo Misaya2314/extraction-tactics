@@ -12,6 +12,7 @@ extends Resource
 @export_range(0, 99, 1) var inner_vision_range: int = 4
 @export_range(0, 99, 1) var vision_range: int = 7
 @export var default_weapon: WeaponDefinition
+@export var default_skills: Array[SkillDefinition] = []
 
 var outer_vision_range: int:
 	get:

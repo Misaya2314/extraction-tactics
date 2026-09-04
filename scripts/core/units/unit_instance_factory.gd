@@ -10,6 +10,7 @@ extends RefCounted
 const RuntimeOperationResultScript = preload("res://scripts/core/runtime/runtime_operation_result.gd")
 const UnitRuntimeStateScript = preload("res://scripts/core/units/unit_runtime_state.gd")
 const WeaponInstanceScript = preload("res://scripts/core/combat/weapon_instance.gd")
+const SkillInstanceScript = preload("res://scripts/core/skills/skill_instance.gd")
 const MapSpawnDataScript = preload("res://scripts/core/map/map_spawn_data.gd")
 
 var definition_registry: Variant
@@ -169,6 +170,20 @@ func _create_from_spawn_result(
 		runtime_instance_registry.unregister(weapon_instance.instance_id)
 		_restore_generator_state(generator_state)
 		return _failed(&"unit_register_failed", "UnitRuntimeState registration failed; transaction rolled back.", unit_instance_id)
+
+	if resolved_archetype != null and resolved_archetype.get("default_skills") is Array:
+		var slot_index := 0
+		for skill_def in resolved_archetype.default_skills:
+			if slot_index >= UnitRuntimeStateScript.MAX_SKILL_SLOTS:
+				break
+			if skill_def != null and skill_def.is_valid():
+				var skill_inst_id: StringName = instance_id_generator.id_for_placement(
+					&"skill", map_id, StringName("%s_slot_%d" % [spawn_identity, slot_index])
+				)
+				var skill_inst = SkillInstanceScript.new(skill_inst_id, skill_def)
+				runtime_instance_registry.register(skill_inst)
+				unit_state.equip_skill(slot_index, skill_inst)
+				slot_index += 1
 
 	return RuntimeOperationResultScript.succeeded(unit_state, "Unit runtime pair created.", unit_state.instance_id)
 

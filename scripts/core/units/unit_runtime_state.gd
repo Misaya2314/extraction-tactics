@@ -23,6 +23,10 @@ signal cell_changed(previous: Vector3i, current: Vector3i)
 signal weapon_changed(previous: WeaponInstance, current: WeaponInstance)
 signal alive_changed(alive: bool)
 signal died
+signal skill_slot_changed(slot_index: int, previous: Variant, current: Variant)
+signal skill_cooldown_changed(slot_index: int, cooldown: int)
+
+const MAX_SKILL_SLOTS: int = 2
 
 var archetype: UnitArchetype
 var faction: StringName = &""
@@ -33,9 +37,11 @@ var inventory_id: StringName = &""
 var alive: bool = false
 var state_version: int = CURRENT_STATE_VERSION
 var last_operation_reason: StringName = &""
+var temporary_bonus_move: int = 0
 
 var _weapon_instance: WeaponInstance
 var _weapon_instance_id: StringName = &""
+var _skill_slots: Array = [null, null]
 var _ownership_token: int = 0
 
 
@@ -154,7 +160,8 @@ var max_action_points: int:
 
 var move_range: int:
 	get:
-		return archetype.move_range if archetype != null else 0
+		var base := archetype.move_range if archetype != null else 0
+		return base + temporary_bonus_move
 
 
 var inner_vision_range: int:
@@ -386,6 +393,56 @@ func set_inventory_id(new_inventory_id: Variant) -> bool:
 	return _accept(&"inventory_set")
 
 
+func get_skill(slot_index: int) -> Variant:
+	if slot_index < 0 or slot_index >= MAX_SKILL_SLOTS:
+		return null
+	return _skill_slots[slot_index]
+
+
+func get_equipped_skills() -> Array:
+	var result: Array = []
+	for skill in _skill_slots:
+		if skill != null:
+			result.append(skill)
+	return result
+
+
+func equip_skill(slot_index: int, new_skill: Variant) -> bool:
+	if slot_index < 0 or slot_index >= MAX_SKILL_SLOTS:
+		return _reject(&"invalid_slot_index")
+	var previous: Variant = _skill_slots[slot_index]
+	if previous == new_skill:
+		last_operation_reason = &"no_change"
+		return false
+	_skill_slots[slot_index] = new_skill
+	skill_slot_changed.emit(slot_index, previous, new_skill)
+	return _accept(&"skill_equipped")
+
+
+func unequip_skill(slot_index: int) -> Variant:
+	if slot_index < 0 or slot_index >= MAX_SKILL_SLOTS:
+		return null
+	var previous: Variant = _skill_slots[slot_index]
+	if previous == null:
+		last_operation_reason = &"no_change"
+		return null
+	_skill_slots[slot_index] = null
+	skill_slot_changed.emit(slot_index, previous, null)
+	_accept(&"skill_unequipped")
+	return previous
+
+
+func on_round_turn_started() -> void:
+	temporary_bonus_move = 0
+	for i in range(MAX_SKILL_SLOTS):
+		var skill: Variant = _skill_slots[i]
+		if skill != null and skill.has_method("on_turn_started"):
+			skill.on_turn_started()
+			var cd: int = skill.current_cooldown if "current_cooldown" in skill else 0
+			skill_cooldown_changed.emit(i, cd)
+
+
+
 func to_snapshot() -> Dictionary:
 	## Match RuntimeInstance's generic dictionary snapshot API. The typed DTO
 	## helper remains available for state hydration and domain callers.
@@ -406,6 +463,13 @@ func to_snapshot_resource() -> UnitStateSnapshot:
 	snapshot.inventory_id = inventory_id
 	snapshot.alive = alive
 	snapshot.state_version = state_version
+	var slots_data: Array = []
+	for s in _skill_slots:
+		if s != null and s.has_method("to_snapshot_dict"):
+			slots_data.append(s.to_snapshot_dict())
+		else:
+			slots_data.append(null)
+	snapshot.skill_slots_data = slots_data
 	return snapshot
 
 
@@ -453,6 +517,16 @@ func hydrate_from_snapshot(
 	_weapon_instance = resolved_weapon_instance
 	_weapon_instance_id = typed_snapshot.weapon_instance_id
 	state_version = typed_snapshot.state_version
+	if typed_snapshot.skill_slots_data is Array:
+		var snap_slots: Array = typed_snapshot.skill_slots_data
+		for i in range(mini(snap_slots.size(), MAX_SKILL_SLOTS)):
+			var slot_data = snap_slots[i]
+			var current_skill = _skill_slots[i]
+			if slot_data is Dictionary and current_skill != null:
+				if "current_cooldown" in current_skill:
+					current_skill.current_cooldown = int(slot_data.get(&"current_cooldown", 0))
+				if "current_charges" in current_skill:
+					current_skill.current_charges = int(slot_data.get(&"current_charges", 0))
 	last_operation_reason = &"hydrated"
 	return true
 

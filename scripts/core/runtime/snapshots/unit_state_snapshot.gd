@@ -19,6 +19,7 @@ var weapon_instance_id: StringName = &""
 var inventory_id: StringName = &""
 var alive: bool = false
 var state_version: int = CURRENT_STATE_VERSION
+var skill_slots_data: Array = []
 
 
 func _init(
@@ -96,6 +97,7 @@ func to_dictionary() -> Dictionary:
 		&"inventory_id": String(inventory_id),
 		&"alive": alive,
 		&"state_version": state_version,
+		&"skill_slots_data": skill_slots_data.duplicate(true),
 	}
 
 
@@ -151,7 +153,12 @@ static func from_dictionary(data: Dictionary) -> UnitStateSnapshot:
 		bool(raw_alive),
 		int(raw_state_version),
 	)
-	return snapshot if snapshot.is_valid() else null
+	if not snapshot.is_valid():
+		return null
+	var raw_skill_slots: Variant = data.get(&"skill_slots_data", [])
+	if raw_skill_slots is Array:
+		snapshot.skill_slots_data = (raw_skill_slots as Array).duplicate(true)
+	return snapshot
 
 
 static func from_dict(data: Dictionary) -> UnitStateSnapshot:
@@ -159,7 +166,7 @@ static func from_dict(data: Dictionary) -> UnitStateSnapshot:
 
 
 func duplicate_snapshot() -> UnitStateSnapshot:
-	return UnitStateSnapshot.new(
+	var copy := UnitStateSnapshot.new(
 		instance_id,
 		archetype_id,
 		faction,
@@ -171,6 +178,8 @@ func duplicate_snapshot() -> UnitStateSnapshot:
 		alive,
 		state_version,
 	)
+	copy.skill_slots_data = skill_slots_data.duplicate(true)
+	return copy
 
 
 static func is_valid_cell(candidate: Variant) -> bool:

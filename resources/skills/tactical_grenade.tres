@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="GrenadeSkillDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/skills/grenade_skill_definition.gd" id="1_grenade_script"]
+
+[resource]
+script = ExtResource("1_grenade_script")
+skill_id = &"tactical_grenade"
+display_name = "破片手雷"
+description = "投掷一枚战术破片手雷，对目标区域3x3范围内的所有单位和环境物体造成4点范围伤害。"
+ap_cost = 1
+cooldown_turns = 2
+max_charges = 0
+target_type = 1
+cast_range = 5
+aoe_radius = 1
+require_los = false
+damage = 4

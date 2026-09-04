@@ -14,6 +14,7 @@ const CURRENT_SCHEMA_VERSION := 1
 @export var map_definitions: Array[TacticalMapDefinition] = []
 @export var placeable_definitions: Array[TacticalPlaceableDefinition] = []
 @export var cover_profiles: Array[TacticalCoverProfile] = []
+@export var skill_definitions: Array[SkillDefinition] = []
 @export var aliases: Array[Resource] = []
 
 
@@ -25,6 +26,7 @@ func get_definition_groups() -> Array[Dictionary]:
 		{&"definition_type": &"map", &"definitions": map_definitions},
 		{&"definition_type": &"placeable", &"definitions": placeable_definitions},
 		{&"definition_type": &"cover", &"definitions": cover_profiles},
+		{&"definition_type": &"skill", &"definitions": skill_definitions},
 	]
 
 

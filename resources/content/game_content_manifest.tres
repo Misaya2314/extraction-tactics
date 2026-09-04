@@ -33,6 +33,9 @@
 [ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_none.tres" id="31_cover_none"]
 [ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_half.tres" id="32_cover_half"]
 [ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_full.tres" id="33_cover_full"]
+[ext_resource type="Script" path="res://scripts/core/skills/skill_definition.gd" id="34_skill_script"]
+[ext_resource type="Resource" path="res://resources/skills/tactical_grenade.tres" id="35_grenade"]
+[ext_resource type="Resource" path="res://resources/skills/tactical_sprint.tres" id="36_sprint"]
 
 [resource]
 script = ExtResource("1_manifest")
@@ -42,3 +45,4 @@ unit_archetypes = Array[ExtResource("11_unit_script")]([ExtResource("12_assault"
 map_definitions = Array[ExtResource("17_map_script")]([ExtResource("18_medium"), ExtResource("19_new_map"), ExtResource("20_prototype"), ExtResource("21_test_map")])
 placeable_definitions = Array[ExtResource("22_placeable_script")]([ExtResource("23_floor"), ExtResource("24_floor_alt"), ExtResource("25_wall"), ExtResource("26_low_cover"), ExtResource("27_loot_crate"), ExtResource("28_extraction"), ExtResource("29_barrel")])
 cover_profiles = Array[ExtResource("30_cover_script")]([ExtResource("31_cover_none"), ExtResource("32_cover_half"), ExtResource("33_cover_full")])
+skill_definitions = Array[ExtResource("34_skill_script")]([ExtResource("35_grenade"), ExtResource("36_sprint")])
