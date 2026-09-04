@@ -72,6 +72,7 @@ var edit_mode: bool = false
 var placeables: Array = []
 var selected_placeable: Dictionary = {}
 var selected_cells: Array[Vector3i] = []
+var _selected_spawn_marker: UnitSpawnMarker3D = null
 var _selection_clipboard: Dictionary = {}
 var debug_view: int = DebugView.NORMAL
 var debug_focus_cell: Vector3i = Vector3i(-1, -1, -1)
@@ -192,6 +193,14 @@ func set_target_layer(value: int) -> void:
 		return
 	cancel_stroke()
 	target_layer = next_layer
+	# The spawn configuration panel is a Spawner-layer surface: leaving the
+	# layer unbinds any selected marker, returning re-binds from the current
+	# selection.
+	if next_layer == TargetLayer.SPAWNER:
+		_sync_selected_spawn_marker()
+	elif is_instance_valid(_selected_spawn_marker):
+		_selected_spawn_marker = null
+		_emit_changed()
 	_set_status("目标层：%s。" % target_layer_name(target_layer), true)
 	_emit_changed()
 
@@ -226,6 +235,8 @@ func select_placeable(index: int) -> void:
 	var entry_layer: int = int(selected_placeable.get("layer", TargetLayer.FLOOR))
 	if _is_target_layer(entry_layer):
 		target_layer = entry_layer
+		if entry_layer == TargetLayer.SPAWNER:
+			_sync_selected_spawn_marker()
 	rotation_quarters = 0
 	_set_status("已选择：%s。目标层：%s。" % [selected_placeable.get("label", "素材"), target_layer_name(target_layer)], true)
 	_emit_changed()
@@ -256,9 +267,26 @@ func reload_placeables(preserve_selection: bool = true) -> void:
 	_emit_changed()
 
 
-## Configure the template used by the selected player/enemy spawn entry.
-## Values are copied into the new marker; this does not mutate definitions.
-func set_selected_spawn_configuration(configuration: Dictionary) -> bool:
+## Configure the template used by the selected player/enemy spawn entry, or —
+## when a spawn marker is bound — that marker itself.  Values are copied into
+## the new marker / live marker; this does not mutate definitions.  Marker
+## edits commit an Undo action when `undo_redo` is supplied.
+func set_selected_spawn_configuration(configuration: Dictionary, undo_redo: Object = null) -> bool:
+	if has_selected_spawn_marker():
+		var marker := _selected_spawn_marker
+		var before := _capture_spawn_marker_configuration(marker)
+		var after := before.duplicate(true)
+		for key in [&"faction", &"archetype", &"weapon", &"encounter_id", &"patrol_route_id", &"visual_color"]:
+			if configuration.has(key):
+				after[key] = configuration[key]
+		if _spawn_marker_configuration_equal(before, after):
+			_set_status("出生点标记配置没有变化。", true)
+			return false
+		_apply_spawn_marker_configuration(marker, after)
+		_commit_spawn_marker_configuration(marker, before, after, "编辑出生点标记", undo_redo)
+		_set_status("已更新出生点标记 %s 的配置。" % marker.name, true)
+		_emit_changed()
+		return true
 	if String(selected_placeable.get("kind", "")) != "spawn":
 		_set_status("当前素材不是出生点。", false)
 		return false
@@ -270,10 +298,24 @@ func set_selected_spawn_configuration(configuration: Dictionary) -> bool:
 	return true
 
 
-## Return the configuration currently attached to the selected spawn template.
+## Return the configuration currently attached to the selected spawn template,
+## or the bound spawn marker's live configuration.
 ## The returned dictionary is a copy so a Dock/editor form cannot mutate the
 ## palette entry without going through set_selected_spawn_configuration().
 func get_selected_spawn_configuration() -> Dictionary:
+	if has_selected_spawn_marker():
+		var marker := _selected_spawn_marker
+		return {
+			&"id": String(marker.name),
+			&"label": "出生点标记 %s（%s）" % [marker.name, String(marker.unit_name if marker.unit_name != &"" else marker.name)],
+			&"unit_name": marker.unit_name,
+			&"archetype": marker.archetype,
+			&"weapon": marker.weapon,
+			&"encounter_id": marker.encounter_id,
+			&"patrol_route_id": marker.patrol_route_id,
+			&"faction": String(marker.faction),
+			&"visual_color": marker.visual_color,
+		}
 	if String(selected_placeable.get("kind", "")) != "spawn":
 		return {}
 	return {
@@ -285,6 +327,63 @@ func get_selected_spawn_configuration() -> Dictionary:
 		&"visual_color": selected_placeable.get("visual_color", Color.WHITE),
 		&"unit_name_prefix": String(selected_placeable.get("unit_name_prefix", "EnemySpawn")),
 	}
+
+
+func _capture_spawn_marker_configuration(marker: UnitSpawnMarker3D) -> Dictionary:
+	return {
+		&"faction": marker.faction,
+		&"archetype": marker.archetype,
+		&"weapon": marker.weapon,
+		&"encounter_id": marker.encounter_id,
+		&"patrol_route_id": marker.patrol_route_id,
+		&"visual_color": marker.visual_color,
+	}
+
+
+func _apply_spawn_marker_configuration(marker: UnitSpawnMarker3D, configuration: Dictionary) -> void:
+	if marker == null:
+		return
+	if configuration.has(&"faction"):
+		marker.faction = String(configuration[&"faction"])
+	if configuration.has(&"archetype"):
+		marker.archetype = configuration[&"archetype"] as UnitArchetype
+	if configuration.has(&"weapon"):
+		marker.weapon = configuration[&"weapon"] as WeaponDefinition
+	if configuration.has(&"encounter_id"):
+		marker.encounter_id = StringName(configuration[&"encounter_id"])
+	if configuration.has(&"patrol_route_id"):
+		marker.patrol_route_id = StringName(configuration[&"patrol_route_id"])
+	if configuration.has(&"visual_color") and configuration[&"visual_color"] is Color:
+		marker.visual_color = configuration[&"visual_color"]
+
+
+func _spawn_marker_configuration_equal(a: Dictionary, b: Dictionary) -> bool:
+	return (
+		String(a.get(&"faction", "")) == String(b.get(&"faction", ""))
+		and _resources_equivalent(a.get(&"archetype", null), b.get(&"archetype", null))
+		and _resources_equivalent(a.get(&"weapon", null), b.get(&"weapon", null))
+		and StringName(a.get(&"encounter_id", &"")) == StringName(b.get(&"encounter_id", &""))
+		and StringName(a.get(&"patrol_route_id", &"")) == StringName(b.get(&"patrol_route_id", &""))
+		and (a.get(&"visual_color", Color.WHITE) as Color).is_equal_approx(b.get(&"visual_color", Color.WHITE) as Color)
+	)
+
+
+func _commit_spawn_marker_configuration(marker: UnitSpawnMarker3D, before: Dictionary, after: Dictionary, label: String, undo_redo: Object) -> void:
+	if undo_redo == null:
+		return
+	var action_context: Object = edited_scene_root if edited_scene_root != null else author
+	if undo_redo is EditorUndoRedoManager:
+		var manager := undo_redo as EditorUndoRedoManager
+		manager.create_action(label, UndoRedo.MERGE_DISABLE, action_context)
+		manager.add_do_method(self, &"_apply_spawn_marker_configuration", marker, after)
+		manager.add_undo_method(self, &"_apply_spawn_marker_configuration", marker, before)
+		manager.commit_action(false)
+	elif undo_redo is UndoRedo:
+		var generic_undo_redo := undo_redo as UndoRedo
+		generic_undo_redo.create_action(label)
+		generic_undo_redo.add_do_method(Callable(self, &"_apply_spawn_marker_configuration").bind(marker, after))
+		generic_undo_redo.add_undo_method(Callable(self, &"_apply_spawn_marker_configuration").bind(marker, before))
+		generic_undo_redo.commit_action(false)
 
 
 ## Stable state contract for the Dock's special placement controls.
@@ -378,6 +477,56 @@ func get_placeables(query: String = "", layer_filter: int = -1) -> Array:
 
 func get_selected_placeable() -> Dictionary:
 	return selected_placeable.duplicate(true)
+
+
+## True while a specific spawn marker (not the paint template) is bound to the
+## Dock's spawn configuration panel.  Binding follows cell selection: clicking
+## a cell that contains a spawn marker selects that marker for editing.
+func has_selected_spawn_marker() -> bool:
+	return is_instance_valid(_selected_spawn_marker)
+
+
+func get_selected_spawn_marker() -> UnitSpawnMarker3D:
+	return _selected_spawn_marker if is_instance_valid(_selected_spawn_marker) else null
+
+
+## Binds the spawn marker at `cell` (first marker wins) to the configuration
+## panel.  Passing a cell without a marker clears the binding.
+func select_spawn_marker_at(cell: Vector3i) -> bool:
+	var markers := _spawn_markers_at(cell)
+	var marker: UnitSpawnMarker3D = markers[0] as UnitSpawnMarker3D if not markers.is_empty() else null
+	if marker == _selected_spawn_marker:
+		return is_instance_valid(marker)
+	_selected_spawn_marker = marker
+	if is_instance_valid(marker):
+		_set_status("已选中出生点标记 %s（格子 %s），可在面板编辑其配置。" % [marker.name, cell], true)
+	else:
+		_set_status("该格子没有出生点标记，面板回到模板编辑。", true)
+	_emit_changed()
+	return is_instance_valid(marker)
+
+
+## Keeps the marker binding in sync with the current cell selection and target
+## layer: the spawn configuration panel is a Spawner-layer editing surface, so
+## a marker only binds while `target_layer == SPAWNER` and exactly one cell is
+## selected; anything else unbinds.
+func _sync_selected_spawn_marker() -> void:
+	if target_layer != TargetLayer.SPAWNER:
+		if is_instance_valid(_selected_spawn_marker):
+			_selected_spawn_marker = null
+			_emit_changed()
+		return
+	if selected_cells.size() != 1:
+		if is_instance_valid(_selected_spawn_marker):
+			_selected_spawn_marker = null
+			_emit_changed()
+		return
+	var markers := _spawn_markers_at(selected_cells[0])
+	var marker: UnitSpawnMarker3D = markers[0] as UnitSpawnMarker3D if not markers.is_empty() else null
+	if marker == _selected_spawn_marker:
+		return
+	_selected_spawn_marker = marker
+	_emit_changed()
 
 
 func get_default_property_context() -> Dictionary:
@@ -988,8 +1137,10 @@ func select_cell(cell: Vector3i, additive: bool = false, toggle: bool = false) -
 		next_selection.append(cell)
 	_sort_cells(next_selection)
 	if next_selection == selected_cells:
+		_sync_selected_spawn_marker()
 		return false
 	selected_cells = next_selection
+	_sync_selected_spawn_marker()
 	_set_status("已选择 %d 格。" % selected_cells.size(), true)
 	_emit_changed()
 	return true
@@ -1028,8 +1179,10 @@ func select_cells_in_rect(from_cell: Vector3i, to_cell: Vector3i, additive: bool
 		next_selection = rectangle
 	_sort_cells(next_selection)
 	if next_selection == selected_cells:
+		_sync_selected_spawn_marker()
 		return false
 	selected_cells = next_selection
+	_sync_selected_spawn_marker()
 	_set_status("已选择 %d 格。" % selected_cells.size(), true)
 	_emit_changed()
 	return true
@@ -1958,6 +2111,9 @@ func _erase_spawn_at(cell: Vector3i) -> bool:
 				spawn_node.get_parent().remove_child(spawn_node)
 			spawn_node.free()
 			removed = true
+	if removed and _selected_spawn_marker != null and not is_instance_valid(_selected_spawn_marker):
+		_selected_spawn_marker = null
+		_emit_changed()
 	return removed
 
 
@@ -1987,9 +2143,10 @@ func _erase_patrol_at(cell: Vector3i) -> bool:
 			continue
 		var route := node as PatrolRoute3D
 		if route.points.has(cell):
+			var erased_route_id := route.route_id
 			route.get_parent().remove_child(route)
 			route.free()
-			if route.route_id == _active_patrol_route_id:
+			if erased_route_id == _active_patrol_route_id:
 				_active_patrol_route_id = &""
 			removed = true
 	return removed
@@ -2284,6 +2441,10 @@ func _create_patrol_route(record: Dictionary, routes_root: Node) -> PatrolRoute3
 		if point is Vector3i:
 			points.append(point)
 	route.points = points
+	var dwell_ticks: Array[int] = []
+	for raw_dwell in record.get(&"dwell_ticks", []):
+		dwell_ticks.append(maxi(int(raw_dwell), 0))
+	route.dwell_ticks = dwell_ticks
 	routes_root.add_child(route)
 	route.owner = edited_scene_root if edited_scene_root != null else author
 	return route
@@ -2352,6 +2513,7 @@ func _capture_patrol_records() -> Array:
 			&"name": route.name,
 			&"route_id": route.route_id,
 			&"points": route.points.duplicate(),
+			&"dwell_ticks": route.dwell_ticks.duplicate(),
 			&"loop": route.loop,
 		})
 	records.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
@@ -3295,6 +3457,7 @@ func _snapshot_equal(a: Dictionary, b: Dictionary) -> bool:
 
 func _clear_selection_internal() -> void:
 	selected_cells.clear()
+	_selected_spawn_marker = null
 
 
 func _sort_cells(cells: Array[Vector3i]) -> void:

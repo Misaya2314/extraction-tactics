@@ -31,6 +31,8 @@ func _init() -> void:
 	_test_default_property_service_undo_and_null_restore()
 	_test_special_spawn_configuration_and_state()
 	_test_special_undo_redo_roundtrips()
+	_test_spawn_marker_binding_and_edit()
+	_test_patrol_erase_freed_route_access()
 	_finish()
 
 
@@ -996,6 +998,112 @@ func _test_special_spawn_configuration_and_state() -> void:
 	_expect(traversal_state.get("kind", "") == "traversal" and traversal_state.get("pending", false) and traversal_state.get("can_finish", false), "special: pending traversal state must be exposed to the UI")
 	_expect(session.finish_special_edit(), "special: finish_special_edit must cancel a pending traversal")
 	_expect(not session.get_special_edit_state().get("can_finish", false), "special: canceled traversal must no longer be finishable")
+	author.free()
+
+
+func _test_spawn_marker_binding_and_edit() -> void:
+	var author := _make_author()
+	var session = SessionScript.new()
+	session.begin_for_author(author, author)
+	var enemy_index := _find_placeable(session.get_placeables(), "marker:enemy_spawn")
+	if enemy_index < 0:
+		_expect(false, "marker binding: enemy spawn placeable must be available")
+		author.free()
+		return
+	session.select_placeable(enemy_index)
+	session.begin_stroke("spawn marker")
+	_expect(session.apply_at(Vector3i(0, 0, 0)), "marker binding: spawn should paint at (0,0,0)")
+	var paint_undo := UndoRedo.new()
+	_expect(session.finish_stroke(paint_undo), "marker binding: spawn stroke should commit")
+	var spawns := author.get_node_or_null("Spawns") as Node3D
+	var marker: UnitSpawnMarker3D = spawns.get_child(0) as UnitSpawnMarker3D if spawns != null else null
+	_expect(marker != null, "marker binding: painted marker should exist")
+	if marker == null:
+		author.free()
+		return
+
+	# Selecting the marker's cell binds it to the configuration panel.
+	_expect(session.select_cell(Vector3i(0, 0, 0)), "marker binding: selecting the marker cell should bind")
+	_expect(session.has_selected_spawn_marker() and session.get_selected_spawn_marker() == marker, "marker binding: session should bind the clicked marker")
+	var config: Dictionary = session.get_selected_spawn_configuration()
+	_expect(String(config.get("id", "")) == marker.name, "marker binding: configuration should carry the marker name")
+	_expect(config.get("archetype", null) == null and config.get("patrol_route_id", &"") == &"", "marker binding: configuration should reflect the fresh marker defaults")
+
+	# A multi-cell selection unbinds the marker.
+	_expect(session.select_cell(Vector3i(1, 0, 0), true), "marker binding: additive selection should change selection")
+	_expect(not session.has_selected_spawn_marker(), "marker binding: multi-cell selection should unbind the marker")
+
+	# The panel is a Spawner-layer surface: binding must not happen on other
+	# layers, and leaving the layer unbinds a bound marker.
+	session.set_target_layer(SessionScript.TargetLayer.FLOOR)
+	_expect(session.select_cell(Vector3i(0, 0, 0)), "marker binding: selecting the marker cell on Floor layer should change selection")
+	_expect(not session.has_selected_spawn_marker(), "marker binding: non-Spawner layer must not bind the marker")
+	session.set_target_layer(SessionScript.TargetLayer.SPAWNER)
+	_expect(session.has_selected_spawn_marker() and session.get_selected_spawn_marker() == marker, "marker binding: returning to Spawner should rebind from the single selection")
+	session.set_target_layer(SessionScript.TargetLayer.FLOOR)
+	_expect(not session.has_selected_spawn_marker(), "marker binding: leaving the Spawner layer should unbind the marker")
+	session.set_target_layer(SessionScript.TargetLayer.SPAWNER)
+	_expect(session.has_selected_spawn_marker() and session.get_selected_spawn_marker() == marker, "marker binding: Spawner layer should rebind the marker")
+
+	# The marker is already bound from the Spawner-layer reselect above; edit it
+	# in place, with Undo/Redo.
+	var archetype := UnitArchetype.new()
+	archetype.archetype_id = &"bound_assault"
+	var edit_undo := UndoRedo.new()
+	_expect(session.set_selected_spawn_configuration({
+		&"archetype": archetype,
+		&"encounter_id": &"encounter_bound",
+		&"patrol_route_id": &"route_bound",
+	}, edit_undo), "marker binding: marker edit should apply")
+	_expect(marker.archetype == archetype and marker.encounter_id == &"encounter_bound" and marker.patrol_route_id == &"route_bound", "marker binding: marker fields should update in place")
+	edit_undo.undo()
+	_expect(marker.archetype == null and marker.encounter_id == &"" and marker.patrol_route_id == &"", "marker binding: undo should restore the original marker fields")
+	edit_undo.redo()
+	_expect(marker.archetype == archetype and marker.patrol_route_id == &"route_bound", "marker binding: redo should reapply the edited fields")
+
+	# The template path stays intact while a marker is not bound.
+	session.clear_selection()
+	_expect(not session.has_selected_spawn_marker(), "marker binding: clearing selection should unbind the marker")
+	var template_config := {
+		&"encounter_id": &"encounter_template",
+		&"patrol_route_id": &"route_template",
+	}
+	_expect(session.set_selected_spawn_configuration(template_config), "marker binding: unbound apply should update the paint template")
+	var template_result: Dictionary = session.get_selected_spawn_configuration()
+	_expect(template_result.get("encounter_id", &"") == &"encounter_template" and template_result.get("patrol_route_id", &"") == &"route_template", "marker binding: template configuration should update separately")
+
+	paint_undo.free()
+	edit_undo.free()
+	author.free()
+
+
+func _test_patrol_erase_freed_route_access() -> void:
+	var author := _make_author()
+	var session = SessionScript.new()
+	session.begin_for_author(author, author)
+	var patrol_index := _find_placeable(session.get_placeables(), "marker:patrol_route")
+	if patrol_index < 0:
+		_expect(false, "patrol erase: builtin patrol placeable must be available")
+		author.free()
+		return
+	session.select_placeable(patrol_index)
+	session.begin_stroke("patrol erase")
+	_expect(session.apply_at(Vector3i(0, 0, 0)) and session.apply_at(Vector3i(1, 0, 0)), "patrol erase: route points should paint")
+	_expect(session.finish_special_edit(), "patrol erase: route should commit")
+	var routes := author.get_node_or_null("PatrolRoutes") as Node
+	_expect(routes != null and routes.get_child_count() == 1, "patrol erase: committed route should exist")
+	if routes == null:
+		author.free()
+		return
+	# Erasing a patrol point frees the route node; the erase path must not
+	# touch the freed node afterwards (regression: route_id read after free).
+	session.set_tool(SessionScript.Tool.ERASE)
+	session.begin_stroke("patrol erase")
+	_expect(session.apply_at(Vector3i(0, 0, 0)), "patrol erase: erase tool should accept the route point")
+	var erase_undo := UndoRedo.new()
+	_expect(session.finish_stroke(erase_undo), "patrol erase: erase stroke should commit")
+	_expect(author.get_node_or_null("PatrolRoutes") == null or routes.get_child_count() == 0, "patrol erase: route should be removed without touching a freed node")
+	erase_undo.free()
 	author.free()
 
 

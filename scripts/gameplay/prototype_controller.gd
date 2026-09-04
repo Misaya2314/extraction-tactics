@@ -638,6 +638,8 @@ func _capture_undo_patrols() -> Dictionary:
 		result[raw_unit_id] = {
 			&"instance": route,
 			&"points": route._points.duplicate(),
+			&"dwell_ticks": route._dwell_ticks.duplicate(),
+			&"dwell_remaining": route._dwell_remaining,
 			&"current_index": route._current_index,
 			&"direction": route._direction,
 			&"loop": route._loop,
@@ -880,12 +882,18 @@ func _restore_undo_patrols(raw_patrols: Variant) -> bool:
 			if not raw_point is Vector3i:
 				return false
 			points.append(raw_point)
-		route.configure(points, bool((entry as Dictionary).get(&"loop", true)))
+		var dwell_ticks: Array[int] = []
+		var raw_dwell_ticks: Variant = (entry as Dictionary).get(&"dwell_ticks", [])
+		if raw_dwell_ticks is Array:
+			for raw_dwell in raw_dwell_ticks:
+				dwell_ticks.append(maxi(int(raw_dwell), 0))
+		route.configure(points, bool((entry as Dictionary).get(&"loop", true)), dwell_ticks)
 		if not route._points.is_empty():
 			route._current_index = clampi(int((entry as Dictionary).get(&"current_index", 0)), 0, route._points.size() - 1)
 		else:
 			route._current_index = 0
 		route._direction = -1 if int((entry as Dictionary).get(&"direction", 1)) < 0 else 1
+		route._dwell_remaining = maxi(int((entry as Dictionary).get(&"dwell_remaining", route._dwell_remaining)), 0)
 		enemy_patrols[StringName(raw_unit_id)] = route
 	return true
 
@@ -1647,7 +1655,7 @@ func _configure_encounter_models() -> void:
 		var route_data := map_definition.find_patrol_route(spawn.patrol_route_id)
 		if is_instance_valid(enemy) and route_data != null:
 			var route := PatrolRoute.new()
-			route.configure(route_data.points, route_data.loop)
+			route.configure(route_data.points, route_data.loop, route_data.dwell_ticks)
 			enemy_patrols[enemy.unit_id] = route
 
 
@@ -2590,16 +2598,20 @@ func _run_exploration_tick() -> void:
 				var next_cell: Vector3i = plan[&"destination"]
 				var path: Array[Vector3i] = []
 				path.assign(plan[&"path"])
-				await _move_unit(enemy, next_cell, path, 0)
-				if is_instance_valid(patrol_route):
-					patrol_route.advance()
-				if _evaluate_detection():
-					break
+				# Route state (advance/dwell) is already updated inside the
+				# plan; only execute the movement here.
+				if not grid.is_occupied(next_cell) or next_cell == enemy.grid_cell:
+					await _move_unit(enemy, next_cell, path, 0)
+					if _evaluate_detection():
+						break
 			EnemyTacticalAI.IntentType.CALM_DOWN:
 				if alert != null:
 					alert.calm_down()
 				suspicious_investigations.erase(enemy_id)
-				_log("%s 未在可疑位置发现异常，解除警戒。" % enemy.name)
+				if is_instance_valid(patrol_route) and not patrol_route.is_empty():
+					_log("%s 未在可疑位置发现异常，归位至最近的巡逻节点 %s 继续巡逻。" % [enemy.name, patrol_route.current()])
+				else:
+					_log("%s 未在可疑位置发现异常，解除警戒。" % enemy.name)
 	for unit_value in units_by_id.values():
 		var unit := unit_value as PrototypeUnit
 		if unit.faction == &"player":

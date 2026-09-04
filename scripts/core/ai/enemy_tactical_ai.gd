@@ -156,6 +156,8 @@ static func plan_exploration_step(
 		&"path": [] as Array[Vector3i],
 		&"should_calm_down": false,
 		&"updated_investigation": investigation_data.duplicate(),
+		&"dwell": false,
+		&"waypoint": Vector3i(-1, -1, -1),
 	}
 
 	# 1. Suspicious investigation takes priority
@@ -180,20 +182,48 @@ static func plan_exploration_step(
 				if idle_ticks >= 2:
 					result[&"intent"] = IntentType.CALM_DOWN
 					result[&"should_calm_down"] = true
+					# Re-anchor to the nearest patrol waypoint so the guard
+					# seamlessly rejoins its loop after a fruitless search.
+					if patrol_route != null:
+						patrol_route.set_nearest_waypoint(enemy_cell)
 					return result
 				result[&"intent"] = IntentType.PASS
 				return result
 
-	# 2. Patrol route step
+	# 2. Sparse waypoint patrol step.  The route only stores key turning
+	#    points; pathfinding fills the cells between them.  `current()` is the
+	#    waypoint the unit is anchored to: it pathfinds toward it, and on
+	#    arrival consumes the waypoint's dwell ticks before advancing.
 	if patrol_route != null and grid != null:
-		var next_cell := patrol_route.peek_next()
-		if next_cell != enemy_cell:
-			var path := grid.find_path(enemy_cell, next_cell)
-			if path.size() == 2:
-				result[&"intent"] = IntentType.PATROL_STEP
-				result[&"destination"] = next_cell
-				result[&"path"] = path
+		var target_waypoint := patrol_route.current()
+		if target_waypoint == enemy_cell:
+			# Arrived at the anchored waypoint.
+			if patrol_route.dwell_remaining() > 0:
+				patrol_route.spend_dwell_tick()
+				result[&"intent"] = IntentType.PASS
+				result[&"dwell"] = true
 				return result
+			patrol_route.advance()
+			target_waypoint = patrol_route.current()
+			if target_waypoint == enemy_cell:
+				# Single-waypoint route: nothing left to walk to.
+				return result
+		var full_path := find_path_towards(enemy_cell, target_waypoint, grid)
+		if full_path.size() < 2:
+			# Waypoint unreachable (e.g. blocked by a dynamic obstacle).
+			# Skip it and retry with the next waypoint on a later tick.
+			patrol_route.advance()
+			return result
+		var max_steps := mini(maxi(move_range, 1), full_path.size() - 1)
+		var sub_path: Array[Vector3i] = []
+		for i in range(max_steps + 1):
+			sub_path.append(full_path[i])
+		var destination: Vector3i = sub_path.back()
+		result[&"intent"] = IntentType.PATROL_STEP
+		result[&"destination"] = destination
+		result[&"path"] = sub_path
+		result[&"waypoint"] = target_waypoint
+		return result
 
 	return result
 

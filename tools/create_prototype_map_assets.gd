@@ -183,7 +183,8 @@ func _create_author_scene(library: MeshLibrary, catalog: MapTileCatalog) -> Tact
 	_add_route_marker(author, routes, &"scout_patrol", [Vector3i(7, 0, 2), Vector3i(7, 0, 1), Vector3i(6, 0, 1)], false)
 	_add_route_marker(author, routes, &"rifleman_patrol", [Vector3i(7, 0, 1), Vector3i(7, 0, 0), Vector3i(6, 0, 0)], true)
 	_add_route_marker(author, routes, &"warehouse_assault_patrol", [Vector3i(6, 0, 3), Vector3i(6, 0, 4), Vector3i(5, 0, 4)], true)
-	_add_route_marker(author, routes, &"guard_patrol", [Vector3i(10, 0, 7), Vector3i(10, 0, 8), Vector3i(9, 0, 8)], true)
+	# 守卫在岗哨窗边 (10,0,8) 停留 1 个回合再继续巡逻，为潜行玩家创造时间窗口。
+	_add_route_marker(author, routes, &"guard_patrol", [Vector3i(10, 0, 7), Vector3i(10, 0, 8), Vector3i(9, 0, 8)], true, [0, 1, 0])
 	_add_route_marker(author, routes, &"outpost_assault_patrol", [Vector3i(9, 0, 4), Vector3i(9, 0, 5), Vector3i(10, 0, 5)], true)
 	_add_route_marker(author, routes, &"outpost_flank_patrol", [Vector3i(10, 0, 4), Vector3i(11, 0, 4), Vector3i(10, 0, 5)], true)
 
@@ -218,11 +219,12 @@ func _add_spawn_marker(author: TacticalMapAuthor, parent: Node3D, unit_name: Str
 	_add_owned(parent, marker, author)
 
 
-func _add_route_marker(author: TacticalMapAuthor, parent: Node3D, route_id: StringName, points: Array[Vector3i], loop: bool) -> void:
+func _add_route_marker(author: TacticalMapAuthor, parent: Node3D, route_id: StringName, points: Array[Vector3i], loop: bool, dwell_ticks: Array[int] = []) -> void:
 	var route := PatrolRoute3D.new()
 	route.name = String(route_id)
 	route.route_id = route_id
 	route.points = points
+	route.dwell_ticks = dwell_ticks
 	route.loop = loop
 	_add_owned(parent, route, author)
 

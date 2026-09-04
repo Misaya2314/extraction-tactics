@@ -16,6 +16,9 @@ func _init() -> void:
 	_test_detection_rules()
 	_test_alert_state()
 	_test_patrol_route()
+	_test_patrol_dwell()
+	_test_patrol_nearest_waypoint()
+	_test_patrol_closed_loop_seam()
 	_finish()
 
 
@@ -133,6 +136,61 @@ func _test_patrol_route() -> void:
 	var empty = PatrolRouteScript.new()
 	empty.configure([], false)
 	_expect(empty.current() == PatrolRouteScript.INVALID_CELL, "patrol: empty route should return invalid cell")
+
+
+func _test_patrol_dwell() -> void:
+	var route = PatrolRouteScript.new()
+	route.configure([_c(0, 0), _c(1, 0), _c(1, 0, 1)], true, [2, 0, 1])
+	_expect(route.dwell_remaining() == 2, "patrol dwell: start waypoint should arm its dwell")
+	_expect(route.advance() == _c(1, 0), "patrol dwell: should advance to second waypoint")
+	_expect(route.dwell_remaining() == 0, "patrol dwell: second waypoint should arm 0 dwell")
+	_expect(route.advance() == _c(1, 0, 1), "patrol dwell: should advance to third waypoint")
+	_expect(route.dwell_remaining() == 1, "patrol dwell: third waypoint should arm 1 dwell")
+	_expect(route.spend_dwell_tick() == 0, "patrol dwell: spend should drain the counter")
+	_expect(route.dwell_remaining() == 0, "patrol dwell: counter should stay at zero")
+
+
+func _test_patrol_nearest_waypoint() -> void:
+	var route = PatrolRouteScript.new()
+	route.configure([_c(0, 0), _c(0, 4), _c(4, 4)], true, [0, 0, 2])
+	var nearest := route.set_nearest_waypoint(_c(1, 3))
+	_expect(nearest == 1, "patrol re-anchor: (1,3) should anchor to (0,4)")
+	_expect(route.current() == _c(0, 4), "patrol re-anchor: current should become (0,4)")
+	_expect(route.dwell_remaining() == 0, "patrol re-anchor: dwell should arm the anchored waypoint's value")
+	var empty = PatrolRouteScript.new()
+	empty.configure([], false)
+	_expect(empty.set_nearest_waypoint(_c(0, 0)) == -1, "patrol re-anchor: empty route should reject")
+
+
+func _test_patrol_closed_loop_seam() -> void:
+	# A manually closed circuit A -> B -> C -> D -> A: the redundant trailing
+	# waypoint must be stripped for looped routes, otherwise the AI idles one
+	# tick on the seam cell every circuit.
+	var closed = PatrolRouteScript.new()
+	closed.configure([_c(0, 0), _c(0, 4), _c(4, 4), _c(4, 0), _c(0, 0)], true)
+	_expect(closed.get_point_count() == 4, "patrol seam: looped route should strip the redundant closing waypoint")
+	_expect(closed.current() == _c(0, 0), "patrol seam: stripped route should keep the first waypoint")
+	_expect(closed.advance() == _c(0, 4), "patrol seam: advance should skip to the second waypoint")
+	_expect(closed.advance() == _c(4, 4), "patrol seam: advance should reach the third waypoint")
+	_expect(closed.advance() == _c(4, 0), "patrol seam: advance should reach the fourth waypoint")
+	_expect(closed.advance() == _c(0, 0), "patrol seam: loop should wrap straight back to the first waypoint")
+
+	# An explicit dwell on the closing waypoint means the seam pause is
+	# intentional: keep the duplicate.
+	var seam_dwell = PatrolRouteScript.new()
+	seam_dwell.configure([_c(0, 0), _c(0, 4), _c(4, 4), _c(4, 0), _c(0, 0)], true, [0, 0, 0, 0, 1])
+	_expect(seam_dwell.get_point_count() == 5, "patrol seam: explicit seam dwell should keep the closing waypoint")
+	_expect(seam_dwell.dwell_remaining() == 0, "patrol seam: start waypoint dwell should remain its own")
+
+	# Non-loop ping-pong routes keep the closing waypoint: it is the turnaround.
+	var ping_pong = PatrolRouteScript.new()
+	ping_pong.configure([_c(0, 0), _c(0, 4), _c(4, 4), _c(4, 0), _c(0, 0)], false)
+	_expect(ping_pong.get_point_count() == 5, "patrol seam: ping-pong route should keep the closing waypoint")
+	_expect(ping_pong.advance() == _c(0, 4), "patrol seam: ping-pong should advance normally")
+	_expect(ping_pong.advance() == _c(4, 4), "patrol seam: ping-pong should continue forward")
+	_expect(ping_pong.advance() == _c(4, 0), "patrol seam: ping-pong should continue forward")
+	_expect(ping_pong.advance() == _c(0, 0), "patrol seam: ping-pong should reach the closing waypoint")
+	_expect(ping_pong.advance() == _c(4, 0), "patrol seam: ping-pong should turn around at the closing waypoint")
 
 
 func _c(x: int, z: int, level: int = 0) -> Vector3i:

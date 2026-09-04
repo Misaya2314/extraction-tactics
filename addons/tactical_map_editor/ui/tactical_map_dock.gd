@@ -24,6 +24,7 @@ signal play_requested
 signal add_placeable_requested
 signal new_map_requested
 signal special_edit_finish_requested
+signal spawn_configuration_apply_requested(configuration: Dictionary)
 signal debug_view_changed(view: int)
 signal cover_edge_clear_requested
 signal validation_location_requested(diagnostic: Dictionary)
@@ -839,8 +840,8 @@ func _on_spawn_resource_changed(_resource: Resource, _control_name: String) -> v
 		_spawn_context_label.text = "出生点模板已修改，点击“应用出生点模板”提交。"
 
 func _on_spawn_configuration_apply() -> void:
-	if session == null or not session.has_method("set_selected_spawn_configuration"):
-		_set_status("当前 Session 未提供出生点配置接口。", false)
+	if session == null:
+		_set_status("当前没有可用的编辑 Session。", false)
 		return
 	var configuration := {
 		&"archetype": _spawn_resource_value(_spawn_archetype_picker),
@@ -848,9 +849,17 @@ func _on_spawn_configuration_apply() -> void:
 		&"encounter_id": StringName(_spawn_encounter_edit.text.strip_edges()),
 		&"patrol_route_id": StringName(_spawn_patrol_edit.text.strip_edges()),
 	}
-	if not bool(session.call("set_selected_spawn_configuration", configuration)):
-		_set_status("出生点模板配置未被 Session 接受。", false)
-		return
+	# The plugin bridge commits marker edits as an Undo action.  Standalone
+	# sessions (tests / hot-reloaded docks) fall back to the direct call.
+	if spawn_configuration_apply_requested.get_connections().is_empty():
+		if not session.has_method("set_selected_spawn_configuration"):
+			_set_status("当前 Session 未提供出生点配置接口。", false)
+			return
+		if not bool(session.call("set_selected_spawn_configuration", configuration)):
+			_set_status("出生点配置未被 Session 接受。", false)
+			return
+	else:
+		spawn_configuration_apply_requested.emit(configuration)
 	_refresh_spawn_configuration_panel()
 
 func _spawn_resource_value(control: Control) -> Resource:

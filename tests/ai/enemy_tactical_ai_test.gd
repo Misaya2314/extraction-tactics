@@ -11,6 +11,10 @@ var _failures: Array[String] = []
 func _init() -> void:
 	_test_find_path_towards()
 	_test_exploration_patrol_decision()
+	_test_sparse_waypoint_multi_step()
+	_test_patrol_dwell_wait()
+	_test_patrol_unreachable_waypoint_skip()
+	_test_return_to_patrol_after_calm_down()
 	_test_exploration_investigation_and_calm_down()
 	_test_combat_attack_priority()
 	_test_combat_move_towards_target()
@@ -47,6 +51,126 @@ func _test_exploration_patrol_decision() -> void:
 	)
 	_expect(plan[&"intent"] == EnemyTacticalAIScript.IntentType.PATROL_STEP, "ai: unaware enemy should follow patrol")
 	_expect(plan[&"destination"] == Vector3i(2, 0, 3), "ai: patrol step destination should be (2, 0, 3)")
+
+
+func _test_sparse_waypoint_multi_step() -> void:
+	var grid := GridModelScript.new(Vector2i(10, 10))
+	# Sparse route: only two key waypoints; pathfinding fills the middle.
+	var route := PatrolRouteScript.new()
+	route.configure([Vector3i(0, 0, 0), Vector3i(0, 0, 5)], true)
+	var alert := AlertStateScript.new()
+
+	# Enemy anchored at the first waypoint: advance targets (0,0,5), then walk
+	# up to move_range cells per tick.
+	var plan := EnemyTacticalAIScript.plan_exploration_step(
+		Vector3i(0, 0, 0), alert, route, {}, grid, 2
+	)
+	_expect(plan[&"intent"] == EnemyTacticalAIScript.IntentType.PATROL_STEP, "ai sparse: should walk toward the far waypoint")
+	_expect(plan[&"destination"] == Vector3i(0, 0, 2), "ai sparse: move_range 2 should advance to (0,0,2)")
+	_expect(plan[&"waypoint"] == Vector3i(0, 0, 5), "ai sparse: plan should carry the target waypoint")
+
+	# Mid-path: no arrival yet, keep walking.
+	var plan_mid := EnemyTacticalAIScript.plan_exploration_step(
+		Vector3i(0, 0, 2), alert, route, {}, grid, 1
+	)
+	_expect(plan_mid[&"intent"] == EnemyTacticalAIScript.IntentType.PATROL_STEP, "ai sparse: mid-path should keep patrolling")
+	_expect(plan_mid[&"destination"] == Vector3i(0, 0, 3), "ai sparse: mid-path should step to (0,0,3)")
+
+	# Arrival at (0,0,5): route advances to the loop-wrapped next waypoint.
+	var plan_arrival := EnemyTacticalAIScript.plan_exploration_step(
+		Vector3i(0, 0, 5), alert, route, {}, grid, 1
+	)
+	_expect(plan_arrival[&"intent"] == EnemyTacticalAIScript.IntentType.PATROL_STEP, "ai sparse: arrival should continue the loop")
+	_expect(plan_arrival[&"destination"] == Vector3i(0, 0, 4), "ai sparse: loop should head back toward (0,0,0)")
+
+	# Single-waypoint route: nothing to walk to.
+	var single := PatrolRouteScript.new()
+	single.configure([Vector3i(3, 0, 3)], true)
+	var plan_single := EnemyTacticalAIScript.plan_exploration_step(
+		Vector3i(3, 0, 3), alert, single, {}, grid
+	)
+	_expect(plan_single[&"intent"] == EnemyTacticalAIScript.IntentType.PASS, "ai sparse: single waypoint should pass")
+
+
+func _test_patrol_dwell_wait() -> void:
+	var grid := GridModelScript.new(Vector2i(10, 10))
+	var route := PatrolRouteScript.new()
+	route.configure([Vector3i(0, 0, 0), Vector3i(0, 0, 5)], true, [0, 2])
+	var alert := AlertStateScript.new()
+
+	# Enemy anchored at the start waypoint: advance arms dwell 2 at (0,0,5),
+	# then it walks one cell per tick.
+	var plan_walk := EnemyTacticalAIScript.plan_exploration_step(
+		Vector3i(0, 0, 0), alert, route, {}, grid, 1
+	)
+	_expect(plan_walk[&"intent"] == EnemyTacticalAIScript.IntentType.PATROL_STEP, "ai dwell: walking to waypoint should not dwell")
+	_expect(plan_walk[&"destination"] == Vector3i(0, 0, 1), "ai dwell: should step one cell toward the waypoint")
+
+	# Arrival at the waypoint: dwell_ticks 2 -> two PASS ticks.
+	var plan_dwell1 := EnemyTacticalAIScript.plan_exploration_step(
+		Vector3i(0, 0, 5), alert, route, {}, grid
+	)
+	_expect(plan_dwell1[&"intent"] == EnemyTacticalAIScript.IntentType.PASS, "ai dwell: first dwell tick should pass")
+	_expect(plan_dwell1[&"dwell"] == true, "ai dwell: plan should flag the dwell wait")
+	_expect(route.dwell_remaining() == 1, "ai dwell: remaining should drop to 1")
+
+	var plan_dwell2 := EnemyTacticalAIScript.plan_exploration_step(
+		Vector3i(0, 0, 5), alert, route, {}, grid
+	)
+	_expect(plan_dwell2[&"intent"] == EnemyTacticalAIScript.IntentType.PASS, "ai dwell: second dwell tick should pass")
+	_expect(route.dwell_remaining() == 0, "ai dwell: remaining should drop to 0")
+
+	# Dwell exhausted: advance and resume the loop.
+	var plan_resume := EnemyTacticalAIScript.plan_exploration_step(
+		Vector3i(0, 0, 5), alert, route, {}, grid, 1
+	)
+	_expect(plan_resume[&"intent"] == EnemyTacticalAIScript.IntentType.PATROL_STEP, "ai dwell: after dwell should resume patrolling")
+	_expect(plan_resume[&"destination"] == Vector3i(0, 0, 4), "ai dwell: should head back toward the first waypoint")
+
+
+func _test_patrol_unreachable_waypoint_skip() -> void:
+	var grid := GridModelScript.new(Vector2i(10, 10))
+	# Isolate waypoint (0,0,5): every other cell except the two waypoints is
+	# non-walkable, so no path to it exists and no neighbor fallback can help.
+	for z in range(10):
+		for x in range(10):
+			var cell := Vector3i(x, 0, z)
+			if cell != Vector3i(0, 0, 0) and cell != Vector3i(0, 0, 5):
+				grid.set_walkable(cell, false)
+	var route := PatrolRouteScript.new()
+	route.configure([Vector3i(0, 0, 0), Vector3i(0, 0, 5)], true)
+	var alert := AlertStateScript.new()
+
+	var plan := EnemyTacticalAIScript.plan_exploration_step(
+		Vector3i(0, 0, 0), alert, route, {}, grid
+	)
+	_expect(plan[&"intent"] == EnemyTacticalAIScript.IntentType.PASS, "ai skip: blocked waypoint should pass without moving")
+	_expect(route.current() == Vector3i(0, 0, 0), "ai skip: skipped waypoint should wrap back to the start")
+
+
+func _test_return_to_patrol_after_calm_down() -> void:
+	var grid := GridModelScript.new(Vector2i(10, 10))
+	var route := PatrolRouteScript.new()
+	route.configure([Vector3i(0, 0, 0), Vector3i(0, 0, 4), Vector3i(4, 0, 4)], true)
+	var alert := AlertStateScript.new()
+
+	# Guard investigated cell (3,0,3) and found nothing: idle ticks exhausted.
+	alert.become_suspicious(Vector3i(3, 0, 3))
+	var enemy_cell := Vector3i(3, 0, 3)
+	var plan := EnemyTacticalAIScript.plan_exploration_step(
+		enemy_cell, alert, route, {&"idle_ticks": 1}, grid
+	)
+	_expect(plan[&"intent"] == EnemyTacticalAIScript.IntentType.CALM_DOWN, "ai return: fruitless search should calm down")
+	_expect(plan[&"should_calm_down"] == true, "ai return: should flag calm down")
+	_expect(route.current() == Vector3i(4, 0, 4), "ai return: route should re-anchor to nearest waypoint (4,0,4)")
+
+	# Next tick: guard pathfinds back and resumes the loop seamlessly.
+	alert.calm_down()
+	var plan_back := EnemyTacticalAIScript.plan_exploration_step(
+		enemy_cell, alert, route, {}, grid
+	)
+	_expect(plan_back[&"intent"] == EnemyTacticalAIScript.IntentType.PATROL_STEP, "ai return: should walk back to the nearest waypoint")
+	_expect(plan_back[&"waypoint"] == Vector3i(4, 0, 4), "ai return: plan should target the re-anchored waypoint")
 
 
 func _test_exploration_investigation_and_calm_down() -> void:

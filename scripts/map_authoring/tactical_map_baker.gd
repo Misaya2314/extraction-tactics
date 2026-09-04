@@ -740,6 +740,11 @@ static func _validate_definition(definition: TacticalMapDefinition, errors: Arra
 			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-049", "A patrol route has an empty id.")
 		if route.points.is_empty():
 			TacticalMapDiagnostics.append_warning(warnings, diagnostics, &"TMB-056", "Patrol route %s has no points." % route.route_id)
+		if route.dwell_ticks.size() > route.points.size():
+			TacticalMapDiagnostics.append_warning(warnings, diagnostics, &"TMB-057", "Patrol route %s has %d dwell values for %d waypoints; extra values are ignored." % [route.route_id, route.dwell_ticks.size(), route.points.size()])
+		for dwell_index in range(route.dwell_ticks.size()):
+			if int(route.dwell_ticks[dwell_index]) < 0:
+				TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-058", "Patrol route %s waypoint %d has a negative dwell_ticks value." % [route.route_id, dwell_index])
 		for point in route.points:
 			if not cells.has(point):
 				TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-050", "Patrol route %s references missing cell %s." % [route.route_id, point], point)

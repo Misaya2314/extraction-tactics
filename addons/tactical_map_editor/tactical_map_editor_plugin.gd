@@ -79,6 +79,7 @@ func _enter_tree() -> void:
 	_dock.add_placeable_requested.connect(_open_placeable_wizard)
 	_dock.new_map_requested.connect(_open_new_map_dialog)
 	_dock.special_edit_finish_requested.connect(_finish_special_edit)
+	_dock.spawn_configuration_apply_requested.connect(_on_spawn_configuration_apply_requested)
 	_dock.debug_view_changed.connect(_on_debug_view_changed)
 	_dock.cover_edge_clear_requested.connect(_on_cover_edge_clear_requested)
 	_dock.validation_location_requested.connect(_on_validation_location_requested)
@@ -665,6 +666,12 @@ func _on_rotate_requested() -> void:
 
 func _on_selection_replace_requested() -> void:
 	_session.selection_replace(get_undo_redo())
+
+
+func _on_spawn_configuration_apply_requested(configuration: Dictionary) -> void:
+	if _session == null:
+		return
+	_session.set_selected_spawn_configuration(configuration, get_undo_redo())
 
 
 func _on_selection_rotate_requested() -> void:
