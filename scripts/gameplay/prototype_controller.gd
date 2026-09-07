@@ -49,8 +49,8 @@ const EXTRACTION_HIGHLIGHT_COLOR := Color(0.2, 0.95, 0.42, 0.56)
 const MOVE_HIGHLIGHT_SURFACE_OFFSET := 0.025
 const CURSOR_HIGHLIGHT_COLOR := Color(1.0, 1.0, 1.0, 0.45)
 const CURSOR_SURFACE_OFFSET := 0.035
-const HALF_COVER_TEXTURE: Texture2D = preload("res://assets/ui/icons/cover_half.svg")
-const FULL_COVER_TEXTURE: Texture2D = preload("res://assets/ui/icons/cover_full.svg")
+const HALF_COVER_TEXTURE: Texture2D = preload("res://assets/textures/half_cover.png")
+const FULL_COVER_TEXTURE: Texture2D = preload("res://assets/textures/full_cover.png")
 const CURSOR_HIGHLIGHT_DISTANCE: int = 0
 const COVER_PREVIEW_DISTANCE: int = 1
 const CURSOR_DISTANCE_ALPHA_FACTORS: Array[float] = [1.0]
@@ -3271,12 +3271,6 @@ func _refresh_single_skill_button(btn: Button, slot_index: int, has_player_selec
 		return
 	btn.visible = true
 	var skill_def = skill_inst.definition
-	var icon_name := "ability"
-	if skill_def.skill_id == &"tactical_grenade":
-		icon_name = "grenade"
-	elif skill_def.skill_id == &"tactical_sprint":
-		icon_name = "sprint"
-	btn.icon = load("res://assets/ui/icons/%s.svg" % icon_name)
 	var cd: int = skill_inst.current_cooldown
 	var is_ready: bool = skill_inst.is_ready()
 	var can_afford := selected_unit.can_spend_action_points(skill_def.ap_cost)

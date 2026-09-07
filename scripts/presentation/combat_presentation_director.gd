@@ -39,7 +39,9 @@ func _ready() -> void:
 	anchor.add_child(panel)
 	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	panel.position += Vector2(-280, -138)
-	panel.theme = preload("res://resources/ui/tactical_theme.tres")
+	# The presentation panel uses the project's active default theme.  Keep this
+	# controller independent from optional UI theme assets so a reverted HUD can
+	# still load the main scene.
 	panel.add_child(row)
 	_settings = OptionButton.new()
 	for title in ["战斗演出：完整", "战斗演出：仅击杀", "战斗演出：关闭"]:
