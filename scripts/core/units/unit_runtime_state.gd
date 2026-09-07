@@ -319,6 +319,40 @@ func reset_action_points() -> bool:
 	return reset_ap()
 
 
+func recover_ap(amount: int = 1) -> bool:
+	if amount <= 0:
+		return _reject(&"invalid_ap_amount")
+	if not alive:
+		return _reject(&"not_alive")
+	var target_ap := mini(current_action_points + amount, max_action_points)
+	if target_ap == current_action_points:
+		last_operation_reason = &"no_change"
+		return true
+	current_action_points = target_ap
+	action_points_changed.emit(current_action_points, max_action_points)
+	return _accept(&"ap_recovered")
+
+
+func recover_action_points(amount: int = 1) -> bool:
+	return recover_ap(amount)
+
+
+func set_ap(amount: int) -> bool:
+	if not alive:
+		return _reject(&"not_alive")
+	var target_ap := clampi(amount, 0, max_action_points)
+	if target_ap == current_action_points:
+		last_operation_reason = &"no_change"
+		return true
+	current_action_points = target_ap
+	action_points_changed.emit(current_action_points, max_action_points)
+	return _accept(&"ap_set")
+
+
+func set_action_points(amount: int) -> bool:
+	return set_ap(amount)
+
+
 func set_cell(new_cell: Variant) -> bool:
 	if not is_valid_cell(new_cell):
 		return _reject(&"invalid_cell")

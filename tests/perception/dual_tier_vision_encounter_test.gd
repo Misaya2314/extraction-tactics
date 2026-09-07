@@ -9,6 +9,8 @@ const WeaponDefinitionScript = preload("res://scripts/core/combat/weapon_definit
 const WeaponInstanceScript = preload("res://scripts/core/combat/weapon_instance.gd")
 const TurnManagerScript = preload("res://scripts/core/turn/turn_manager.gd")
 const GameStateManagerScript = preload("res://scripts/core/session/game_state_manager.gd")
+const PrototypeControllerScript = preload("res://scripts/gameplay/prototype_controller.gd")
+const PrototypeUnitScript = preload("res://scripts/gameplay/prototype_unit.gd")
 
 var _failures: Array[String] = []
 
@@ -21,6 +23,7 @@ func _init() -> void:
 	_test_inner_vision_squad_alarm_propagation()
 	_test_proactive_attack_squad_alarm_propagation()
 	_test_proactive_attack_silent_assassination_flow()
+	_test_detection_ap_recovery_mechanic()
 	_finish()
 
 
@@ -347,6 +350,186 @@ func _test_proactive_attack_silent_assassination_flow() -> void:
 	_expect(turn_mgr.get_phase() == TurnManagerScript.Phase.EXPLORATION, "proactive_assassination: phase reset to exploration")
 	_expect(session_mgr.get_state() == GameStateManagerScript.State.EXPLORATION, "proactive_assassination: session reset to exploration")
 	_expect((enemy_alerts[squad_guard_id] as AlertStateScript).is_suspicious(), "proactive_assassination: guard remains only suspicious")
+
+
+func _test_detection_ap_recovery_mechanic() -> void:
+	# Scenario 1: Enemy action discovery:
+	# Unit A (spent to 0 AP) and Unit B (has 1 AP) end turn.
+	# Enemy discovers Unit A during exploration tick.
+	# Unit A recovers 1 AP (0 -> 1). Unit B keeps pre-turn AP (1 AP).
+	var controller := PrototypeControllerScript.new()
+	controller.grid = GridModelScript.new(Vector2i(15, 15))
+	controller.turn_manager = TurnManagerScript.new()
+	controller.session_manager = GameStateManagerScript.new()
+	controller.session_manager.start_exploration()
+
+	var player_a := PrototypeUnitScript.new()
+	player_a.unit_id = &"player_a"
+	player_a.faction = &"player"
+	player_a.grid_cell = Vector3i(2, 0, 2)
+	player_a.max_action_points = 2
+	player_a.current_action_points = 0
+	player_a.current_hp = 10
+	player_a.max_hp = 10
+
+	var player_b := PrototypeUnitScript.new()
+	player_b.unit_id = &"player_b"
+	player_b.faction = &"player"
+	player_b.grid_cell = Vector3i(10, 0, 10)
+	player_b.max_action_points = 2
+	player_b.current_action_points = 1
+	player_b.current_hp = 10
+	player_b.max_hp = 10
+
+	var enemy := PrototypeUnitScript.new()
+	enemy.unit_id = &"enemy_patrol"
+	enemy.faction = &"enemy"
+	enemy.grid_cell = Vector3i(2, 0, 4) # distance 2 from player_a, <= inner vision 3
+	enemy.max_action_points = 2
+	enemy.current_action_points = 2
+	enemy.current_hp = 10
+	enemy.max_hp = 10
+	enemy.inner_vision_range = 3
+	enemy.vision_range = 7
+
+	var player_ids: Array[StringName] = [&"player_a", &"player_b"]
+	var enemy_ids: Array[StringName] = [&"enemy_patrol"]
+	controller.all_player_ids = player_ids.duplicate()
+	controller.all_enemy_ids = enemy_ids.duplicate()
+	controller.units_by_id = {&"player_a": player_a, &"player_b": player_b, &"enemy_patrol": enemy}
+	controller.enemy_alerts = {&"enemy_patrol": AlertStateScript.new()}
+	controller.encounter_by_unit = {&"enemy_patrol": &"patrol_encounter"}
+	controller.encounter_members = {&"patrol_encounter": enemy_ids.duplicate()}
+	controller.turn_manager.configure(player_ids, [])
+
+	# Simulate turn end
+	controller._capture_pre_turn_end_player_ap()
+	controller._is_running_exploration_tick = true
+
+	var detected := controller._evaluate_detection()
+	_expect(detected, "ap_mechanic: enemy action should trigger discovery")
+	_expect(player_a.current_action_points == 1, "ap_mechanic: discovered unit A should recover 1 AP (0 -> 1)")
+	_expect(player_b.current_action_points == 1, "ap_mechanic: undiscovered unit B should retain pre-turn-end AP (1)")
+	_expect(controller.turn_manager.is_player_turn(), "ap_mechanic: combat started in player turn")
+	_expect(controller.session_manager.get_state() == GameStateManagerScript.State.COMBAT, "ap_mechanic: session entered combat")
+
+	controller.free()
+
+	# Scenario 2: Enemy action NO discovery:
+	# Unit A (0 AP), Unit B (1 AP) end turn, no enemy sees them.
+	# Both should reset to max AP (2).
+	var controller2 := PrototypeControllerScript.new()
+	controller2.grid = GridModelScript.new(Vector2i(20, 20))
+	controller2.turn_manager = TurnManagerScript.new()
+	controller2.session_manager = GameStateManagerScript.new()
+	controller2.session_manager.start_exploration()
+
+	var player_a2 := PrototypeUnitScript.new()
+	player_a2.unit_id = &"player_a"
+	player_a2.faction = &"player"
+	player_a2.grid_cell = Vector3i(1, 0, 1)
+	player_a2.max_action_points = 2
+	player_a2.current_action_points = 0
+	player_a2.current_hp = 10
+	player_a2.max_hp = 10
+
+	var player_b2 := PrototypeUnitScript.new()
+	player_b2.unit_id = &"player_b"
+	player_b2.faction = &"player"
+	player_b2.grid_cell = Vector3i(2, 0, 1)
+	player_b2.max_action_points = 2
+	player_b2.current_action_points = 1
+	player_b2.current_hp = 10
+	player_b2.max_hp = 10
+
+	var enemy2 := PrototypeUnitScript.new()
+	enemy2.unit_id = &"enemy_far"
+	enemy2.faction = &"enemy"
+	enemy2.grid_cell = Vector3i(18, 0, 18)
+	enemy2.max_action_points = 2
+	enemy2.current_action_points = 2
+	enemy2.current_hp = 10
+	enemy2.max_hp = 10
+	enemy2.inner_vision_range = 3
+	enemy2.vision_range = 7
+
+	controller2.all_player_ids = player_ids.duplicate()
+	controller2.all_enemy_ids = [&"enemy_far"]
+	controller2.units_by_id = {&"player_a": player_a2, &"player_b": player_b2, &"enemy_far": enemy2}
+	controller2.enemy_alerts = {&"enemy_far": AlertStateScript.new()}
+	controller2.encounter_by_unit = {&"enemy_far": &"far_encounter"}
+	controller2.encounter_members = {&"far_encounter": [&"enemy_far"]}
+	controller2.turn_manager.configure(player_ids, [])
+
+	controller2._capture_pre_turn_end_player_ap()
+	controller2._is_running_exploration_tick = true
+	var detected2 := controller2._evaluate_detection()
+	_expect(not detected2, "ap_mechanic: distant enemy should not trigger discovery")
+	if not detected2 and controller2.turn_manager.get_phase() == TurnManagerScript.Phase.EXPLORATION:
+		for u_val in controller2.units_by_id.values():
+			var u: PrototypeUnit = u_val as PrototypeUnit
+			if u.faction == &"player":
+				u.reset_action_points()
+	_expect(player_a2.current_action_points == 2, "ap_mechanic: unit A should reset to max AP (2)")
+	_expect(player_b2.current_action_points == 2, "ap_mechanic: unit B should reset to max AP (2)")
+
+	controller2.free()
+
+	# Scenario 3: Player active movement discovery:
+	# Unit A moves to distance 2 from enemy, spent to 0 AP.
+	# _is_running_exploration_tick is false.
+	# Unit A should NOT recover 1 AP (stays at 0 AP). Unit B keeps current AP (2).
+	var controller3 := PrototypeControllerScript.new()
+	controller3.grid = GridModelScript.new(Vector2i(15, 15))
+	controller3.turn_manager = TurnManagerScript.new()
+	controller3.session_manager = GameStateManagerScript.new()
+	controller3.session_manager.start_exploration()
+
+	var player_a3 := PrototypeUnitScript.new()
+	player_a3.unit_id = &"player_a"
+	player_a3.faction = &"player"
+	player_a3.grid_cell = Vector3i(2, 0, 2)
+	player_a3.max_action_points = 2
+	player_a3.current_action_points = 0 # moved and spent all AP
+	player_a3.current_hp = 10
+	player_a3.max_hp = 10
+
+	var player_b3 := PrototypeUnitScript.new()
+	player_b3.unit_id = &"player_b"
+	player_b3.faction = &"player"
+	player_b3.grid_cell = Vector3i(10, 0, 10)
+	player_b3.max_action_points = 2
+	player_b3.current_action_points = 2 # hasn't moved
+	player_b3.current_hp = 10
+	player_b3.max_hp = 10
+
+	var enemy3 := PrototypeUnitScript.new()
+	enemy3.unit_id = &"enemy_patrol"
+	enemy3.faction = &"enemy"
+	enemy3.grid_cell = Vector3i(2, 0, 4)
+	enemy3.max_action_points = 2
+	enemy3.current_action_points = 2
+	enemy3.current_hp = 10
+	enemy3.max_hp = 10
+	enemy3.inner_vision_range = 3
+	enemy3.vision_range = 7
+
+	controller3.all_player_ids = player_ids.duplicate()
+	controller3.all_enemy_ids = enemy_ids.duplicate()
+	controller3.units_by_id = {&"player_a": player_a3, &"player_b": player_b3, &"enemy_patrol": enemy3}
+	controller3.enemy_alerts = {&"enemy_patrol": AlertStateScript.new()}
+	controller3.encounter_by_unit = {&"enemy_patrol": &"patrol_encounter"}
+	controller3.encounter_members = {&"patrol_encounter": enemy_ids.duplicate()}
+	controller3.turn_manager.configure(player_ids, [])
+
+	controller3._is_running_exploration_tick = false
+	var detected3 := controller3._evaluate_detection()
+	_expect(detected3, "ap_mechanic: active move into inner vision should trigger discovery")
+	_expect(player_a3.current_action_points == 0, "ap_mechanic: active move discovery should NOT recover AP (stays 0)")
+	_expect(player_b3.current_action_points == 2, "ap_mechanic: unit B should keep current AP (2)")
+	_expect(controller3.turn_manager.is_player_turn(), "ap_mechanic: combat started in player turn")
+
+	controller3.free()
 
 
 func _expect(condition: bool, message: String) -> void:

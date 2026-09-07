@@ -108,6 +108,8 @@ var all_player_ids: Array[StringName] = []
 var all_enemy_ids: Array[StringName] = []
 var active_encounter_id: StringName = &""
 var discovering_enemy_ids: Array[StringName] = []
+var pre_turn_end_player_ap: Dictionary = {}
+var _is_running_exploration_tick: bool = false
 var suspicious_investigations: Dictionary = {}
 var opaque_cells: Dictionary = {}
 var object_placements: Dictionary = {}
@@ -271,9 +273,9 @@ func _ready() -> void:
 	_update_enemy_visibility()
 	var player_cells := map_definition.get_player_spawn_cells()
 	if not player_cells.is_empty():
-		_select_unit(_find_player_at(player_cells[0]))
 		if is_instance_valid(camera_rig):
 			camera_rig.focus_world_position(grid.cell_to_world(player_cells[0]))
+	_refresh_highlights()
 	_evaluate_detection()
 	_init_hover_cursor()
 	if is_instance_valid(inventory_panel):
@@ -2783,6 +2785,7 @@ func _has_any_engaged_enemy() -> bool:
 
 func _run_exploration_tick() -> void:
 	world_tick += 1
+	_is_running_exploration_tick = true
 	for enemy_id in _living_enemy_ids():
 		var enemy := _unit_by_id(enemy_id)
 		if not is_instance_valid(enemy) or not enemy.is_alive():
@@ -2821,17 +2824,31 @@ func _run_exploration_tick() -> void:
 					_log("%s 未在可疑位置发现异常，归位至最近的巡逻节点 %s 继续巡逻。" % [enemy.name, patrol_route.current()])
 				else:
 					_log("%s 未在可疑位置发现异常，解除警戒。" % enemy.name)
-	for unit_value in units_by_id.values():
-		var unit := unit_value as PrototypeUnit
-		if unit.faction == &"player":
-			unit.reset_action_points()
-			if unit.runtime_state != null and unit.runtime_state.has_method("on_round_turn_started"):
-				unit.runtime_state.on_round_turn_started()
+
+	if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION:
+		_evaluate_detection()
+
+	if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION:
+		for unit_value in units_by_id.values():
+			var unit := unit_value as PrototypeUnit
+			if is_instance_valid(unit) and unit.faction == &"player" and unit.is_alive():
+				unit.reset_action_points()
+				if unit.runtime_state != null and unit.runtime_state.has_method("on_round_turn_started"):
+					unit.runtime_state.on_round_turn_started()
+		pre_turn_end_player_ap.clear()
+
+	_is_running_exploration_tick = false
 
 
 func _evaluate_detection() -> bool:
 	if turn_manager.get_phase() != TurnManager.Phase.EXPLORATION:
 		return false
+	var discovered_player_map: Dictionary = {}
+	var discovering_enemy_map: Dictionary = {}
+	var first_alert_enemy: PrototypeUnit = null
+	var first_player_cell: Vector3i = Vector3i.ZERO
+	var first_player_id: StringName = &""
+
 	for enemy_id in _living_enemy_ids():
 		var enemy := _unit_by_id(enemy_id)
 		if not is_instance_valid(enemy) or not enemy.is_alive():
@@ -2851,32 +2868,74 @@ func _evaluate_detection() -> bool:
 						alert.become_alerted(player.unit_id, player.grid_cell)
 					if not discovering_enemy_ids.has(enemy.unit_id):
 						discovering_enemy_ids.append(enemy.unit_id)
-					play_discover_sound()
-					_start_combat(true, enemy, player.grid_cell, player.unit_id, "发现玩家（暗杀击杀窗口）")
-					_update_enemy_visibility()
-					_refresh_highlights()
-					_update_hud()
-					return true
+					discovered_player_map[player.unit_id] = player
+					discovering_enemy_map[enemy.unit_id] = enemy
+					if first_alert_enemy == null:
+						first_alert_enemy = enemy
+						first_player_cell = player.grid_cell
+						first_player_id = player.unit_id
 				DetectionRules.DetectionTier.OUTER_ALERT:
-					var alert := enemy_alerts.get(enemy.unit_id) as AlertState
-					if alert != null:
-						if alert.is_unaware():
-							alert.become_suspicious(player.grid_cell)
-							suspicious_investigations[enemy.unit_id] = {
-								&"target_cell": player.grid_cell,
-								&"idle_ticks": 0,
-							}
-							_log("%s 注意到了可疑动静，进入警戒状态并前往探查 %s。" % [enemy.name, player.grid_cell])
-							_update_enemy_visibility()
-							_refresh_highlights()
-							_update_hud()
-						elif alert.is_suspicious():
-							if alert.get_last_known_cell() != player.grid_cell:
+					if not discovering_enemy_map.has(enemy.unit_id):
+						var alert := enemy_alerts.get(enemy.unit_id) as AlertState
+						if alert != null:
+							if alert.is_unaware():
 								alert.become_suspicious(player.grid_cell)
 								suspicious_investigations[enemy.unit_id] = {
 									&"target_cell": player.grid_cell,
 									&"idle_ticks": 0,
 								}
+								_log("%s 注意到了可疑动静，进入警戒状态并前往探查 %s。" % [enemy.name, player.grid_cell])
+								_update_enemy_visibility()
+								_refresh_highlights()
+								_update_hud()
+							elif alert.is_suspicious():
+								if alert.get_last_known_cell() != player.grid_cell:
+									alert.become_suspicious(player.grid_cell)
+									suspicious_investigations[enemy.unit_id] = {
+										&"target_cell": player.grid_cell,
+										&"idle_ticks": 0,
+									}
+
+	if not discovered_player_map.is_empty():
+		if _is_running_exploration_tick:
+			# 敌方巡逻/行动回合中被发现：被发现的单位回复 1 AP，其他单位保持上次回合结束前的 AP
+			for p_id in turn_manager.get_player_ids():
+				var p_unit := _unit_by_id(p_id)
+				if not is_instance_valid(p_unit) or not p_unit.is_alive():
+					continue
+				var pre_ap: int = int(pre_turn_end_player_ap.get(p_id, p_unit.current_action_points))
+				var unit_name: String = p_unit.name if p_unit.name != "" else String(p_unit.unit_id)
+				if discovered_player_map.has(p_id):
+					p_unit.set_action_points(pre_ap)
+					p_unit.recover_action_points(1)
+					_log("【被发现】%s 在敌方行动中被发现！回复 1 AP（当前 %d/%d AP）。" % [
+						unit_name, p_unit.current_action_points, p_unit.max_action_points
+					])
+				else:
+					p_unit.set_action_points(pre_ap)
+					_log("【未被发现】%s 保持回合结束前 AP（当前 %d/%d AP）。" % [
+						unit_name, p_unit.current_action_points, p_unit.max_action_points
+					])
+			pre_turn_end_player_ap.clear()
+		else:
+			# 玩家自身主动移动触发发现：保持当前自然 AP，不赠送额外 1 AP
+			for p_id in discovered_player_map:
+				var p_unit := discovered_player_map[p_id] as PrototypeUnit
+				if is_instance_valid(p_unit):
+					var unit_name: String = p_unit.name if p_unit.name != "" else String(p_unit.unit_id)
+					_log("【被发现】%s 移动中暴露在敌方视野内！（当前 %d/%d AP）。" % [
+						unit_name, p_unit.current_action_points, p_unit.max_action_points
+					])
+
+		play_discover_sound()
+		_start_combat(true, first_alert_enemy, first_player_cell, first_player_id, "发现玩家（暗杀击杀窗口）")
+		if is_instance_valid(discovered_player_map.get(first_player_id)):
+			_select_unit(discovered_player_map[first_player_id])
+		_update_enemy_visibility()
+		_refresh_highlights()
+		_update_hud()
+		return true
+
 	return false
 
 
@@ -3575,16 +3634,24 @@ func _clear_children(parent: Node) -> void:
 		child.queue_free()
 
 
+func _capture_pre_turn_end_player_ap() -> void:
+	pre_turn_end_player_ap.clear()
+	for unit_value in units_by_id.values():
+		var unit := unit_value as PrototypeUnit
+		if is_instance_valid(unit) and unit.faction == &"player" and unit.is_alive():
+			pre_turn_end_player_ap[unit.unit_id] = unit.current_action_points
+
+
 func _on_end_turn_pressed() -> void:
 	if input_locked or _is_terminal() or session_manager == null:
 		return
 	if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION:
+		_capture_pre_turn_end_player_ap()
 		await _run_exploration_tick()
-		_evaluate_detection()
-		if session_manager.get_state() == GameStateManagerScript.State.EXPLORATION:
+		if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION and session_manager.get_state() == GameStateManagerScript.State.EXPLORATION:
 			_capture_undo_turn_checkpoint()
-		_update_hud("探索世界 Tick %d。" % world_tick)
-		_log("世界 Tick %d：敌人巡逻，玩家 AP 重置。" % world_tick)
+			_update_hud("探索世界 Tick %d。" % world_tick)
+			_log("世界 Tick %d：敌人巡逻，玩家 AP 重置。" % world_tick)
 		return
 
 	# If any enemy in discovering_enemy_ids or active combat is alive in ALERTED/ENGAGED state, sound alarm to whole squad!

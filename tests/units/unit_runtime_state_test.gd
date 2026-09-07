@@ -74,6 +74,12 @@ func _run() -> void:
 	_expect(not first.apply_damage(-1) and first.get_last_operation_reason() == &"invalid_damage", "state: negative damage should be rejected")
 	_expect(not first.spend_ap(99) and first.get_last_operation_reason() == &"insufficient_ap", "state: excessive AP should be rejected")
 	_expect(not first.set_cell(Vector2i(-1, 0)) and first.get_last_operation_reason() == &"invalid_cell", "state: non-Vector3i cell should be rejected")
+	_expect(first.set_action_points(1) and first.current_action_points == 1, "state: set_action_points should update AP")
+	_expect(first.recover_action_points(1) and first.current_action_points == 2, "state: recover_action_points should increase AP")
+	_expect(first.recover_action_points(99) and first.current_action_points == first.max_action_points, "state: recover_action_points should clamp to max_ap")
+	_expect(not first.recover_action_points(0) and first.get_last_operation_reason() == &"invalid_ap_amount", "state: zero recover AP should be rejected")
+	_expect(not first.recover_action_points(-1) and first.get_last_operation_reason() == &"invalid_ap_amount", "state: negative recover AP should be rejected")
+	first.reset_ap()
 
 	var replacement: WeaponInstance = WeaponInstanceScript.new(&"unit_alpha.sidearm", ASSAULT_RIFLE)
 	_expect(first.equip(replacement), "state: valid weapon instance should equip")

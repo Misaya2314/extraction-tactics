@@ -2,6 +2,7 @@ extends SceneTree
 
 const ControllerScript = preload("res://scripts/gameplay/prototype_controller.gd")
 const UnitScene = preload("res://scenes/main/prototype_unit.tscn")
+const MissionObjectiveScript = preload("res://scripts/core/session/mission_objective.gd")
 
 class QuietController extends ControllerScript:
 	func _update_hud(_message: String = "") -> void:
@@ -243,7 +244,7 @@ func _test_map_without_extraction() -> void:
 	errors.clear()
 	TacticalMapBaker._validate_definition(definition, errors, warnings, diagnostics)
 	_expect(not errors.is_empty(), "map: duplicate objective rejected")
-	var objective := MissionObjective.new()
+	var objective := MissionObjectiveScript.new()
 	_expect(not objective.progress({})[&"success"], "empty objective must not win")
 	objective.configure([&"missing"])
 	_expect(not objective.progress({})[&"success"], "missing runtime target must not count as killed")

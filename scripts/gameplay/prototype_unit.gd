@@ -778,6 +778,38 @@ func reset_action_points() -> bool:
 	return true
 
 
+func recover_action_points(amount: int = 1) -> bool:
+	if amount <= 0 or not is_alive():
+		return false
+	if runtime_state != null:
+		var ok := runtime_state.recover_action_points(amount)
+		_update_status_label()
+		return ok
+	var target_ap := mini(current_action_points + amount, max_action_points)
+	if target_ap == current_action_points:
+		return true
+	current_action_points = target_ap
+	action_points_changed.emit(current_action_points, max_action_points)
+	_update_status_label()
+	return true
+
+
+func set_action_points(amount: int) -> bool:
+	if not is_alive():
+		return false
+	if runtime_state != null:
+		var ok := runtime_state.set_action_points(amount)
+		_update_status_label()
+		return ok
+	var target_ap := clampi(amount, 0, max_action_points)
+	if target_ap == current_action_points:
+		return true
+	current_action_points = target_ap
+	action_points_changed.emit(current_action_points, max_action_points)
+	_update_status_label()
+	return true
+
+
 func can_spend_action_points(cost: int) -> bool:
 	return cost >= 0 and is_alive() and current_action_points >= cost
 

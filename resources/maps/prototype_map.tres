@@ -1,10 +1,10 @@
-[gd_resource type="Resource" script_class="TacticalMapDefinition" format=3]
+[gd_resource type="Resource" script_class="TacticalMapDefinition" format=3 uid="uid://c3krc0tld3ch5"]
 
-[ext_resource type="Script" path="res://scripts/core/map/map_cell_data.gd" id="1_u1e4k"]
-[ext_resource type="Script" path="res://scripts/core/map/map_edge_data.gd" id="2_o8hwp"]
+[ext_resource type="Script" uid="uid://du4ihvqhh8sq6" path="res://scripts/core/map/map_cell_data.gd" id="1_u1e4k"]
+[ext_resource type="Script" uid="uid://b82dvhr3cibce" path="res://scripts/core/map/map_edge_data.gd" id="2_o8hwp"]
 [ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_none.tres" id="3_o1j8h"]
 [ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_half.tres" id="4_bgs0y"]
-[ext_resource type="Script" path="res://scripts/core/map/map_object_placement.gd" id="5_pg4aj"]
+[ext_resource type="Script" uid="uid://cm4n0v302oqpm" path="res://scripts/core/map/map_object_placement.gd" id="5_pg4aj"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_explosive_barrel.tscn" id="6_w0y3w"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_extraction_marker.tscn" id="7_1xnby"]
 [ext_resource type="Resource" path="res://resources/loot/loot_table_supply.tres" id="8_svwv7"]
@@ -12,17 +12,17 @@
 [ext_resource type="Resource" path="res://resources/loot/loot_table_warehouse.tres" id="10_7k5my"]
 [ext_resource type="Resource" path="res://resources/loot/loot_table_outpost.tres" id="11_60xms"]
 [ext_resource type="Resource" path="res://resources/loot/loot_table_high_value.tres" id="12_t1nfk"]
-[ext_resource type="Script" path="res://scripts/core/map/map_patrol_route_data.gd" id="13_ca1lc"]
-[ext_resource type="Script" path="res://scripts/core/map/tactical_map_definition.gd" id="14_6tmnv"]
-[ext_resource type="Script" path="res://scripts/core/map/map_spawn_data.gd" id="15_jd08d"]
-[ext_resource type="Resource" path="res://resources/units/assault.tres" id="16_jjkbt"]
-[ext_resource type="Resource" path="res://resources/weapons/shotgun.tres" id="17_jinfu"]
-[ext_resource type="Resource" path="res://resources/units/rifleman.tres" id="18_383ke"]
-[ext_resource type="Resource" path="res://resources/weapons/carbine.tres" id="19_k71bq"]
-[ext_resource type="Resource" path="res://resources/units/player_alpha.tres" id="20_w7vf0"]
-[ext_resource type="Resource" path="res://resources/weapons/assault_rifle.tres" id="21_elwfe"]
-[ext_resource type="Resource" path="res://resources/units/player_bravo.tres" id="22_osg5y"]
-[ext_resource type="Script" path="res://scripts/core/map/map_transition_data.gd" id="23_fn3rm"]
+[ext_resource type="Script" uid="uid://ddxaoq75ktqcj" path="res://scripts/core/map/map_patrol_route_data.gd" id="13_ca1lc"]
+[ext_resource type="Script" uid="uid://cwmifdbdr8yld" path="res://scripts/core/map/tactical_map_definition.gd" id="14_6tmnv"]
+[ext_resource type="Script" uid="uid://dj166h1b4egv1" path="res://scripts/core/map/map_spawn_data.gd" id="15_jd08d"]
+[ext_resource type="Resource" uid="uid://b5vdjad2ohpb2" path="res://resources/units/assault.tres" id="16_jjkbt"]
+[ext_resource type="Resource" uid="uid://daq6ympv5kkit" path="res://resources/weapons/shotgun.tres" id="17_jinfu"]
+[ext_resource type="Resource" uid="uid://njaf7sjary33" path="res://resources/units/rifleman.tres" id="18_383ke"]
+[ext_resource type="Resource" uid="uid://cv0wuwmy4a5w2" path="res://resources/weapons/carbine.tres" id="19_k71bq"]
+[ext_resource type="Resource" uid="uid://c4s2swg26llnf" path="res://resources/units/player_alpha.tres" id="20_w7vf0"]
+[ext_resource type="Resource" uid="uid://dl4xbce24g1dm" path="res://resources/weapons/assault_rifle.tres" id="21_elwfe"]
+[ext_resource type="Resource" uid="uid://mpdq1kfchbn5" path="res://resources/units/player_bravo.tres" id="22_osg5y"]
+[ext_resource type="Script" uid="uid://bp0eam7ib73g8" path="res://scripts/core/map/map_transition_data.gd" id="23_fn3rm"]
 
 [sub_resource type="Resource" id="Resource_cfylv"]
 script = ExtResource("1_u1e4k")
@@ -1056,7 +1056,6 @@ spawn_id = &"EnemyAssault_1"
 unit_name = &"EnemyAssault_1"
 faction = &"enemy"
 cell = Vector3i(6, 0, 3)
-facing = Vector2i(-1, 0)
 visual_color = Color(0.9411765, 0.41568628, 0.3019608, 1)
 patrol_route_id = &"warehouse_assault_patrol"
 archetype = ExtResource("16_jjkbt")
@@ -1069,7 +1068,6 @@ spawn_id = &"EnemyAssault_2"
 unit_name = &"EnemyAssault_2"
 faction = &"enemy"
 cell = Vector3i(9, 0, 4)
-facing = Vector2i(-1, 0)
 visual_color = Color(0.92156863, 0.3764706, 0.3019608, 1)
 patrol_route_id = &"outpost_assault_patrol"
 archetype = ExtResource("16_jjkbt")
@@ -1082,7 +1080,6 @@ spawn_id = &"EnemyAssault_3"
 unit_name = &"EnemyAssault_3"
 faction = &"enemy"
 cell = Vector3i(10, 0, 4)
-facing = Vector2i(-1, 0)
 visual_color = Color(0.9411765, 0.47058824, 0.30980393, 1)
 patrol_route_id = &"outpost_flank_patrol"
 archetype = ExtResource("16_jjkbt")
@@ -1095,7 +1092,6 @@ spawn_id = &"EnemyGuard"
 unit_name = &"EnemyGuard"
 faction = &"enemy"
 cell = Vector3i(10, 0, 7)
-facing = Vector2i(-1, 0)
 visual_color = Color(0.83137256, 0.29411766, 0.29411766, 1)
 patrol_route_id = &"guard_patrol"
 archetype = ExtResource("18_383ke")
@@ -1108,7 +1104,6 @@ spawn_id = &"EnemyRifleman_2"
 unit_name = &"EnemyRifleman_2"
 faction = &"enemy"
 cell = Vector3i(7, 0, 1)
-facing = Vector2i(-1, 0)
 visual_color = Color(0.90588236, 0.39607844, 0.39607844, 1)
 patrol_route_id = &"rifleman_patrol"
 archetype = ExtResource("18_383ke")
@@ -1121,7 +1116,6 @@ spawn_id = &"EnemyScout"
 unit_name = &"EnemyScout"
 faction = &"enemy"
 cell = Vector3i(7, 0, 2)
-facing = Vector2i(-1, 0)
 visual_color = Color(0.9372549, 0.35686275, 0.35686275, 1)
 patrol_route_id = &"scout_patrol"
 archetype = ExtResource("18_383ke")
