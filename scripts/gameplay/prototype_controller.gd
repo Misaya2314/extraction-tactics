@@ -1335,6 +1335,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif key_event.keycode == KEY_Z:
 				_set_show_enemy_vision(not show_enemy_vision)
 				return
+			elif key_event.keycode == KEY_ESCAPE or key_event.physical_keycode == KEY_ESCAPE:
+				_cancel_selection()
+				return
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
 		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed:
@@ -1351,6 +1354,17 @@ func _set_show_enemy_vision(enabled: bool) -> void:
 	show_enemy_vision = enabled
 	_refresh_highlights()
 	_update_hud("敌人视野显示：%s。" % ("开启" if show_enemy_vision else "关闭"))
+
+
+func _cancel_selection() -> void:
+	if is_instance_valid(extraction_panel) and extraction_panel.visible:
+		cancel_extraction()
+		return
+	if is_instance_valid(loot_panel) and loot_panel.visible:
+		_close_loot_panel()
+		return
+	if is_instance_valid(selected_unit):
+		_select_unit(null)
 
 
 func _on_move_action_pressed() -> void:
