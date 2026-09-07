@@ -13,3 +13,5 @@ hold_duration = 0.07
 recover_duration = 0.22
 muzzle_flash_scale = 1.35
 muzzle_flash_duration = 0.09
+impact_time = 0.08
+impact_strength = 0.3

@@ -89,12 +89,27 @@ func _run() -> void:
 	c.grid.occupy(enemy.grid_cell, enemy.unit_id)
 	c._attack_with_unit(player, enemy)
 	_expect(c.session_manager.is_success(), "final attack commits before animation")
+	_expect(c.combat_presentation.active and not c.result_panel.visible, "final result waits for presentation")
+	_expect(enemy.visible, "logically dead target retained for death animation")
 	c._on_restart_pressed()
 	await scene_changed
 	await create_timer(0.5).timeout
 	c = current_scene as PrototypeController
 	_expect(c.session_manager.is_active() and not c.input_locked, "pending old animation cannot affect restarted mission")
 	_expect(c.units_by_id[c.all_enemy_ids[0]].current_hp == enemy_hp, "pending impact cannot damage new units")
+	# The public skill path must batch self-damage and enemy death before judging victory.
+	player = c.units_by_id[c.all_player_ids[0]]
+	enemy = c.units_by_id[c.all_enemy_ids[0]]
+	player.runtime_state.current_hp = 1
+	enemy.runtime_state.current_hp = 1
+	c.grid.vacate(enemy.grid_cell, enemy.unit_id)
+	enemy.grid_cell = player.grid_cell + Vector3i(1, 0, 0)
+	c.grid.occupy(enemy.grid_cell, enemy.unit_id)
+	await c._cast_skill_at_cell(player, player.runtime_state.get_skill(0), 0, player.grid_cell)
+	_expect(c.last_action_result.success and c.session_manager.is_failure(), "public grenade path resolves simultaneous wipe as defeat")
+	_expect(c.result_panel.visible and not c.combat_presentation.active, "grenade result waits for shared presentation")
+	_expect(not player.visible and not enemy.visible, "grenade cleans every dead view")
+	_expect(not player.defer_damage_feedback and not enemy.defer_damage_feedback, "deferred audio state restored")
 	current_scene = null
 	c.queue_free()
 	await process_frame

@@ -49,8 +49,8 @@ const EXTRACTION_HIGHLIGHT_COLOR := Color(0.2, 0.95, 0.42, 0.56)
 const MOVE_HIGHLIGHT_SURFACE_OFFSET := 0.025
 const CURSOR_HIGHLIGHT_COLOR := Color(1.0, 1.0, 1.0, 0.45)
 const CURSOR_SURFACE_OFFSET := 0.035
-const HALF_COVER_TEXTURE: Texture2D = preload("res://assets/textures/half_cover.png")
-const FULL_COVER_TEXTURE: Texture2D = preload("res://assets/textures/full_cover.png")
+const HALF_COVER_TEXTURE: Texture2D = preload("res://assets/ui/icons/cover_half.svg")
+const FULL_COVER_TEXTURE: Texture2D = preload("res://assets/ui/icons/cover_full.svg")
 const CURSOR_HIGHLIGHT_DISTANCE: int = 0
 const COVER_PREVIEW_DISTANCE: int = 1
 const CURSOR_DISTANCE_ALPHA_FACTORS: Array[float] = [1.0]
@@ -65,6 +65,7 @@ var _action_effect_depth: int = 0
 var _pending_deaths: Array[PrototypeUnit] = []
 var mission_round: int = 1
 var _run_generation: int = 0
+var combat_presentation: CombatPresentationDirector
 var _mission_configuration_valid: bool = true
 
 @export var map_definition: TacticalMapDefinition
@@ -217,6 +218,8 @@ func _load_authoring_scene() -> void:
 
 
 func _ready() -> void:
+	combat_presentation = CombatPresentationDirector.new()
+	add_child(combat_presentation)
 	grid = GridModel.new()
 	if map_definition == null:
 		push_error("PrototypeController requires a valid TacticalMapDefinition.")
@@ -1884,7 +1887,8 @@ func _cast_skill_at_cell(unit: PrototypeUnit, skill_inst: Variant, slot_index: i
 	if skill_def == null:
 		return
 	var ap_cost: int = skill_def.ap_cost
-	var undo_started := _begin_undo_player_action(unit)
+	if input_locked or _is_terminal():
+		return
 	var request = ActionRequestScript.new(
 		ACTION_SKILL,
 		unit.unit_id,
@@ -1900,15 +1904,17 @@ func _cast_skill_at_cell(unit: PrototypeUnit, skill_inst: Variant, slot_index: i
 			ActionExecutorScript.KEY_TARGET_ALIVE: true,
 		}
 	)
-	var context = ActionExecutionContextScript.new(unit.current_action_points)
-	context.set_ap_committer(Callable(unit.runtime_state, "spend_ap"))
-	var result: ActionResult = action_executor.execute(request, context)
-	last_action_result = result
-	_finish_undo_player_action(undo_started, result.success)
+	input_locked = true
+	_begin_combat_presentation()
+	var result := _execute_runtime_action(request, unit)
+	if result.success and result.damage > 0:
+		await combat_presentation.play(unit, grid.cell_to_world(target_cell), true, _is_terminal(), false)
+	else:
+		combat_presentation.finish()
+	input_locked = _is_terminal()
+	_refresh_result_panel()
 
 	if result.success:
-		if unit.has_method("play_shoot_sound"):
-			unit.play_shoot_sound()
 		_update_hud("【%s】施放成功！" % skill_def.display_name)
 		_set_action_mode(ACTION_MODE_MOVE)
 		_refresh_action_bar()
@@ -2400,7 +2406,19 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 	return true
 
 
+func _begin_combat_presentation() -> void:
+	if combat_presentation == null:
+		combat_presentation = CombatPresentationDirector.new()
+		add_child(combat_presentation)
+	combat_presentation.begin(units_by_id, camera_rig)
+	for placement_id in environment_objects_by_placement_id:
+		var state := environment_objects_by_placement_id[placement_id] as EnvironmentObjectRuntimeState
+		combat_presentation.retain_environment(_get_environment_view(placement_id), state != null and not state.get_destroy_effects().is_empty())
+
+
 func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> ActionResult:
+	if combat_presentation != null and combat_presentation.active:
+		return _action_rejected(&"presentation_busy", ACTION_ATTACK)
 	if not is_instance_valid(attacker) or not is_instance_valid(target):
 		return _action_rejected(&"invalid_target", ACTION_ATTACK)
 	if _is_terminal() or session_manager == null:
@@ -2446,8 +2464,10 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 	input_locked = true
 	end_turn_button.disabled = true
 	_clear_highlights()
+	_begin_combat_presentation()
 	var result := _execute_runtime_action(request, attacker)
 	if not result.success:
+		combat_presentation.finish()
 		# Preserve the executor's stable ActionResult.reason.  Cover-specific
 		# diagnostics are presentation metadata, not a second action taxonomy.
 		result.metadata = cover_damage.duplicate(true)
@@ -2469,29 +2489,17 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 	result.metadata = cover_damage.duplicate(true)
 	var applied := result.damage
 	attacker.look_at_cell(target.grid_cell)
-	if attacker.faction == &"enemy" and enemy_aim_duration > 0.0 and is_inside_tree():
-		await get_tree().create_timer(enemy_aim_duration).timeout
-	if result.killed and is_instance_valid(target):
-		target.visible = true
-
 	var is_step_out := cover_query.is_step_out and is_instance_valid(grid)
 	if is_step_out:
 		var step_world_pos := grid.cell_to_world(cover_query.step_out_cell)
 		var peek_pos := attacker.global_position.lerp(step_world_pos, 0.75)
 		await attacker.step_out_to(peek_pos, 0.15)
 
-	var on_impact := func() -> void:
-		if is_instance_valid(target) and applied > 0:
-			if result.killed:
-				target.play_death_sound()
-				target.visible = false
-			else:
-				target.play_hit_sound()
-	_schedule_attack_impact(on_impact)
-	await attacker.play_attack_feedback()
+	await combat_presentation.play(attacker, target.global_position, false, _is_terminal())
 
 	if is_step_out:
 		await attacker.step_back(0.15)
+	_refresh_result_panel()
 
 	if attacker.faction == &"enemy" and enemy_post_attack_delay > 0.0 and is_inside_tree():
 		await get_tree().create_timer(enemy_post_attack_delay).timeout
@@ -2527,19 +2535,6 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 	return result
 
 
-func _schedule_attack_impact(impact_callback: Callable) -> void:
-	if not is_inside_tree() or not impact_callback.is_valid():
-		if impact_callback.is_valid():
-			impact_callback.call()
-		return
-	var generation := _run_generation
-	await get_tree().create_timer(0.06).timeout
-	if generation != _run_generation or is_queued_for_deletion():
-		return
-	if impact_callback.is_valid():
-		impact_callback.call()
-
-
 func play_discover_sound() -> void:
 	if discover_sfx == null or not is_inside_tree():
 		return
@@ -2561,6 +2556,8 @@ func attack_environment_object(
 		attacker: PrototypeUnit,
 		target: EnvironmentObjectRuntimeState
 ) -> ActionResult:
+	if combat_presentation != null and combat_presentation.active:
+		return _action_rejected(&"presentation_busy", ACTION_ATTACK)
 	if not is_instance_valid(attacker) or target == null:
 		return _action_rejected(&"invalid_target", ACTION_ATTACK)
 	if _is_terminal() or session_manager == null:
@@ -2610,8 +2607,10 @@ func attack_environment_object(
 	if is_instance_valid(end_turn_button):
 		end_turn_button.disabled = true
 	_clear_highlights()
+	_begin_combat_presentation()
 	var result := _execute_runtime_action(request, attacker)
 	if not result.success:
+		combat_presentation.finish()
 		result.metadata = cover_damage.duplicate(true)
 		input_locked = previous_input_locked or _is_terminal()
 		_refresh_undo_buttons()
@@ -2630,7 +2629,9 @@ func attack_environment_object(
 		return result
 	result.metadata = result.metadata.duplicate(true)
 	attacker.look_at_cell(target.cell)
-	await attacker.play_attack_feedback()
+	var is_explosion := target.destroyed and not target.get_destroy_effects().is_empty()
+	await combat_presentation.play(attacker, grid.cell_to_world(target.cell), is_explosion, _is_terminal())
+	_refresh_result_panel()
 	input_locked = previous_input_locked or _is_terminal()
 	_refresh_undo_buttons()
 	var destruction_summary := result.metadata
@@ -3234,6 +3235,8 @@ func _refresh_action_bar() -> void:
 			action_bar_ap_label.text = "AP：%d/%d" % [selected_unit.current_action_points, selected_unit.max_action_points]
 		else:
 			action_bar_ap_label.text = "AP：0/0"
+	if is_instance_valid(action_bar_ap_label) and action_bar_ap_label.has_method("set_points"):
+		action_bar_ap_label.set_points(selected_unit.current_action_points if has_player_selection else 0, selected_unit.max_action_points if has_player_selection else 0)
 	var can_show_actions := _can_show_tactical_highlights()
 	move_action_button.disabled = not can_show_actions \
 		or not selected_unit.can_spend_action_points(MOVE_ACTION_COST)
@@ -3268,13 +3271,19 @@ func _refresh_single_skill_button(btn: Button, slot_index: int, has_player_selec
 		return
 	btn.visible = true
 	var skill_def = skill_inst.definition
+	var icon_name := "ability"
+	if skill_def.skill_id == &"tactical_grenade":
+		icon_name = "grenade"
+	elif skill_def.skill_id == &"tactical_sprint":
+		icon_name = "sprint"
+	btn.icon = load("res://assets/ui/icons/%s.svg" % icon_name)
 	var cd: int = skill_inst.current_cooldown
 	var is_ready: bool = skill_inst.is_ready()
 	var can_afford := selected_unit.can_spend_action_points(skill_def.ap_cost)
 	if cd > 0:
-		btn.text = "%s (CD:%d)" % [skill_def.display_name, cd]
+		btn.text = "%s · 冷却 %d" % [skill_def.display_name, cd]
 	else:
-		btn.text = "%s (%dAP)" % [skill_def.display_name, skill_def.ap_cost]
+		btn.text = "%s · %d AP" % [skill_def.display_name, skill_def.ap_cost]
 	btn.disabled = not can_show_actions or not is_ready or not can_afford
 	btn.button_pressed = (action_mode == ACTION_MODE_SKILL and _active_skill_slot == slot_index)
 	btn.tooltip_text = skill_inst.get_tooltip_text() if skill_inst.has_method("get_tooltip_text") else skill_def.get_summary()
@@ -3737,8 +3746,9 @@ func _on_unit_died(unit: PrototypeUnit) -> void:
 	if selected_unit == unit:
 		selected_unit = null
 	unit.set_selected(false)
-	unit.visible = false
-	unit.process_mode = Node.PROCESS_MODE_DISABLED
+	if combat_presentation == null or not combat_presentation.retains(unit):
+		unit.visible = false
+		unit.process_mode = Node.PROCESS_MODE_DISABLED
 	if _action_effect_depth > 0:
 		_pending_deaths.append(unit)
 		return
@@ -4118,7 +4128,7 @@ func _on_session_result_changed(result: RefCounted) -> void:
 func _refresh_result_panel() -> void:
 	if not is_instance_valid(result_panel) or session_manager == null:
 		return
-	result_panel.visible = session_manager.is_terminal()
+	result_panel.visible = session_manager.is_terminal() and (combat_presentation == null or not combat_presentation.active)
 	var progress: Dictionary = mission_objective.progress(units_by_id)
 	result_title_label.text = "关卡胜利" if session_manager.is_success() else "关卡失败"
 	result_value_label.text = "目标：消灭指定敌人 %d / %d" % [progress[&"completed"], progress[&"total"]]
@@ -4379,18 +4389,13 @@ func _update_hud(message: String = "") -> void:
 					selected_unit.attack_range, selected_unit.vision_range, selected_unit.inner_vision_range, alert_text,
 				]
 			else:
-				var archetype_name := selected_unit.archetype.display_name if selected_unit.archetype != null else "未配置原型"
-				selection_label.text = "%s | 原型 %s | 武器 %s\n伤害 %d | 射程 %d | 攻击 AP %d\nHP %d/%d | AP %d/%d | 格 %s" % [
-					selected_unit.name, archetype_name, selected_unit.get_weapon_display_name(),
-					selected_unit.attack_damage, selected_unit.attack_range, selected_unit.attack_ap_cost,
-					selected_unit.current_hp, selected_unit.max_hp,
-					selected_unit.current_action_points, selected_unit.max_action_points,
-					selected_unit.grid_cell,
-				]
+				var archetype_name := selected_unit.archetype.display_name if selected_unit.archetype != null else "队员"
+				selection_label.text = "%s · %s\n生命 %d/%d   伤害 %d   射程 %d" % [archetype_name, selected_unit.get_weapon_display_name(), selected_unit.current_hp, selected_unit.max_hp, selected_unit.attack_damage, selected_unit.attack_range]
+				selection_label.tooltip_text = "%s\n行动点 %d/%d · 攻击消耗 %d AP\n位置 %s" % [selected_unit.name, selected_unit.current_action_points, selected_unit.max_action_points, selected_unit.attack_ap_cost, selected_unit.grid_cell]
 		else:
 			selection_label.text = "未选择单位"
 	if is_instance_valid(end_turn_button):
-		end_turn_button.text = "推进探索 Tick" if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION else "结束玩家回合"
+		end_turn_button.text = "推进探索" if turn_manager.get_phase() == TurnManager.Phase.EXPLORATION else "结束玩家回合"
 		end_turn_button.disabled = input_locked or _is_terminal() or turn_manager.is_enemy_turn() or (session_manager != null and session_manager.get_state() == GameStateManagerScript.State.EXTRACTION)
 	_refresh_action_bar()
 	if is_instance_valid(inventory_summary_label) and squad_inventory != null:

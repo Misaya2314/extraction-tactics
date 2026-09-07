@@ -23,6 +23,8 @@ extends Node3D
 
 @onready var camera: Camera3D = $Camera3D
 
+var cinematic_active: bool = false
+
 var _target_zoom: float
 var _current_zoom: float
 
@@ -35,6 +37,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if cinematic_active:
+		return
 	var input_vector := _read_keyboard_vector()
 	if input_vector.length_squared() > 0.0:
 		var movement := Vector3(input_vector.x, 0.0, input_vector.y)
@@ -46,6 +50,8 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if cinematic_active:
+		return
 	var mouse_button := event as InputEventMouseButton
 	if mouse_button == null or not mouse_button.pressed:
 		return

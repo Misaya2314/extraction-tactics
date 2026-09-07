@@ -174,6 +174,7 @@ var unit_id: StringName:
 @onready var audio_death: AudioStreamPlayer3D = get_node_or_null("AudioDeath") as AudioStreamPlayer3D
 @onready var audio_move: AudioStreamPlayer3D = get_node_or_null("AudioMove") as AudioStreamPlayer3D
 
+var defer_damage_feedback: bool = false
 var _previous_observed_hp: int = -1
 
 var alert_level: int = 0:
@@ -748,7 +749,7 @@ func take_damage(amount: int, play_audio: bool = true) -> int:
 			return 0
 		var applied := previous_hp - runtime_state.current_hp
 		_previous_observed_hp = current_hp
-		if play_audio and applied > 0:
+		if play_audio and not defer_damage_feedback and applied > 0:
 			if is_alive():
 				play_hit_sound()
 			else:
@@ -759,7 +760,7 @@ func take_damage(amount: int, play_audio: bool = true) -> int:
 	_previous_observed_hp = current_hp
 	health_changed.emit(current_hp, max_hp)
 	_update_status_label()
-	if play_audio and applied_damage > 0:
+	if play_audio and not defer_damage_feedback and applied_damage > 0:
 		if current_hp == 0:
 			play_death_sound()
 		else:

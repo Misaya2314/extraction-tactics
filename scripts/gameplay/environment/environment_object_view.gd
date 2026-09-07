@@ -7,6 +7,8 @@ extends Node3D
 ## Controller/EnvironmentObjectRuntimeState decides whether the object is
 ## active; this view only mirrors that decision and applies local feedback.
 
+var hold_destruction_visual: bool = false
+var _pending_damage_feedback: bool = false
 var _runtime_active: bool = true
 var _visibility_allowed: bool = true
 var _collision_shapes: Array[CollisionShape3D] = []
@@ -42,10 +44,13 @@ func set_runtime_active(active: bool) -> void:
 
 func set_visibility_allowed(allowed: bool) -> void:
 	_visibility_allowed = allowed
-	visible = _runtime_active and _visibility_allowed
+	visible = (_runtime_active or hold_destruction_visual) and _visibility_allowed
 
 
 func play_damage_feedback() -> void:
+	if hold_destruction_visual:
+		_pending_damage_feedback = true
+		return
 	if not _runtime_active:
 		return
 	_stop_feedback()
@@ -88,7 +93,7 @@ func _collect_presentation_nodes(node: Node) -> void:
 
 
 func _apply_active_state() -> void:
-	visible = _runtime_active and _visibility_allowed
+	visible = (_runtime_active or hold_destruction_visual) and _visibility_allowed
 	for shape in _collision_shapes:
 		if is_instance_valid(shape):
 			shape.disabled = not _runtime_active
@@ -113,3 +118,11 @@ func _stop_feedback() -> void:
 
 func _exit_tree() -> void:
 	_stop_feedback()
+
+
+func release_destruction_visual() -> void:
+	hold_destruction_visual = false
+	_apply_active_state()
+	if _pending_damage_feedback:
+		_pending_damage_feedback = false
+		play_damage_feedback()
