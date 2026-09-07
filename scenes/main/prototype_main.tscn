@@ -339,19 +339,19 @@ theme_override_constants/separation = 5
 
 [node name="ResultTitle" type="Label" parent="HUD/ResultPanel/Margin/VBox" unique_id=614648018]
 layout_mode = 2
-text = "Result"
+text = "关卡结果"
 
 [node name="ResultItems" type="Label" parent="HUD/ResultPanel/Margin/VBox" unique_id=967167789]
 layout_mode = 2
-text = "Carried: empty"
+text = "结束原因"
 autowrap_mode = 2
 
 [node name="ResultValue" type="Label" parent="HUD/ResultPanel/Margin/VBox" unique_id=2098656511]
 layout_mode = 2
-text = "Value: 0"
+text = "目标完成：0 / 0"
 
 [node name="RestartButton" type="Button" parent="HUD/ResultPanel/Margin/VBox" unique_id=629301909]
 layout_mode = 2
-text = "Restart"
+text = "重新开始本关"
 
 [connection signal="pressed" from="HUD/InventoryPanel/Margin/VBox/HeaderRow/CollapseButton" to="." method="_on_inventory_collapse_pressed"]

@@ -14,9 +14,27 @@ enum Phase {
 var _phase: Phase = Phase.EXPLORATION
 var _player_ids: Array[StringName] = []
 var _enemy_ids: Array[StringName] = []
-
+var _effect_batch_depth: int = 0
 const STATE_SNAPSHOT_SCHEMA_VERSION: int = 1
 
+
+func begin_effect_batch() -> void:
+	_effect_batch_depth += 1
+
+
+func end_effect_batch(publish_outcome: bool = true) -> void:
+	_effect_batch_depth = maxi(0, _effect_batch_depth - 1)
+	if _effect_batch_depth == 0 and publish_outcome:
+		_resolve_rosters()
+
+
+func _resolve_rosters() -> void:
+	if _phase != Phase.PLAYER_TURN and _phase != Phase.ENEMY_TURN:
+		return
+	if _player_ids.is_empty():
+		_set_phase(Phase.DEFEAT)
+	elif _enemy_ids.is_empty():
+		_set_phase(Phase.VICTORY)
 
 ## Replaces both faction rosters with stable, de-duplicated, non-empty IDs.
 ## Configuration resets the phase to exploration and cannot emit a phase signal
@@ -72,11 +90,8 @@ func remove_unit(unit_id: StringName) -> void:
 	removed = _remove_from_array(_enemy_ids, unit_id) or removed
 	if not removed:
 		return
-	if _phase == Phase.PLAYER_TURN or _phase == Phase.ENEMY_TURN:
-		if _enemy_ids.is_empty():
-			_set_phase(Phase.VICTORY)
-		elif _player_ids.is_empty():
-			_set_phase(Phase.DEFEAT)
+	if _effect_batch_depth == 0:
+		_resolve_rosters()
 
 
 func has_unit(unit_id: StringName) -> bool:

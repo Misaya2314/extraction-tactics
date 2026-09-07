@@ -5,9 +5,8 @@ const SessionResultScript = preload("res://scripts/core/session/session_result.g
 
 ## Session-level state machine, intentionally independent from TurnManager.
 ##
-## Combat resolution returns to exploration. A successful session can only be
-## recorded by confirming extraction; clearing a combat encounter is never a
-## session success by itself.
+## Encounter resolution returns to exploration. Mission objectives submit the
+## terminal outcome after all effects of an action have resolved.
 
 enum State {
 	PREPARATION,
@@ -128,7 +127,7 @@ func is_failure() -> bool:
 
 
 ## Applies only the non-terminal legal transitions. RESULT must be entered via
-## confirm_extraction() or report_team_defeated() so its outcome is explicit.
+## complete_mission(), report_team_defeated(), or legacy confirm_extraction().
 func transition_to(next_state: State) -> bool:
 	if not _is_legal_transition(_state, next_state):
 		return false
@@ -190,6 +189,13 @@ func confirm_extraction(reason: StringName = DEFAULT_EXTRACTION_REASON) -> bool:
 	if _state != State.EXTRACTION:
 		return false
 	_record_result(true, reason if reason != &"" else DEFAULT_EXTRACTION_REASON)
+	return true
+
+
+func complete_mission(reason: StringName = &"objective_completed") -> bool:
+	if not is_active():
+		return false
+	_record_result(true, reason if reason != &"" else &"objective_completed")
 	return true
 
 

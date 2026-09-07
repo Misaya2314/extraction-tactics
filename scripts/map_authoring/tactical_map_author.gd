@@ -3,6 +3,8 @@ class_name TacticalMapAuthor
 extends Node3D
 
 @export var map_id: StringName = &"tactical_map"
+## Empty means eliminate all authored enemies; otherwise list enemy spawn IDs.
+@export var objective_spawn_ids: Array[StringName] = []
 @export var footprint_size: Vector2i = Vector2i(12, 10)
 @export_range(1, 32, 1) var level_count: int = 2
 @export var cell_dimensions: Vector3 = Vector3(2.0, 2.0, 2.0):

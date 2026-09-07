@@ -59,6 +59,14 @@ const COVER_ICON_SURFACE_OFFSET: float = 0.55
 const COVER_ICON_EDGE_OFFSET_RATIO: float = 0.40
 const COVER_ICON_PIXEL_SIZE: float = 0.003
 
+const MissionObjectiveScript = preload("res://scripts/core/session/mission_objective.gd")
+var mission_objective = MissionObjectiveScript.new()
+var _action_effect_depth: int = 0
+var _pending_deaths: Array[PrototypeUnit] = []
+var mission_round: int = 1
+var _run_generation: int = 0
+var _mission_configuration_valid: bool = true
+
 @export var map_definition: TacticalMapDefinition
 @export var cover_combat_settings: CoverCombatSettings
 
@@ -234,6 +242,13 @@ func _ready() -> void:
 	_apply_map_rules()
 	_spawn_initial_units()
 	_configure_encounter_models()
+	if not _mission_configuration_valid or mission_objective.target_ids.is_empty() or (
+		not map_definition.objective_spawn_ids.is_empty()
+		and mission_objective.target_ids.size() != map_definition.objective_spawn_ids.size()
+	):
+		push_error("关卡目标无效：请配置至少一个有效敌人，且目标出生 ID 不可重复。")
+		input_locked = true
+		return
 	_configure_inventory_ui()
 	session_manager.start_exploration()
 	_configure_undo_manager()
@@ -261,7 +276,9 @@ func _ready() -> void:
 			camera_rig.focus_world_position(grid.cell_to_world(player_cells[0]))
 	_evaluate_detection()
 	_init_hover_cursor()
-	_update_hud("探索中：用底部按钮切换移动/攻击；移动模式看蓝格，攻击模式看红格。")
+	if is_instance_valid(inventory_panel):
+		inventory_panel.hide()
+	_update_hud("关卡目标：消灭指定敌人。全队阵亡则失败；使用底部按钮移动、攻击或结束回合。")
 
 
 func _configure_inventory_ui() -> void:
@@ -515,6 +532,8 @@ func _configure_runtime_instances() -> void:
 
 
 func _execute_runtime_action(request: Variant, actor: PrototypeUnit = null) -> ActionResult:
+	if _is_terminal():
+		return ActionResultScript.rejected(&"terminal")
 	if action_executor == null or request == null:
 		last_action_result = ActionResultScript.rejected(&"invalid_request")
 		return last_action_result
@@ -522,20 +541,36 @@ func _execute_runtime_action(request: Variant, actor: PrototypeUnit = null) -> A
 	var current_ap := actor.current_action_points if is_instance_valid(actor) else 0
 	var context = ActionExecutionContextScript.new(current_ap)
 	if is_instance_valid(actor):
-		var ap_committer := Callable(actor, "spend_action_points")
-		# An explosive object may synchronously kill the attacking unit before
-		# the executor reaches its post-handler AP commit.  Still call the same
-		# unit API; a dead actor has no future AP to spend, so that terminal
-		# commit is considered complete instead of turning a resolved explosion
-		# into an ap_commit_failed result.
-		if request is ActionRequest and request.action_type == ACTION_ATTACK \
-			and request.payload.get(&"environment_object", null) != null:
-			ap_committer = Callable(self, "_commit_environment_action_points").bind(actor)
-		context.set_ap_committer(ap_committer)
+		# A self-damaging skill can kill its actor just like an environment attack.
+		context.set_ap_committer(Callable(self, "_commit_environment_action_points").bind(actor))
+	_action_effect_depth += 1
+	turn_manager.begin_effect_batch()
 	last_action_result = action_executor.execute(request, context)
+	_action_effect_depth -= 1
+	if _action_effect_depth == 0:
+		_evaluate_mission_outcome()
+	turn_manager.end_effect_batch(not _is_terminal())
+	if _action_effect_depth == 0:
+		var deaths := _pending_deaths.duplicate()
+		_pending_deaths.clear()
+		for dead_unit in deaths:
+			if is_instance_valid(dead_unit) and not _is_terminal():
+				_resolve_death_encounter(dead_unit)
 	_finish_undo_player_action(undo_started, last_action_result != null and last_action_result.success)
 	_refresh_undo_buttons()
 	return last_action_result
+
+
+func _evaluate_mission_outcome() -> void:
+	if _undo_restoring or _action_effect_depth > 0 or session_manager == null or not session_manager.is_active():
+		return
+	if mission_objective.target_ids.is_empty():
+		return
+	# Failure wins ties; all damage and chain reactions have already finished.
+	if _living_player_count() == 0:
+		session_manager.report_team_defeated()
+	elif mission_objective.progress(units_by_id)[&"success"]:
+		session_manager.complete_mission()
 
 
 func _commit_environment_action_points(cost: int, actor: PrototypeUnit) -> bool:
@@ -591,6 +626,7 @@ func _capture_undo_state() -> Dictionary:
 		&"turn": turn_snapshot,
 		&"session": session_snapshot,
 		&"world_tick": world_tick,
+		&"mission_round": mission_round,
 		&"enemy_alerts": _capture_undo_alerts(),
 		&"enemy_patrols": _capture_undo_patrols(),
 		&"encounter_by_unit": encounter_by_unit.duplicate(true),
@@ -729,6 +765,7 @@ func _restore_undo_state_internal(checkpoint: Dictionary) -> bool:
 	var raw_units: Variant = checkpoint.get(&"units", null)
 	if not raw_units is Array:
 		return false
+	mission_round = int(checkpoint.get(&"mission_round", 1))
 	var old_unit_ids: Array = units_by_id.keys()
 	var restored_units: Dictionary = {}
 	# Release every currently equipped runtime weapon before hydrating the
@@ -1238,11 +1275,15 @@ func _handle_interact_action(request: Variant, _context: Variant) -> Variant:
 				_set_inventory_body_collapsed(false)
 			return true
 		&"extraction_prompt":
+			if not mission_objective.target_ids.is_empty():
+				return _action_rejected(&"mission_requires_objective", ACTION_INTERACT)
 			if not session_manager.start_extraction():
 				return _action_rejected(&"wrong_phase", ACTION_INTERACT, request.actor_id, request.target_id)
 			extraction_panel.visible = true
 			return true
 		&"extraction_confirm":
+			if not mission_objective.target_ids.is_empty():
+				return _action_rejected(&"mission_requires_objective", ACTION_INTERACT)
 			if not session_manager.confirm_extraction():
 				return _action_rejected(&"wrong_phase", ACTION_INTERACT, request.actor_id, request.target_id)
 			return true
@@ -1643,9 +1684,18 @@ func _rebuild_dynamic_environment_rules() -> void:
 
 
 func _spawn_initial_units() -> void:
+	mission_objective.configure([])
+	_mission_configuration_valid = true
 	for index in map_definition.spawns.size():
 		var spawn: MapSpawnData = map_definition.spawns[index]
-		_spawn_unit_from_spawn(spawn, index)
+		var unit := _spawn_unit_from_spawn(spawn, index)
+		if not is_instance_valid(unit):
+			_mission_configuration_valid = false
+		if is_instance_valid(unit) and spawn.faction == &"enemy" and (
+			map_definition.objective_spawn_ids.is_empty()
+			or map_definition.objective_spawn_ids.has(spawn.get_stable_spawn_id(index))
+		):
+			mission_objective.target_ids.append(unit.unit_id)
 
 
 func _spawn_unit(unit_name: StringName, cell: Vector3i, faction: StringName, color: Color, archetype: UnitArchetype = null, weapon: WeaponDefinition = null) -> PrototypeUnit:
@@ -2196,6 +2246,9 @@ func _refresh_inventory_ui() -> void:
 
 
 func begin_extraction_prompt(extraction_id: StringName = &"") -> ActionResult:
+	if not mission_objective.target_ids.is_empty():
+		_update_hud("本关通过消灭目标敌人完成，无需撤离。")
+		return _action_rejected(&"mission_requires_objective", ACTION_INTERACT)
 	if not _can_use_exploration_action():
 		return _action_rejected(&"wrong_phase", ACTION_INTERACT)
 	# The prompt itself is a zero-cost Interact, but a player with no AP cannot
@@ -2231,6 +2284,8 @@ func begin_extraction_prompt(extraction_id: StringName = &"") -> ActionResult:
 
 
 func confirm_extraction() -> ActionResult:
+	if not mission_objective.target_ids.is_empty():
+		return ActionResultScript.rejected(&"mission_requires_objective")
 	if session_manager == null or session_manager.get_state() != GameStateManagerScript.State.EXTRACTION:
 		return _action_rejected(&"wrong_phase", ACTION_INTERACT)
 	var player := selected_unit
@@ -2311,7 +2366,7 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 	_clear_highlights()
 	var result := _execute_runtime_action(request, unit)
 	if not result.success:
-		input_locked = previous_input_locked
+		input_locked = previous_input_locked or _is_terminal()
 		_refresh_undo_buttons()
 		_refresh_highlights()
 		_update_hud("无法移动：%s。" % result.reason)
@@ -2320,7 +2375,7 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 	for index in range(1, path.size()):
 		world_points.append(grid.cell_to_world(path[index]))
 	await unit.move_along_world_path(world_points, destination)
-	input_locked = previous_input_locked
+	input_locked = previous_input_locked or _is_terminal()
 	_refresh_undo_buttons()
 	_update_enemy_visibility()
 	_refresh_highlights()
@@ -2380,7 +2435,7 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 		# Preserve the executor's stable ActionResult.reason.  Cover-specific
 		# diagnostics are presentation metadata, not a second action taxonomy.
 		result.metadata = cover_damage.duplicate(true)
-		input_locked = previous_input_locked
+		input_locked = previous_input_locked or _is_terminal()
 		_refresh_undo_buttons()
 		_refresh_highlights()
 		if cover_query.is_blocked():
@@ -2424,7 +2479,7 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 
 	if attacker.faction == &"enemy" and enemy_post_attack_delay > 0.0 and is_inside_tree():
 		await get_tree().create_timer(enemy_post_attack_delay).timeout
-	input_locked = previous_input_locked
+	input_locked = previous_input_locked or _is_terminal()
 	_refresh_undo_buttons()
 	var cover_level_name := String(cover_summary.get(&"cover_level_name", &"NONE"))
 	var reduction_percent := int(cover_summary.get(&"damage_reduction_percent", 0))
@@ -2461,7 +2516,10 @@ func _schedule_attack_impact(impact_callback: Callable) -> void:
 		if impact_callback.is_valid():
 			impact_callback.call()
 		return
+	var generation := _run_generation
 	await get_tree().create_timer(0.06).timeout
+	if generation != _run_generation or is_queued_for_deletion():
+		return
 	if impact_callback.is_valid():
 		impact_callback.call()
 
@@ -2539,7 +2597,7 @@ func attack_environment_object(
 	var result := _execute_runtime_action(request, attacker)
 	if not result.success:
 		result.metadata = cover_damage.duplicate(true)
-		input_locked = previous_input_locked
+		input_locked = previous_input_locked or _is_terminal()
 		_refresh_undo_buttons()
 		_refresh_highlights()
 		if cover_query.is_blocked():
@@ -2557,7 +2615,7 @@ func attack_environment_object(
 	result.metadata = result.metadata.duplicate(true)
 	attacker.look_at_cell(target.cell)
 	await attacker.play_attack_feedback()
-	input_locked = previous_input_locked
+	input_locked = previous_input_locked or _is_terminal()
 	_refresh_undo_buttons()
 	var destruction_summary := result.metadata
 	var destroyed_text := ""
@@ -2859,7 +2917,7 @@ func _start_combat(player_first: bool, alert_enemy: PrototypeUnit, known_cell: V
 
 
 func _run_enemy_turn() -> void:
-	if not turn_manager.is_enemy_turn() or turn_manager.is_terminal():
+	if _is_terminal() or not turn_manager.is_enemy_turn() or turn_manager.is_terminal():
 		return
 	input_locked = true
 	_refresh_undo_buttons()
@@ -2872,7 +2930,7 @@ func _run_enemy_turn() -> void:
 		enemy.reset_action_points()
 		var action_attempts := 0
 		var max_action_attempts := maxi(enemy.max_action_points + 1, 1)
-		while enemy.current_action_points > 0 and turn_manager.is_enemy_turn() and action_attempts < max_action_attempts:
+		while enemy.current_action_points > 0 and not _is_terminal() and turn_manager.is_enemy_turn() and action_attempts < max_action_attempts:
 			action_attempts += 1
 			var living_players: Array = []
 			for player_id in _living_player_ids():
@@ -2923,12 +2981,17 @@ func _run_enemy_turn() -> void:
 							break
 				_:
 					break
+		if _is_terminal():
+			return
 		if enemy_switch_interval > 0.0 and is_inside_tree() and turn_manager.is_enemy_turn() and not turn_manager.is_terminal():
 			await get_tree().create_timer(enemy_switch_interval).timeout
+	if _is_terminal():
+		return
 	input_locked = false
 	_refresh_undo_buttons()
 	if turn_manager.is_enemy_turn():
 		if turn_manager.end_enemy_turn():
+			mission_round += 1
 			_reset_faction_ap(&"player")
 			# The turn checkpoint must include the AP reset performed between
 			# enemy and player turns.  Capturing from phase_changed would be too
@@ -3595,6 +3658,15 @@ func _on_unit_died(unit: PrototypeUnit) -> void:
 	unit.set_selected(false)
 	unit.visible = false
 	unit.process_mode = Node.PROCESS_MODE_DISABLED
+	if _action_effect_depth > 0:
+		_pending_deaths.append(unit)
+		return
+	_evaluate_mission_outcome()
+	if not _is_terminal():
+		_resolve_death_encounter(unit)
+
+
+func _resolve_death_encounter(unit: PrototypeUnit) -> void:
 	if unit.faction == &"player" and _living_player_count() == 0:
 		if session_manager != null:
 			session_manager.report_team_defeated()
@@ -3612,7 +3684,7 @@ func _on_unit_died(unit: PrototypeUnit) -> void:
 
 
 func _on_phase_changed(_previous: TurnManager.Phase, _current: TurnManager.Phase) -> void:
-	if _undo_restoring:
+	if _undo_restoring or _is_terminal():
 		return
 	match _current:
 		TurnManager.Phase.PLAYER_TURN:
@@ -3873,6 +3945,8 @@ func _on_extraction_cancel_pressed() -> void:
 
 
 func _on_restart_pressed() -> void:
+	input_locked = true
+	_run_generation += 1
 	get_tree().reload_current_scene()
 
 
@@ -3950,28 +4024,26 @@ func _on_session_state_changed(_previous: int, current: int) -> void:
 func _on_session_result_changed(result: RefCounted) -> void:
 	if _undo_restoring:
 		return
-	if result.success:
-		loot_settlement = LootSettlementScript.from_inventory(true, squad_inventory)
-		_log("结算：撤离成功，带出 %d 件物品，总价值 %d。" % [loot_settlement.get_items().size(), loot_settlement.get_total_value()])
-	else:
-		loot_settlement = LootSettlementScript.failure_snapshot()
-		_log("结算：任务失败，小队全灭，Loot 全部丢失。")
+	input_locked = true
+	_clear_highlights()
+	_hide_hover_cursor()
+	_refresh_undo_buttons()
+	var message := "目标完成，关卡胜利。" if result.success else "全队失去战斗能力，关卡失败。"
+	_log(message)
 	_refresh_result_panel()
-	_update_hud("撤离成功，结算已完成。" if result.success else "小队全灭，Loot 全部丢失。")
+	_update_hud(message)
 
 
 func _refresh_result_panel() -> void:
-	if not is_instance_valid(result_panel):
+	if not is_instance_valid(result_panel) or session_manager == null:
 		return
-	result_panel.visible = true
-	var successful: bool = loot_settlement != null and loot_settlement.is_successful()
-	result_title_label.text = "任务成功" if successful else "任务失败"
-	result_value_label.text = "带出总价值：%d" % (loot_settlement.get_total_value() if loot_settlement != null else 0)
-	var names: Array[String] = []
-	if loot_settlement != null:
-		for item in loot_settlement.get_items():
-			names.append("%s（占%d格，%d°）" % [item.display_name, item.slot_size, _inventory_item_rotation(item)])
-	result_items_label.text = "带出物品：" + ("、".join(names) if not names.is_empty() else "无")
+	result_panel.visible = session_manager.is_terminal()
+	var progress: Dictionary = mission_objective.progress(units_by_id)
+	result_title_label.text = "关卡胜利" if session_manager.is_success() else "关卡失败"
+	result_value_label.text = "目标：消灭指定敌人 %d / %d" % [progress[&"completed"], progress[&"total"]]
+	result_items_label.text = "%s\n战斗回合：%d · 己方存活：%d\n可重新开始本关，失败不会永久丢失装备。" % [
+		"结束原因：目标完成" if session_manager.is_success() else "结束原因：全队阵亡",
+		mission_round, _living_player_count()]
 
 
 func _inventory_item_rotation(item: InventoryItemInstance) -> int:
@@ -4203,8 +4275,11 @@ func _phase_name() -> String:
 func _update_hud(message: String = "") -> void:
 	if not is_instance_valid(turn_manager):
 		return
+	if _is_terminal():
+		message = "目标完成，关卡胜利。" if session_manager.is_success() else "全队阵亡，关卡失败。"
 	if is_instance_valid(phase_label):
-		phase_label.text = "%s · 世界 Tick %d" % [_phase_name(), world_tick]
+		var progress: Dictionary = mission_objective.progress(units_by_id)
+		phase_label.text = "%s · 回合 %d · 目标 %d/%d" % [_phase_name(), mission_round, progress[&"completed"], progress[&"total"]]
 	if is_instance_valid(alert_label):
 		alert_label.text = "敌方警戒：%s" % _alert_summary()
 	if is_instance_valid(selection_label):

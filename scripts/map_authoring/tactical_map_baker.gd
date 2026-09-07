@@ -20,6 +20,7 @@ static func build(author: TacticalMapAuthor) -> Dictionary:
 		}
 
 	definition.map_id = author.map_id
+	definition.objective_spawn_ids = author.objective_spawn_ids.duplicate()
 	definition.footprint_size = author.footprint_size
 	definition.level_count = author.level_count
 	definition.cell_size = author.cell_dimensions
@@ -712,20 +713,28 @@ static func _validate_definition(definition: TacticalMapDefinition, errors: Arra
 			player_spawn_count += 1
 	if player_spawn_count == 0:
 		TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-044", "Map needs at least one player spawn.")
-	var extraction_cells: Array[Vector3i] = []
 	for placement in definition.objects:
 		if not cells.has(placement.cell):
 			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-045", "Object %s is not on a floor cell (%s)." % [placement.object_id, placement.cell], placement.cell)
-		elif placement.kind == MapObjectPlacement.Kind.EXTRACTION:
-			extraction_cells.append(placement.cell)
 		var loot_configuration_error := placement.get_loot_configuration_error()
 		if not loot_configuration_error.is_empty():
 			if placement.kind == MapObjectPlacement.Kind.LOOT:
 				TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-054", loot_configuration_error, placement.cell)
 			else:
 				TacticalMapDiagnostics.append_warning(warnings, diagnostics, &"TMB-055", loot_configuration_error, placement.cell)
-	if extraction_cells.is_empty():
-		TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-046", "Map needs at least one extraction marker.")
+	var seen_objectives: Dictionary = {}
+	for target_id in definition.objective_spawn_ids:
+		if seen_objectives.has(target_id):
+			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-060", "Duplicate objective spawn: %s" % target_id)
+		seen_objectives[target_id] = true
+		var found := false
+		for spawn_index in definition.spawns.size():
+			var spawn := definition.spawns[spawn_index]
+			if spawn.faction == &"enemy" and spawn.get_stable_spawn_id(spawn_index) == target_id:
+				found = true
+				break
+		if not found:
+			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-059", "Objective references missing enemy spawn: %s" % target_id)
 	for transition in definition.transitions:
 		if transition.from_cell == transition.to_cell:
 			TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-047", "A traversal link connects %s to itself." % transition.from_cell, transition.from_cell)
@@ -757,15 +766,6 @@ static func _validate_definition(definition: TacticalMapDefinition, errors: Arra
 			if model.find_path(route.points[index - 1], route.points[index]).is_empty():
 				var disconnected_message := "Patrol route %s is disconnected between %s and %s." % [route.route_id, route.points[index - 1], route.points[index]]
 				TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-052", disconnected_message, route.points[index])
-	if not extraction_cells.is_empty():
-		for spawn_cell in definition.get_player_spawn_cells():
-			var can_extract := false
-			for extraction_cell in extraction_cells:
-				if not model.find_path(spawn_cell, extraction_cell).is_empty():
-					can_extract = true
-					break
-			if not can_extract:
-				TacticalMapDiagnostics.append_error(errors, diagnostics, &"TMB-053", "Player spawn %s cannot reach any extraction point." % spawn_cell, spawn_cell)
 
 
 static func _inside_volume(author: TacticalMapAuthor, cell: Vector3i) -> bool:

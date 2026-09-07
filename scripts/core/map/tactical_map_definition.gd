@@ -19,6 +19,8 @@ const MAX_LEVEL_COUNT: int = 32
 ## future CURRENT_SCHEMA_VERSION bump cannot silently reinterpret them.
 @export var schema_version: int = MIN_SUPPORTED_SCHEMA_VERSION
 @export var map_id: StringName = &"tactical_map"
+## Empty selects all authored enemy spawns. Explicit IDs select a subset.
+@export var objective_spawn_ids: Array[StringName] = []
 @export var footprint_size: Vector2i = Vector2i.ZERO
 @export var level_count: int = 1
 @export var cell_size: Vector3 = Vector3(2.0, 2.0, 2.0)
