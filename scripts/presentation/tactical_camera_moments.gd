@@ -22,6 +22,8 @@ func visible_actor(actor: Variant) -> bool:
 func request_sprint(rig: Node3D, actor: Node3D, path: Array[Vector3], round_id: int) -> bool:
 	if mode != Mode.NONE or not visible_actor(actor) or path.size() < 5 or last_sprint_round == round_id or Time.get_ticks_msec() - last_moment_time < 8000:
 		return false
+	if "sprint_moments_enabled" in rig and not bool(rig.sprint_moments_enabled):
+		return false
 	var heading: Vector3 = path.back() - actor.global_position
 	if heading.length() < 8.0 or absf(heading.y) > 0.3:
 		return false

@@ -231,7 +231,10 @@ func _load_authoring_scene() -> void:
 
 func _ready() -> void:
 	combat_presentation = CombatPresentationDirector.new()
+	combat_presentation.camera_rig = camera_rig
+	combat_presentation.mode_changed.connect(_on_combat_presentation_mode_changed)
 	add_child(combat_presentation)
+	_sync_combat_presentation_with_camera()
 	grid = GridModel.new()
 	if map_definition == null:
 		push_error("PrototypeController requires a valid TacticalMapDefinition.")
@@ -241,10 +244,6 @@ func _ready() -> void:
 		push_error("Failed to configure grid from map definition.")
 		return
 	_apply_camera_bounds()
-	if is_instance_valid(camera_rig):
-		camera_rig.dynamic_moments_changed.connect(func(enabled: bool) -> void:
-			_update_hud("动态运镜已开启。" if enabled else "动态运镜已关闭，保留普通移动跟随。")
-		)
 	_configure_runtime_instances()
 	if cover_combat_settings == null:
 		cover_combat_settings = CoverCombatSettingsScript.load_default()
@@ -2500,11 +2499,27 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 	return true
 
 
+func _on_combat_presentation_mode_changed(new_mode: CombatPresentationDirector.Mode) -> void:
+	if is_instance_valid(camera_rig):
+		camera_rig.sprint_moments_enabled = (new_mode != CombatPresentationDirector.Mode.OFF)
+
+
+func _sync_combat_presentation_with_camera() -> void:
+	if is_instance_valid(combat_presentation):
+		if not is_instance_valid(combat_presentation.camera_rig) and is_instance_valid(camera_rig):
+			combat_presentation.camera_rig = camera_rig
+		if is_instance_valid(camera_rig):
+			camera_rig.sprint_moments_enabled = (combat_presentation.mode != CombatPresentationDirector.Mode.OFF)
+
+
 func _begin_combat_presentation() -> void:
 	_refresh_cover_poses()
 	if combat_presentation == null:
 		combat_presentation = CombatPresentationDirector.new()
+		combat_presentation.camera_rig = camera_rig
+		combat_presentation.mode_changed.connect(_on_combat_presentation_mode_changed)
 		add_child(combat_presentation)
+		_sync_combat_presentation_with_camera()
 	combat_presentation.begin(units_by_id, camera_rig)
 	for placement_id in environment_objects_by_placement_id:
 		var state := environment_objects_by_placement_id[placement_id] as EnvironmentObjectRuntimeState

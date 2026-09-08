@@ -54,6 +54,16 @@ var _selection_rect_drag_active: bool = false
 var _bake_and_play_in_progress: bool = false
 var _selection_clear_in_progress: bool = false
 var _library_repair_in_progress: bool = false
+const CAMERA_PAN_SPEED: float = 16.0
+const CAMERA_PAN_BOOST_MULTIPLIER: float = 2.5
+
+var _last_viewport_camera: Camera3D
+var _last_mouse_screen_position: Vector2 = Vector2.ZERO
+var _pan_key_w: bool = false
+var _pan_key_a: bool = false
+var _pan_key_s: bool = false
+var _pan_key_d: bool = false
+var _pan_shift_boost: bool = false
 
 func _enter_tree() -> void:
 	_session = SESSION_SCRIPT.new()
@@ -129,11 +139,90 @@ func _exit_tree() -> void:
 	_session = null
 	_active_author = null
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _session == null or not _session.edit_mode:
+		_clear_camera_pan_keys()
 		return
 	if not _is_locked_edit_valid():
+		_clear_camera_pan_keys()
 		_exit_edit_mode("地图作者或编辑场景已改变，编辑模式已关闭。")
+		return
+	_process_camera_pan(delta)
+
+
+func _process_camera_pan(delta: float) -> void:
+	if not (_pan_key_w or _pan_key_a or _pan_key_s or _pan_key_d):
+		return
+	if _is_text_control_focused():
+		_clear_camera_pan_keys()
+		return
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT) or Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+		_clear_camera_pan_keys()
+		return
+	var camera := _last_viewport_camera
+	if camera == null or not is_instance_valid(camera):
+		var editor_interface := get_editor_interface()
+		if editor_interface != null:
+			var vp := editor_interface.get_editor_viewport_3d(0)
+			if vp != null:
+				camera = vp.get_camera_3d()
+				_last_viewport_camera = camera
+	if camera == null or not is_instance_valid(camera):
+		return
+
+	var input_dir := INPUT_STRATEGY.get_camera_pan_input_direction(_pan_key_w, _pan_key_a, _pan_key_s, _pan_key_d)
+	if input_dir == Vector2.ZERO:
+		return
+
+	var height_scale := clampf(camera.global_position.y / 10.0, 0.5, 3.0)
+	var speed := CAMERA_PAN_SPEED * height_scale * (CAMERA_PAN_BOOST_MULTIPLIER if _pan_shift_boost else 1.0)
+	var delta_pos := INPUT_STRATEGY.calculate_camera_pan_xz(camera.global_transform, input_dir, speed, delta)
+	if delta_pos == Vector3.ZERO:
+		return
+
+	camera.global_position += delta_pos
+
+	var screen_pos := _last_mouse_screen_position
+	if screen_pos == Vector2.ZERO:
+		var vp := camera.get_viewport()
+		if vp != null:
+			screen_pos = vp.get_mouse_position()
+			_last_mouse_screen_position = screen_pos
+	if screen_pos != Vector2.ZERO:
+		if _box_drag_active:
+			var box_target_tool := TacticalMapEditSession.Tool.ERASE if _box_erase_mode else -1
+			var target := _target_from_screen(camera, screen_pos, box_target_tool)
+			if target.valid:
+				_box_current_cell = target.cell
+			_update_box_overlay(_box_anchor_cell, _box_current_cell, target.valid)
+		elif _selection_drag_active:
+			var target := _target_from_screen(camera, screen_pos)
+			_update_selection_drag(target)
+		elif _session.tool != TacticalMapEditSession.Tool.SELECT:
+			var target := _target_from_screen(camera, screen_pos)
+			_update_preview(target)
+
+
+func _clear_camera_pan_keys() -> void:
+	_pan_key_w = false
+	_pan_key_a = false
+	_pan_key_s = false
+	_pan_key_d = false
+	_pan_shift_boost = false
+
+
+func _is_text_control_focused() -> bool:
+	var editor_interface := get_editor_interface()
+	if editor_interface == null:
+		return false
+	var base_control := editor_interface.get_base_control()
+	if base_control == null:
+		return false
+	var viewport := base_control.get_viewport()
+	if viewport == null:
+		return false
+	var focused := viewport.gui_get_focus_owner()
+	return focused is LineEdit or focused is TextEdit
 
 
 func _on_resource_filesystem_changed() -> void:
@@ -168,10 +257,13 @@ func _edit(object: Object) -> void:
 		_activate_author(selected_author)
 
 func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
+	if viewport_camera != null:
+		_last_viewport_camera = viewport_camera
 	if _session == null:
 		return AFTER_GUI_INPUT_PASS
 	if _session.edit_mode:
 		if not _is_locked_edit_valid():
+			_clear_camera_pan_keys()
 			_exit_edit_mode("地图作者或编辑场景已改变，编辑模式已关闭。")
 			return AFTER_GUI_INPUT_PASS
 	else:
@@ -181,6 +273,30 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 		# re-enter the mode without re-selecting the root.
 		if _selected_scene_root_author() == null and not _session.has_author():
 			return AFTER_GUI_INPUT_PASS
+
+	if event is InputEventKey:
+		var key_event := event as InputEventKey
+		if _session.edit_mode:
+			if _is_text_control_focused():
+				_clear_camera_pan_keys()
+				return AFTER_GUI_INPUT_PASS
+			if INPUT_STRATEGY._is_physical_key(key_event, KEY_SHIFT):
+				_pan_shift_boost = key_event.pressed
+			if INPUT_STRATEGY.is_camera_pan_key(key_event):
+				var is_w := INPUT_STRATEGY._is_physical_key(key_event, KEY_W)
+				var is_a := INPUT_STRATEGY._is_physical_key(key_event, KEY_A)
+				var is_s := INPUT_STRATEGY._is_physical_key(key_event, KEY_S)
+				var is_d := INPUT_STRATEGY._is_physical_key(key_event, KEY_D)
+				if is_w:
+					_pan_key_w = key_event.pressed
+				if is_a:
+					_pan_key_a = key_event.pressed
+				if is_s:
+					_pan_key_s = key_event.pressed
+				if is_d:
+					_pan_key_d = key_event.pressed
+				_pan_shift_boost = key_event.shift_pressed
+				return AFTER_GUI_INPUT_STOP
 
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key_event := event as InputEventKey
@@ -220,10 +336,12 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 
 	if event is InputEventMouseMotion:
 		var motion := event as InputEventMouseMotion
+		_last_mouse_screen_position = motion.position
 		if INPUT_STRATEGY.is_native_navigation_event(motion):
 			# Let Godot's 3D editor consume RMB/MMB navigation and all native
 			# modifiers.  A ghost under the moving camera is misleading, so pause
 			# it until the next ordinary cursor motion.
+			_clear_camera_pan_keys()
 			_clear_preview()
 			return AFTER_GUI_INPUT_PASS
 		if _session.get_debug_view() == TacticalMapEditSession.DebugView.COVER:
@@ -251,6 +369,10 @@ func _forward_3d_gui_input(viewport_camera: Camera3D, event: InputEvent) -> int:
 
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
+		_last_mouse_screen_position = mouse.position
+		if mouse.button_index == MOUSE_BUTTON_RIGHT or mouse.button_index == MOUSE_BUTTON_MIDDLE:
+			if mouse.pressed:
+				_clear_camera_pan_keys()
 		if _session.get_debug_view() == TacticalMapEditSession.DebugView.COVER and mouse.button_index == MOUSE_BUTTON_LEFT:
 			if mouse.pressed:
 				var picked_edge_key := _pick_cover_edge_key(viewport_camera, mouse.position)
@@ -441,6 +563,7 @@ func _restore_temporary_erase_tool() -> void:
 		_session.set_tool(previous_tool)
 
 func _cancel_active_edit_input() -> void:
+	_clear_camera_pan_keys()
 	if _session == null:
 		_drag_button = 0
 		_reset_selection_drag()

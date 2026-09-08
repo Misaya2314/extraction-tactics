@@ -1,9 +1,22 @@
 class_name CombatPresentationDirector
 extends Node
 
+signal mode_changed(new_mode: Mode)
+
 ## Presentation only: snapshots never write HP, AP, occupancy or random combat state.
 enum Mode { FULL, KILLS_ONLY, OFF }
-@export var mode: Mode = Mode.FULL
+@export var mode: Mode = Mode.FULL:
+	set(value):
+		if mode == value:
+			return
+		mode = value
+		_sync_camera_rig()
+		mode_changed.emit(mode)
+
+var camera_rig: TacticalCameraRig:
+	set(value):
+		camera_rig = value
+		_sync_camera_rig()
 @export_range(0.0, 1.0) var slow_motion_chance: float = 0.25
 @export var slow_motion_enabled: bool = true
 var active: bool = false
@@ -66,6 +79,13 @@ func _ready() -> void:
 	_hint.text = "空格 / Esc 跳过演出"
 	_hint.visible = false
 	row.add_child(_hint)
+	_sync_camera_rig()
+
+
+func _sync_camera_rig() -> void:
+	var target_rig: TacticalCameraRig = camera_rig if is_instance_valid(camera_rig) else _rig
+	if is_instance_valid(target_rig):
+		target_rig.sprint_moments_enabled = (mode != Mode.OFF)
 
 
 func _save_settings() -> void:
@@ -92,6 +112,9 @@ func begin(units: Dictionary, rig: TacticalCameraRig) -> void:
 	_explosive_views.clear()
 	_environment_impacts.clear()
 	_rig = rig
+	if not is_instance_valid(camera_rig) and is_instance_valid(rig):
+		camera_rig = rig
+	_sync_camera_rig()
 	if is_instance_valid(_rig):
 		_camera_rest = _rig.begin_cinematic()
 	for value in units.values():

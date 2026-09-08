@@ -70,6 +70,18 @@ func _run() -> void:
 	wall.free()
 	moments.last_moment_time = -10000
 	check(moments.request_sprint(rig, actor, path, 4), "sprint can start again")
+	moments.last_moment_time = -10000
+	rig.sprint_moments_enabled = false
+	check(not moments.request_sprint(rig, actor, path, 5), "disabled sprint moments must reject sprint request")
+	rig.begin_movement(actor, path, 5)
+	check(moments.mode == TacticalCameraMoments.Mode.NONE, "begin_movement must not start sprint when sprint_moments_enabled is false")
+	rig.sprint_moments_enabled = true
+	check(moments.request_sprint(rig, actor, path, 5), "re-enabling sprint allows sprint request")
+	var f8_event := InputEventKey.new()
+	f8_event.pressed = true
+	f8_event.keycode = KEY_F8
+	rig._unhandled_input(f8_event)
+	check(rig.dynamic_moments_enabled, "F8 input should no longer toggle dynamic moments")
 	actor.free()
 	check(moments.update(rig, tactical, 0.01).is_equal_approx(tactical), "deleted subject must safely release shot")
 	enemy.free()

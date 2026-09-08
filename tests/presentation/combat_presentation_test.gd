@@ -96,6 +96,17 @@ func _run() -> void:
 		while director.active:
 			await process_frame
 	director.mode = CombatPresentationDirector.Mode.FULL
+	director.camera_rig = rig
+	var captured: Array = []
+	director.mode_changed.connect(func(m: CombatPresentationDirector.Mode) -> void:
+		captured.append(m)
+	)
+	director.mode = CombatPresentationDirector.Mode.OFF
+	_expect(captured.size() == 1 and captured[0] == CombatPresentationDirector.Mode.OFF, "mode_changed should emit on mode change")
+	_expect(not rig.sprint_moments_enabled, "Mode.OFF must disable camera rig sprint moments")
+	director.mode = CombatPresentationDirector.Mode.FULL
+	_expect(captured.size() == 2 and captured[1] == CombatPresentationDirector.Mode.FULL, "mode_changed should emit when restored to FULL")
+	_expect(rig.sprint_moments_enabled, "Mode.FULL must re-enable camera rig sprint moments")
 	done = false
 	# Render an optional visual fixture with the real unit and camera assets.
 	if "--visual" in OS.get_cmdline_user_args():

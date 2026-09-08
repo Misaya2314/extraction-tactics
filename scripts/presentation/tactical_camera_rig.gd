@@ -17,6 +17,11 @@ signal dynamic_moments_changed(enabled: bool)
 @export_range(0.2, 0.9) var follow_safe_fraction: float = 0.6
 @export var look_ahead_distance: float = 1.4
 @export var dynamic_moments_enabled: bool = true
+@export var sprint_moments_enabled: bool = true:
+	set(value):
+		sprint_moments_enabled = value
+		if not sprint_moments_enabled and is_instance_valid(moments) and moments.mode == TacticalCameraMoments.Mode.SPRINT:
+			_restore_tactical_camera()
 var moments := preload("res://scripts/presentation/tactical_camera_moments.gd").new()
 
 @export_category("Zoom")
@@ -71,12 +76,6 @@ func _process(delta: float) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if cinematic_active:
-		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F8:
-		dynamic_moments_enabled = not dynamic_moments_enabled
-		_restore_tactical_camera()
-		dynamic_moments_changed.emit(dynamic_moments_enabled)
-		get_viewport().set_input_as_handled()
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_HOME:
 		refocus_selected()
@@ -200,7 +199,7 @@ func begin_movement(target: Node3D, path: Array[Vector3] = [], round_id: int = -
 	_follow_engaged = false
 	_focus_active = false
 	_look_ahead = Vector3.ZERO
-	if dynamic_moments_enabled and round_id >= 0 and not _dragging and _read_keyboard_vector().is_zero_approx():
+	if dynamic_moments_enabled and sprint_moments_enabled and round_id >= 0 and not _dragging and _read_keyboard_vector().is_zero_approx():
 		moments.request_sprint(self, target, path, round_id)
 
 

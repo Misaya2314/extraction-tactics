@@ -18,13 +18,14 @@ func _ready() -> void:
 	rig.set_focus_target(units[0], false)
 	rig.focus_world_position(units[0].position, true)
 	director = CombatPresentationDirector.new()
+	director.camera_rig = rig
 	add_child(director)
 	director.mode = CombatPresentationDirector.Mode.FULL
 	for child in director.get_children():
 		if child is CanvasLayer:
 			child.hide()
 	for label in find_children("*", "Label", true, false):
-		label.text = "MOVEMENT / CAMERA\n\n1 普通跟随   2 攻击   3 冲刺跟拍   4 发现敌人   5 遮挡墙开关\nWASD / 中键 / 滚轮 接管   Home 聚焦   F8 动态运镜开关"
+		label.text = "MOVEMENT / CAMERA\n\n1 普通跟随   2 攻击   3 冲刺跟拍   4 发现敌人   5 遮挡墙开关\nWASD / 中键 / 滚轮 接管   Home 聚焦"
 	blocker = StaticBody3D.new()
 	blocker.collision_layer = 0
 	var collision := CollisionShape3D.new()

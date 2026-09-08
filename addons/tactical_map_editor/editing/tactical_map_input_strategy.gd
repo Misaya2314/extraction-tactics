@@ -14,6 +14,10 @@ enum Action {
 	ROTATE,
 	CANCEL,
 	NATIVE_NAVIGATION,
+	CAMERA_PAN_FORWARD,
+	CAMERA_PAN_BACKWARD,
+	CAMERA_PAN_LEFT,
+	CAMERA_PAN_RIGHT,
 	LEFT_SELECT,
 	LEFT_PICK,
 	LEFT_STROKE,
@@ -33,7 +37,15 @@ static func classify_key(event: InputEventKey, has_author: bool, edit_mode: bool
 		return Action.ROTATE
 	if _is_physical_key(event, KEY_ESCAPE):
 		return Action.CANCEL
-	if _is_native_navigation_key(event):
+	if _is_pan_key(event, KEY_W):
+		return Action.CAMERA_PAN_FORWARD
+	if _is_pan_key(event, KEY_A):
+		return Action.CAMERA_PAN_LEFT
+	if _is_pan_key(event, KEY_S):
+		return Action.CAMERA_PAN_BACKWARD
+	if _is_pan_key(event, KEY_D):
+		return Action.CAMERA_PAN_RIGHT
+	if _is_physical_key(event, KEY_F):
 		return Action.NATIVE_NAVIGATION
 	return Action.PASS
 
@@ -64,6 +76,63 @@ static func is_native_navigation_event(event: InputEvent) -> bool:
 		var motion := event as InputEventMouseMotion
 		return (motion.button_mask & (MOUSE_BUTTON_MASK_RIGHT | MOUSE_BUTTON_MASK_MIDDLE)) != 0
 	return false
+
+
+static func is_camera_pan_key(event: InputEventKey) -> bool:
+	if event == null:
+		return false
+	if event.ctrl_pressed or event.alt_pressed or event.meta_pressed:
+		return false
+	return _is_physical_key(event, KEY_W) or _is_physical_key(event, KEY_A) or _is_physical_key(event, KEY_S) or _is_physical_key(event, KEY_D)
+
+
+static func get_camera_pan_input_direction(w: bool, a: bool, s: bool, d: bool) -> Vector2:
+	var dir := Vector2.ZERO
+	if d:
+		dir.x += 1.0
+	if a:
+		dir.x -= 1.0
+	if w:
+		dir.y += 1.0
+	if s:
+		dir.y -= 1.0
+	return dir.normalized() if dir.length_squared() > 0.0 else Vector2.ZERO
+
+
+static func calculate_camera_pan_xz(camera_transform: Transform3D, input_dir: Vector2, speed: float, delta: float) -> Vector3:
+	if input_dir == Vector2.ZERO or speed <= 0.0 or delta <= 0.0:
+		return Vector3.ZERO
+	var cam_forward := -camera_transform.basis.z
+	var forward_xz := Vector3(cam_forward.x, 0.0, cam_forward.z)
+	if forward_xz.length_squared() < 0.0001:
+		var cam_up := camera_transform.basis.y
+		forward_xz = Vector3(cam_up.x, 0.0, cam_up.z)
+	if forward_xz.length_squared() < 0.0001:
+		forward_xz = Vector3(0.0, 0.0, -1.0)
+	else:
+		forward_xz = forward_xz.normalized()
+
+	var cam_right := camera_transform.basis.x
+	var right_xz := Vector3(cam_right.x, 0.0, cam_right.z)
+	if right_xz.length_squared() < 0.0001:
+		right_xz = forward_xz.cross(Vector3.UP)
+	if right_xz.length_squared() < 0.0001:
+		right_xz = Vector3(1.0, 0.0, 0.0)
+	else:
+		right_xz = right_xz.normalized()
+
+	var move_dir := (forward_xz * input_dir.y + right_xz * input_dir.x)
+	if move_dir.length_squared() > 0.0:
+		move_dir = move_dir.normalized()
+	return move_dir * (speed * delta)
+
+
+static func _is_pan_key(event: InputEventKey, keycode: Key) -> bool:
+	if event == null:
+		return false
+	if event.ctrl_pressed or event.alt_pressed or event.meta_pressed:
+		return false
+	return _is_physical_key(event, keycode)
 
 
 static func _is_native_navigation_key(event: InputEventKey) -> bool:
