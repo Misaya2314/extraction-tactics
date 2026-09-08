@@ -167,7 +167,7 @@ text = "敌方警戒：未警戒"
 [node name="HintLabel" type="Label" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=1178240817]
 custom_minimum_size = Vector2(320, 28)
 layout_mode = 2
-text = "左键选择/移动；底部按钮切换移动/攻击；WASD 平移；滚轮缩放；Z切换敌人视野；X切换Debug视野。"
+text = "左键选择/移动；WASD / 中键拖动接管镜头；滚轮缩放；Home 聚焦；F8 动态运镜开关；Z 敌人视野；X Debug视野。"
 autowrap_mode = 2
 
 [node name="EndTurnButton" type="Button" parent="HUD/TopLeftPanel/Margin/VBox" unique_id=1158636587]

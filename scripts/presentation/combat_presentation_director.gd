@@ -93,8 +93,7 @@ func begin(units: Dictionary, rig: TacticalCameraRig) -> void:
 	_environment_impacts.clear()
 	_rig = rig
 	if is_instance_valid(_rig):
-		_camera_rest = _rig.camera.global_transform
-		_rig.cinematic_active = true
+		_camera_rest = _rig.begin_cinematic()
 	for value in units.values():
 		var unit := value as PrototypeUnit
 		if is_instance_valid(unit) and unit.is_alive():
@@ -362,8 +361,7 @@ func finish() -> void:
 			unit.visible = false
 			unit.process_mode = Node.PROCESS_MODE_DISABLED
 	if is_instance_valid(_rig):
-		_rig.camera.global_transform = _camera_rest
-		_rig.cinematic_active = false
+		_rig.end_cinematic(_camera_rest)
 	active = false
 	_before.clear()
 	if is_instance_valid(_hint):

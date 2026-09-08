@@ -71,6 +71,8 @@ var objective_visuals_by_placement_id: Dictionary = {}
 var _action_effect_depth: int = 0
 var _pending_deaths: Array[PrototypeUnit] = []
 var mission_round: int = 1
+var _camera_known_enemies: Dictionary = {}
+var _camera_visibility_initialized := false
 var _run_generation: int = 0
 var combat_presentation: CombatPresentationDirector
 var _mission_configuration_valid: bool = true
@@ -239,6 +241,10 @@ func _ready() -> void:
 		push_error("Failed to configure grid from map definition.")
 		return
 	_apply_camera_bounds()
+	if is_instance_valid(camera_rig):
+		camera_rig.dynamic_moments_changed.connect(func(enabled: bool) -> void:
+			_update_hud("动态运镜已开启。" if enabled else "动态运镜已关闭，保留普通移动跟随。")
+		)
 	_configure_runtime_instances()
 	if cover_combat_settings == null:
 		cover_combat_settings = CoverCombatSettingsScript.load_default()
@@ -287,7 +293,7 @@ func _ready() -> void:
 	var player_cells := map_definition.get_player_spawn_cells()
 	if not player_cells.is_empty():
 		if is_instance_valid(camera_rig):
-			camera_rig.focus_world_position(grid.cell_to_world(player_cells[0]))
+			camera_rig.focus_world_position(grid.cell_to_world(player_cells[0]), true)
 	_refresh_highlights()
 	_evaluate_detection()
 	_init_hover_cursor()
@@ -479,6 +485,11 @@ func _perform_undo(to_turn: bool) -> void:
 
 
 func _post_undo_restore() -> void:
+	_camera_known_enemies.clear()
+	_camera_visibility_initialized = false
+	if is_instance_valid(camera_rig):
+		camera_rig.cancel_tracking()
+		camera_rig.set_focus_target(selected_unit, false)
 	# Panels and feedback are presentation state, never part of the domain
 	# checkpoint.  Close all transient interaction surfaces before rebuilding.
 	if is_instance_valid(loot_panel):
@@ -2475,7 +2486,11 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 	var world_points: Array[Vector3] = []
 	for index in range(1, path.size()):
 		world_points.append(grid.cell_to_world(path[index]))
+	if is_instance_valid(camera_rig) and unit.faction == &"player":
+		camera_rig.begin_movement(unit, world_points, mission_round)
 	await unit.move_along_world_path(world_points, destination)
+	if is_instance_valid(camera_rig):
+		camera_rig.end_movement(unit)
 	input_locked = previous_input_locked or _is_terminal()
 	_refresh_undo_buttons()
 	_update_enemy_visibility()
@@ -3163,6 +3178,8 @@ func _select_unit(unit: PrototypeUnit, allow_enemy: bool = false) -> void:
 	if is_instance_valid(selected_unit):
 		selected_unit.set_selected(false)
 	selected_unit = unit
+	if is_instance_valid(camera_rig):
+		camera_rig.set_focus_target(unit)
 	if is_instance_valid(selected_unit):
 		selected_unit.set_selected(true)
 		if selected_unit.faction == &"player":
@@ -4284,6 +4301,8 @@ func _action_message(prefix: String, reason: StringName) -> String:
 func _update_enemy_visibility() -> void:
 	if not is_instance_valid(turn_manager):
 		return
+	var newly_seen: Array[Node3D] = []
+	var observer: PrototypeUnit
 	for enemy_id in _living_enemy_ids():
 		var enemy := _unit_by_id(enemy_id)
 		if not is_instance_valid(enemy):
@@ -4293,7 +4312,7 @@ func _update_enemy_visibility() -> void:
 			enemy.set_alert_level(alert.get_level())
 		else:
 			enemy.set_alert_level(AlertState.Level.UNAWARE)
-		var visible_to_player := debug_reveal_all
+		var visible_to_player := false
 		for player_id in _living_player_ids():
 			if visible_to_player:
 				break
@@ -4302,8 +4321,16 @@ func _update_enemy_visibility() -> void:
 				player.grid_cell, enemy.grid_cell, player.vision_range
 			):
 				visible_to_player = true
+				if observer == null and not _camera_known_enemies.has(enemy_id):
+					observer = player
 				break
-		enemy.visible = visible_to_player
+		enemy.visible = visible_to_player or debug_reveal_all
+		if visible_to_player and not _camera_known_enemies.has(enemy_id):
+			_camera_known_enemies[enemy_id] = true
+			newly_seen.append(enemy)
+	if _camera_visibility_initialized and not _undo_restoring and is_instance_valid(observer) and not newly_seen.is_empty() and is_instance_valid(camera_rig):
+		camera_rig.show_discovery(observer, newly_seen)
+	_camera_visibility_initialized = true
 
 
 func _update_object_visibility() -> void:
