@@ -19,7 +19,7 @@ var _hint: Label
 var _settings: OptionButton
 var _slow_toggle: CheckButton
 var _environment: Array[EnvironmentObjectView] = []
-var _effects: Array[MeshInstance3D] = []
+var vfx: CombatVfx
 var _environment_impacts: Array[Vector3] = []
 var _hidden_labels: Dictionary = {}
 var _explosive_views: Dictionary = {}
@@ -27,6 +27,8 @@ var _explosive_views: Dictionary = {}
 
 func _ready() -> void:
 	_rng.randomize()
+	vfx = CombatVfx.new()
+	add_child(vfx)
 	var layer := CanvasLayer.new()
 	layer.layer = 30
 	add_child(layer)
@@ -158,6 +160,9 @@ func play(attacker: PrototypeUnit, focus: Vector3, area: bool = false, final_act
 			reaction_strength = attacker.weapon.attack_feedback_profile.impact_strength
 		if not skipped and fire_weapon:
 			attacker.play_attack_feedback()
+			if attacker.is_visible_in_tree() and is_instance_valid(vfx):
+				var source := attacker.muzzle_flash.global_position if is_instance_valid(attacker.muzzle_flash) else attacker.global_position + Vector3.UP
+				vfx.shot(source, focus + Vector3.UP * 1.05, impact_time, reaction_strength > 0.2)
 	await _wait(impact_time)
 	# An actor killed by its own blast must not have recoil reset its death pose.
 	if is_instance_valid(attacker) and not attacker.is_alive():
@@ -174,6 +179,9 @@ func play(attacker: PrototypeUnit, focus: Vector3, area: bool = false, final_act
 			_show_blast(position)
 	for entry in impacts:
 		var unit: PrototypeUnit = entry.unit
+		if not skipped and is_instance_valid(vfx):
+			var origin := attacker.global_position if is_instance_valid(attacker) else focus
+			vfx.impact(entry.position + Vector3.UP * 1.05, entry.position - origin, entry.position.y)
 		if entry.killed:
 			unit.play_death_sound()
 		else:
@@ -181,18 +189,23 @@ func play(attacker: PrototypeUnit, focus: Vector3, area: bool = false, final_act
 		_show_damage(entry)
 	var elapsed := 0.0
 	var wall_time := 0.0
-	while elapsed < 0.34 and not skipped and is_inside_tree():
+	var reaction_duration := 0.70 if area or kills > 0 else 0.38
+	while elapsed < reaction_duration and not skipped and is_inside_tree():
 		await get_tree().process_frame
 		var delta := get_process_delta_time()
 		wall_time += delta
-		elapsed += delta * (0.3 if highlight and wall_time < 0.3 else 1.0)
-		var progress := clampf(elapsed / 0.34, 0.0, 1.0)
-		for effect in _effects:
-			effect.scale = Vector3.ONE * lerpf(0.15, 1.5, progress)
-			(effect.material_override as StandardMaterial3D).albedo_color.a = (1.0 - progress) * 0.45
+		var local_delta := delta * (0.3 if highlight and wall_time < 0.3 else 1.0)
+		elapsed += local_delta
+		if is_instance_valid(vfx):
+			vfx.advance(local_delta)
 		for entry in impacts:
 			var unit: PrototypeUnit = entry.unit
 			if not is_instance_valid(unit) or not is_instance_valid(unit.visual_root):
+				continue
+			var progress := clampf(elapsed / (0.7 if entry.killed else 0.34), 0.0, 1.0)
+			if is_instance_valid(unit.robot_visual):
+				unit.robot_visual.set_reaction(progress, entry.killed)
+				unit.robot_visual.sync_weapon(unit.weapon_pivot)
 				continue
 			var pose: Transform3D = entry.pose
 			var direction: Vector3 = (entry.position - focus).normalized() if area else (entry.position - attacker.global_position).normalized()
@@ -219,7 +232,10 @@ func _wait(duration: float) -> void:
 	var elapsed := 0.0
 	while elapsed < duration and not skipped and is_inside_tree():
 		await get_tree().process_frame
-		elapsed += get_process_delta_time()
+		var delta := get_process_delta_time()
+		elapsed += delta
+		if is_instance_valid(vfx):
+			vfx.advance(delta)
 
 
 func _choose_camera(source: Vector3, target: Vector3, area: bool) -> void:
@@ -268,6 +284,8 @@ func _blend_camera(start: Transform3D, goal: Transform3D, duration: float) -> vo
 	while elapsed < duration and not skipped and is_instance_valid(_rig):
 		await get_tree().process_frame
 		elapsed += get_process_delta_time()
+		if is_instance_valid(vfx):
+			vfx.advance(get_process_delta_time())
 		_rig.camera.global_transform = start.interpolate_with(goal, smoothstep(0.0, 1.0, clampf(elapsed / duration, 0.0, 1.0)))
 
 
@@ -288,17 +306,8 @@ func _show_damage(entry: Dictionary) -> void:
 
 
 func _show_blast(position: Vector3) -> void:
-	var effect := MeshInstance3D.new()
-	effect.mesh = SphereMesh.new()
-	var material := StandardMaterial3D.new()
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = Color(1.0, 0.5, 0.1, 0.45)
-	effect.material_override = material
-	add_child(effect)
-	effect.global_position = position + Vector3.UP * 0.4
-	effect.scale = Vector3.ONE * 0.15
-	_effects.append(effect)
+	if is_instance_valid(vfx):
+		vfx.explosion(position)
 
 
 func finish() -> void:
@@ -312,15 +321,16 @@ func finish() -> void:
 		if is_instance_valid(view):
 			view.release_destruction_visual()
 	_environment.clear()
-	for effect in _effects:
-		if is_instance_valid(effect):
-			effect.queue_free()
-	_effects.clear()
+	if is_instance_valid(vfx):
+		vfx.clear()
 	for entry in _before:
 		var unit: PrototypeUnit = entry.unit
 		if not is_instance_valid(unit):
 			continue
 		unit.defer_damage_feedback = entry.defer_audio
+		if is_instance_valid(unit.robot_visual):
+			unit.robot_visual.reset_pose()
+			unit._apply_weapon_facing()
 		if is_instance_valid(unit.visual_root):
 			unit.visual_root.transform = entry.pose
 		if not unit.is_alive():

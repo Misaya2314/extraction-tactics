@@ -161,6 +161,7 @@ var unit_id: StringName:
 			_legacy_unit_id = value
 
 @onready var visual_root: Node3D = get_node_or_null("VisualRoot") as Node3D
+@onready var robot_visual: SentinelRobot = get_node_or_null("VisualRoot/RobotVisual") as SentinelRobot
 @onready var body_mesh: MeshInstance3D = get_node_or_null("VisualRoot/Body") as MeshInstance3D
 @onready var selection_marker: MeshInstance3D = $SelectionMarker
 @onready var facing_marker: MeshInstance3D = get_node_or_null("FacingMarker") as MeshInstance3D
@@ -343,6 +344,8 @@ func look_at_cell(target_cell: Vector3i) -> void:
 
 
 func _apply_visual_facing() -> void:
+	if is_instance_valid(robot_visual):
+		robot_visual.face_direction(visual_facing)
 	if is_instance_valid(facing_marker):
 		facing_marker.position = Vector3(float(visual_facing.x) * 0.55, 0.66, float(visual_facing.y) * 0.55)
 	_apply_weapon_facing()
@@ -354,6 +357,9 @@ func _apply_weapon_facing() -> void:
 	var pivot_rotation := _weapon_pivot_rest_rotation
 	pivot_rotation.y = atan2(float(visual_facing.x), float(visual_facing.y))
 	weapon_pivot.rotation = pivot_rotation
+	if is_instance_valid(robot_visual):
+		_weapon_pivot_rest_position = Vector3(0.20, 1.06, 0.18).rotated(Vector3.UP, pivot_rotation.y)
+		weapon_pivot.position = _weapon_pivot_rest_position
 
 
 static func _normalize_facing(direction: Variant) -> Vector2i:
@@ -458,6 +464,10 @@ func play_attack_feedback() -> void:
 	last_attack_feedback_duration = profile.total_duration() * duration_multiplier
 	attack_feedback_play_count += 1
 	is_attack_feedback_playing = true
+	if is_instance_valid(robot_visual):
+		robot_visual.play_shot()
+		robot_visual.sync_weapon(weapon_pivot)
+		_weapon_pivot_rest_position = weapon_pivot.position
 	attack_feedback_started.emit(self, profile.profile_id)
 	play_shoot_sound()
 	_start_attack_feedback_tweens(profile, duration_multiplier)
@@ -614,6 +624,8 @@ func _kill_attack_feedback_tweens() -> void:
 
 
 func _reset_attack_feedback_visuals() -> void:
+	if is_instance_valid(robot_visual):
+		robot_visual.reset_pose()
 	_kill_attack_feedback_tweens()
 	if is_instance_valid(visual_root):
 		visual_root.position = _visual_root_rest_position
@@ -846,6 +858,8 @@ func move_along_world_path(
 
 
 func _apply_visual_color() -> void:
+	if is_instance_valid(robot_visual):
+		robot_visual.set_team_color(visual_color)
 	if not is_instance_valid(body_mesh):
 		return
 	var material := _cached_visual_material(visual_color)
