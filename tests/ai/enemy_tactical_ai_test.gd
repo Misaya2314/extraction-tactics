@@ -16,6 +16,7 @@ func _init() -> void:
 	_test_patrol_unreachable_waypoint_skip()
 	_test_return_to_patrol_after_calm_down()
 	_test_exploration_investigation_and_calm_down()
+	_test_exploration_ap_consumption_and_insufficient_ap()
 	_test_combat_attack_priority()
 	_test_combat_move_towards_target()
 	_test_combat_pass_on_no_ap()
@@ -204,6 +205,44 @@ func _test_exploration_investigation_and_calm_down() -> void:
 	)
 	_expect(plan_calm[&"intent"] == EnemyTacticalAIScript.IntentType.CALM_DOWN, "ai: second idle tick should trigger CALM_DOWN")
 	_expect(plan_calm[&"should_calm_down"] == true, "ai: should_calm_down should be true")
+	_expect(plan_calm[&"ap_cost"] == 0, "ai: calm down should cost 0 AP")
+
+
+func _test_exploration_ap_consumption_and_insufficient_ap() -> void:
+	var grid := GridModelScript.new(Vector2i(10, 10))
+	var route := PatrolRouteScript.new()
+	route.configure([Vector3i(2, 0, 2), Vector3i(2, 0, 4)], true)
+	var alert := AlertStateScript.new()
+	var enemy_cell := Vector3i(2, 0, 2)
+
+	# 1. Patrol with sufficient AP
+	var plan_patrol := EnemyTacticalAIScript.plan_exploration_step(
+		enemy_cell, alert, route, {}, grid, 1, 2, 1
+	)
+	_expect(plan_patrol[&"intent"] == EnemyTacticalAIScript.IntentType.PATROL_STEP, "ai ap: patrol with 2 AP should step")
+	_expect(plan_patrol[&"ap_cost"] == 1, "ai ap: patrol step should cost 1 AP")
+
+	# 2. Patrol with 0 AP (insufficient)
+	var plan_no_ap := EnemyTacticalAIScript.plan_exploration_step(
+		enemy_cell, alert, route, {}, grid, 1, 0, 1
+	)
+	_expect(plan_no_ap[&"intent"] == EnemyTacticalAIScript.IntentType.PASS, "ai ap: patrol with 0 AP should pass")
+	_expect(plan_no_ap[&"ap_cost"] == 0, "ai ap: passing with 0 AP should have ap_cost 0")
+
+	# 3. Investigation with sufficient AP
+	alert.become_suspicious(Vector3i(5, 0, 2))
+	var plan_invest := EnemyTacticalAIScript.plan_exploration_step(
+		enemy_cell, alert, route, {}, grid, 1, 1, 1
+	)
+	_expect(plan_invest[&"intent"] == EnemyTacticalAIScript.IntentType.INVESTIGATE_STEP, "ai ap: investigate with 1 AP should step")
+	_expect(plan_invest[&"ap_cost"] == 1, "ai ap: investigate step should cost 1 AP")
+
+	# 4. Investigation with 0 AP (insufficient)
+	var plan_invest_no_ap := EnemyTacticalAIScript.plan_exploration_step(
+		enemy_cell, alert, route, {}, grid, 1, 0, 1
+	)
+	_expect(plan_invest_no_ap[&"intent"] == EnemyTacticalAIScript.IntentType.PASS, "ai ap: investigate with 0 AP should pass")
+	_expect(plan_invest_no_ap[&"ap_cost"] == 0, "ai ap: passing investigation should have ap_cost 0")
 
 
 func _test_combat_attack_priority() -> void:

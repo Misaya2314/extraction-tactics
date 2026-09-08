@@ -116,6 +116,7 @@ static func find_best_combat_move_cell(
 ## - path: Array[Vector3i]
 ## - should_calm_down: bool
 ## - updated_investigation: Dictionary
+## - ap_cost: int
 static func plan_exploration_step(
 	enemy_cell: Vector3i,
 	alert_or_facing: Variant,
@@ -123,25 +124,33 @@ static func plan_exploration_step(
 	investigation_or_route: Variant = null,
 	grid_or_investigation: Variant = null,
 	move_range_or_grid: Variant = null,
-	legacy_move_range: Variant = null
+	enemy_ap_or_move_range: Variant = null,
+	ap_cost_or_enemy_ap: Variant = null,
+	extra_ap_cost: Variant = null
 ) -> Dictionary:
 	var alert: AlertState = null
 	var patrol_route: PatrolRoute = null
 	var investigation_data: Dictionary = {}
 	var grid: GridModel = null
 	var move_range: int = 1
+	var enemy_ap: int = -1
+	var move_ap_cost: int = 1
 
 	if alert_or_facing is Vector2i:
-		# Legacy signature: (enemy_cell, enemy_facing, alert, patrol_route, investigation_data, grid, move_range)
+		# Legacy signature: (enemy_cell, enemy_facing, alert, patrol_route, investigation_data, grid, move_range, [enemy_ap, move_ap_cost])
 		alert = patrol_or_alert as AlertState
 		patrol_route = investigation_or_route as PatrolRoute
 		if grid_or_investigation is Dictionary:
 			investigation_data = grid_or_investigation
 		grid = move_range_or_grid as GridModel
-		if legacy_move_range is int:
-			move_range = legacy_move_range
+		if enemy_ap_or_move_range is int:
+			move_range = enemy_ap_or_move_range
+		if ap_cost_or_enemy_ap is int:
+			enemy_ap = ap_cost_or_enemy_ap
+		if extra_ap_cost is int:
+			move_ap_cost = extra_ap_cost
 	else:
-		# Standard signature: (enemy_cell, alert, patrol_route, investigation_data, grid, move_range)
+		# Standard signature: (enemy_cell, alert, patrol_route, investigation_data, grid, move_range, enemy_ap, move_ap_cost)
 		alert = alert_or_facing as AlertState
 		patrol_route = patrol_or_alert as PatrolRoute
 		if investigation_or_route is Dictionary:
@@ -149,6 +158,10 @@ static func plan_exploration_step(
 		grid = grid_or_investigation as GridModel
 		if move_range_or_grid is int:
 			move_range = move_range_or_grid
+		if enemy_ap_or_move_range is int:
+			enemy_ap = enemy_ap_or_move_range
+		if ap_cost_or_enemy_ap is int:
+			move_ap_cost = ap_cost_or_enemy_ap
 
 	var result := {
 		&"intent": IntentType.PASS,
@@ -158,6 +171,7 @@ static func plan_exploration_step(
 		&"updated_investigation": investigation_data.duplicate(),
 		&"dwell": false,
 		&"waypoint": Vector3i(-1, -1, -1),
+		&"ap_cost": 0,
 	}
 
 	# 1. Suspicious investigation takes priority
@@ -166,6 +180,10 @@ static func plan_exploration_step(
 		if target_cell != AlertState.INVALID_CELL and grid != null:
 			var full_path := find_path_towards(enemy_cell, target_cell, grid)
 			if full_path.size() >= 2:
+				if enemy_ap >= 0 and enemy_ap < move_ap_cost:
+					result[&"intent"] = IntentType.PASS
+					result[&"ap_cost"] = 0
+					return result
 				var max_steps := mini(maxi(move_range, 1), full_path.size() - 1)
 				var sub_path: Array[Vector3i] = []
 				for i in range(max_steps + 1):
@@ -174,6 +192,7 @@ static func plan_exploration_step(
 				result[&"intent"] = IntentType.INVESTIGATE_STEP
 				result[&"destination"] = destination
 				result[&"path"] = sub_path
+				result[&"ap_cost"] = move_ap_cost
 				return result
 			else:
 				# Cannot get closer or already at target
@@ -182,12 +201,14 @@ static func plan_exploration_step(
 				if idle_ticks >= 2:
 					result[&"intent"] = IntentType.CALM_DOWN
 					result[&"should_calm_down"] = true
+					result[&"ap_cost"] = 0
 					# Re-anchor to the nearest patrol waypoint so the guard
 					# seamlessly rejoins its loop after a fruitless search.
 					if patrol_route != null:
 						patrol_route.set_nearest_waypoint(enemy_cell)
 					return result
 				result[&"intent"] = IntentType.PASS
+				result[&"ap_cost"] = 0
 				return result
 
 	# 2. Sparse waypoint patrol step.  The route only stores key turning
@@ -202,6 +223,7 @@ static func plan_exploration_step(
 				patrol_route.spend_dwell_tick()
 				result[&"intent"] = IntentType.PASS
 				result[&"dwell"] = true
+				result[&"ap_cost"] = 0
 				return result
 			patrol_route.advance()
 			target_waypoint = patrol_route.current()
@@ -214,6 +236,10 @@ static func plan_exploration_step(
 			# Skip it and retry with the next waypoint on a later tick.
 			patrol_route.advance()
 			return result
+		if enemy_ap >= 0 and enemy_ap < move_ap_cost:
+			result[&"intent"] = IntentType.PASS
+			result[&"ap_cost"] = 0
+			return result
 		var max_steps := mini(maxi(move_range, 1), full_path.size() - 1)
 		var sub_path: Array[Vector3i] = []
 		for i in range(max_steps + 1):
@@ -223,6 +249,7 @@ static func plan_exploration_step(
 		result[&"destination"] = destination
 		result[&"path"] = sub_path
 		result[&"waypoint"] = target_waypoint
+		result[&"ap_cost"] = move_ap_cost
 		return result
 
 	return result

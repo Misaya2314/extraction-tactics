@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="UnitArchetype" format=3 uid="uid://h3ehge0ky7uj"]
 
+[ext_resource type="Script" uid="uid://dllf6rxrmlqli" path="res://scripts/core/skills/skill_definition.gd" id="1_dkijc"]
 [ext_resource type="Resource" uid="uid://cv0wuwmy4a5w2" path="res://resources/weapons/carbine.tres" id="1_jfguy"]
 [ext_resource type="Script" uid="uid://c0ltiyyay4yqs" path="res://scripts/core/units/unit_archetype.gd" id="2_dkijc"]
 
@@ -9,5 +10,6 @@ archetype_id = &"dummy_enemy"
 display_name = "敌人A"
 max_hp = 6
 move_range = 8
-vision_range = 8
+inner_vision_range = 3
+vision_range = 6
 default_weapon = ExtResource("1_jfguy")
