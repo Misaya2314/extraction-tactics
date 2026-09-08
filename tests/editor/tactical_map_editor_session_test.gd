@@ -33,6 +33,7 @@ func _init() -> void:
 	_test_special_undo_redo_roundtrips()
 	_test_spawn_marker_binding_and_edit()
 	_test_patrol_erase_freed_route_access()
+	_test_spawner_selection_move_and_undo()
 	_finish()
 
 
@@ -1178,6 +1179,68 @@ func _test_special_undo_redo_roundtrips() -> void:
 	route = author.get_node("PatrolRoutes").get_child(0) as PatrolRoute3D
 	_expect(route != null and route.points == [point_a, point_b, point_a], "special undo: patrol redo must preserve repeated route points")
 	patrol_undo.free()
+	author.free()
+
+
+func _test_spawner_selection_move_and_undo() -> void:
+	var author := _make_author()
+	author.footprint_size = Vector2i(4, 2)
+	var floor_grid := author.get_node("FloorGrid") as GridMap
+	floor_grid.set_cell_item(Vector3i(2, 0, 0), 0)
+	floor_grid.set_cell_item(Vector3i(3, 0, 0), 0)
+
+	var session = SessionScript.new()
+	session.begin_for_author(author, author)
+
+	var enemy_index := _find_placeable(session.get_placeables(), "marker:enemy_spawn")
+	var player_index := _find_placeable(session.get_placeables(), "marker:player_spawn")
+	_expect(enemy_index >= 0 and player_index >= 0, "spawner move: placeables must exist")
+
+	session.select_placeable(enemy_index)
+	session.begin_stroke("paint enemy spawn")
+	session.apply_at(Vector3i(0, 0, 0))
+	var p1_undo := UndoRedo.new()
+	session.finish_stroke(p1_undo)
+
+	session.select_placeable(player_index)
+	session.begin_stroke("paint player spawn")
+	session.apply_at(Vector3i(1, 0, 0))
+	var p2_undo := UndoRedo.new()
+	session.finish_stroke(p2_undo)
+
+	var spawns := author.get_node_or_null("Spawns") as Node3D
+	_expect(spawns != null and spawns.get_child_count() == 2, "spawner move: two markers should be created")
+
+	session.set_target_layer(SessionScript.TargetLayer.SPAWNER)
+	session.select_cell(Vector3i(0, 0, 0))
+	_expect(session.has_selected_spawn_marker(), "spawner move: marker at (0,0,0) should bind")
+	var bound_marker := session.get_selected_spawn_marker()
+
+	# Conflict test: cannot move to (1, 0, 0) where player spawn already exists
+	_expect(not session.selection_move(Vector3i(1, 0, 0)), "spawner move: moving onto existing spawn should be rejected")
+
+	# Valid move: move from (0, 0, 0) to (2, 0, 0) by delta (2, 0, 0)
+	var move_undo := UndoRedo.new()
+	_expect(session.selection_move(Vector3i(2, 0, 0), move_undo), "spawner move: valid move should succeed")
+	_expect(bound_marker.cell == Vector3i(2, 0, 0), "spawner move: marker cell should be updated to destination")
+	_expect(session.get_selected_cells() == [Vector3i(2, 0, 0)], "spawner move: selected cells should be updated")
+	_expect(session.has_selected_spawn_marker() and session.get_selected_spawn_marker() == bound_marker, "spawner move: marker should remain bound after move")
+
+	# Undo: restores origin cell
+	move_undo.undo()
+	_expect(session.get_selected_cells() == [Vector3i(0, 0, 0)], "spawner move: undo should restore selected cells to origin")
+	var restored_marker := session.get_selected_spawn_marker()
+	_expect(restored_marker != null and restored_marker.cell == Vector3i(0, 0, 0), "spawner move: undo should restore marker at origin cell")
+
+	# Redo: restores destination cell
+	move_undo.redo()
+	_expect(session.get_selected_cells() == [Vector3i(2, 0, 0)], "spawner move: redo should restore selected cells to destination")
+	var redone_marker := session.get_selected_spawn_marker()
+	_expect(redone_marker != null and redone_marker.cell == Vector3i(2, 0, 0), "spawner move: redo should restore marker at destination cell")
+
+	p1_undo.free()
+	p2_undo.free()
+	move_undo.free()
 	author.free()
 
 

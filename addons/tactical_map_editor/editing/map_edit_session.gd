@@ -523,7 +523,7 @@ func _sync_selected_spawn_marker() -> void:
 		return
 	var markers := _spawn_markers_at(selected_cells[0])
 	var marker: UnitSpawnMarker3D = markers[0] as UnitSpawnMarker3D if not markers.is_empty() else null
-	if marker == _selected_spawn_marker:
+	if is_instance_valid(_selected_spawn_marker) and marker == _selected_spawn_marker:
 		return
 	_selected_spawn_marker = marker
 	_emit_changed()
@@ -1299,7 +1299,7 @@ func selection_move(delta: Vector3i, undo_redo: Object = null) -> bool:
 		_set_status("移动方向必须是 X/Z 轴上的非零偏移。", false)
 		return false
 	var layer := target_layer
-	if not _is_grid_layer(layer) and layer != TargetLayer.OBJECT:
+	if not _is_grid_layer(layer) and layer != TargetLayer.OBJECT and layer != TargetLayer.SPAWNER:
 		_set_status("当前目标层暂不支持批量移动。", false)
 		return false
 	var destinations: Array[Vector3i] = []
@@ -1335,12 +1335,22 @@ func selection_move(delta: Vector3i, undo_redo: Object = null) -> bool:
 			operation_cells.append(destination)
 	_sort_cells(operation_cells)
 	var before := _capture_selection_layer_snapshots(operation_cells, layer)
-	var source_snapshots := _capture_selection_layer_snapshots(cells, layer)
-	for cell in cells:
-		_clear_layer_at(cell, layer)
-	for index in range(source_snapshots.size()):
-		var moved_snapshot := _relocate_content_snapshot(source_snapshots[index], destinations[index], false)
-		_apply_snapshot(moved_snapshot)
+	if layer == TargetLayer.SPAWNER:
+		var markers_to_move: Array[Dictionary] = []
+		for index in range(cells.size()):
+			for marker in _spawn_markers_at(cells[index]):
+				markers_to_move.append({"marker": marker, "destination": destinations[index]})
+		for item in markers_to_move:
+			var marker: UnitSpawnMarker3D = item["marker"]
+			var destination: Vector3i = item["destination"]
+			marker.cell = destination
+	else:
+		var source_snapshots := _capture_selection_layer_snapshots(cells, layer)
+		for cell in cells:
+			_clear_layer_at(cell, layer)
+		for index in range(source_snapshots.size()):
+			var moved_snapshot := _relocate_content_snapshot(source_snapshots[index], destinations[index], false)
+			_apply_snapshot(moved_snapshot)
 	var after := _capture_selection_layer_snapshots(operation_cells, layer)
 	var next_selection: Array[Vector3i] = []
 	for destination in destinations:
@@ -2261,6 +2271,8 @@ func _selection_layer_uses_global_snapshot(layer: int) -> bool:
 func _selection_layer_has_content(cell: Vector3i, layer: int) -> bool:
 	if layer == TargetLayer.OBJECT:
 		return not _markers_at(cell).is_empty()
+	if layer == TargetLayer.SPAWNER:
+		return not _spawn_markers_at(cell).is_empty()
 	if not _is_grid_layer(layer):
 		return false
 	var grid := _grid_for_layer(layer)
@@ -2278,6 +2290,8 @@ func _clear_layer_at(cell: Vector3i, layer: int) -> bool:
 				node.get_parent().remove_child(node)
 			node.free()
 		return true
+	if layer == TargetLayer.SPAWNER:
+		return _erase_spawn_at(cell)
 	if not _is_grid_layer(layer):
 		return false
 	var grid := _grid_for_layer(layer)
@@ -2327,6 +2341,7 @@ func _apply_selection_operation(snapshots: Array, selection: Array) -> void:
 		if snapshot_value is Dictionary:
 			_apply_snapshot(snapshot_value as Dictionary)
 	selected_cells = _copy_cell_array(selection)
+	_sync_selected_spawn_marker()
 	_set_status("已应用选择编辑快照。", true)
 	_emit_changed()
 
@@ -2338,6 +2353,7 @@ func _commit_selection_operation(before: Array, after: Array, label: String, und
 	var before_cells := _copy_cell_array(before_selection)
 	var after_cells := _copy_cell_array(after_selection)
 	selected_cells = after_cells.duplicate()
+	_sync_selected_spawn_marker()
 	var action_context: Object = edited_scene_root if edited_scene_root != null else author
 	if undo_redo is EditorUndoRedoManager:
 		var manager := undo_redo as EditorUndoRedoManager
@@ -2404,6 +2420,7 @@ func _create_spawn_marker(record: Dictionary, spawns_root: Node) -> UnitSpawnMar
 	var marker := UnitSpawnMarker3D.new()
 	marker.name = String(record.get(&"name", record.get(&"unit_name", "Spawn")))
 	marker.unit_name = StringName(record.get(&"unit_name", marker.name))
+	marker.spawn_id = StringName(record.get(&"spawn_id", marker.unit_name))
 	marker.faction = String(record.get(&"faction", "enemy"))
 	marker.visual_color = record.get(&"visual_color", Color.WHITE)
 	marker.patrol_route_id = StringName(record.get(&"patrol_route_id", &""))
@@ -2465,6 +2482,7 @@ func _capture_spawn_records() -> Array:
 		records.append({
 			&"name": marker.name,
 			&"unit_name": marker.unit_name,
+			&"spawn_id": marker.spawn_id,
 			&"faction": marker.faction,
 			&"cell": marker.cell,
 			&"visual_color": marker.visual_color,
