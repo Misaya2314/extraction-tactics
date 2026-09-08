@@ -209,6 +209,7 @@ var _muzzle_flash_rest_scale := Vector3.ONE
 
 
 func _ready() -> void:
+	visibility_changed.connect(_on_movement_visibility_changed)
 	_previous_observed_hp = current_hp
 	_connect_runtime_state_signals()
 	_apply_weapon_stats()
@@ -842,21 +843,116 @@ func spend_action_points(cost: int) -> bool:
 	return true
 
 
+signal footstep(side: int, point: Vector3)
+@export var movement_top_speed: float = 3.6
+var is_moving := false
+var _movement_generation := 0
+var _footsteps = null
+
+
 func move_along_world_path(
 		world_points: Array[Vector3],
-		destination_cell: Vector3i
+		destination_cell: Vector3i,
+		arrival_cover: Dictionary = {}
 ) -> void:
-	if not world_points.is_empty():
-		play_move_sound()
-	for target_position in world_points:
-		var movement_delta := target_position - global_position
-		set_visual_facing(Vector2i(roundi(movement_delta.x), roundi(movement_delta.z)))
-		var movement_tween := create_tween()
-		movement_tween.set_trans(Tween.TRANS_SINE)
-		movement_tween.set_ease(Tween.EASE_IN_OUT)
-		movement_tween.tween_property(self, "global_position", target_position, 0.09)
-		await movement_tween.finished
+	cancel_movement()
+	var route := preload("res://scripts/presentation/unit_movement_path.gd").new()
+	route.build(global_position, world_points, movement_top_speed)
+	if route.duration <= 0.0 or not is_inside_tree():
+		return
+	var generation := _movement_generation
+	is_moving = true
+	var heading: Vector3 = route.sample(0).direction
+	var departure := 1.0 if is_instance_valid(robot_visual) and robot_visual.cover_level > 0 else 0.0
+	if is_instance_valid(robot_visual):
+		robot_visual.begin_locomotion()
+	_emit_footstep(1, 0.65)
+	var tree := get_tree()
+	var elapsed := 0.0
+	# Leave cover before translating; the domain position/AP have already committed.
+	while departure > 0.0 and elapsed < 0.16:
+		await tree.process_frame
+		if not is_inside_tree() or generation != _movement_generation:
+			return
+		var delta := get_process_delta_time()
+		elapsed += delta
+		robot_visual.sample_locomotion(0, 0, heading, 1.0 - smoothstep(0, 0.16, elapsed), delta)
+	elapsed = 0.0
+	var planted := 0
+	var stride := robot_visual.stride_length if is_instance_valid(robot_visual) else 1.5
+	while elapsed < route.duration:
+		await tree.process_frame
+		if not is_inside_tree() or generation != _movement_generation:
+			return
+		var delta := get_process_delta_time()
+		elapsed = minf(route.duration, elapsed + delta)
+		var sample: Dictionary = route.sample(elapsed)
+		global_position = sample.position
+		heading = sample.direction
+		set_visual_facing(Vector2i(roundi(heading.x * 100), roundi(heading.z * 100)))
+		if is_instance_valid(robot_visual):
+			if sample.remaining < 0.8:
+				robot_visual.set_cover(int(arrival_cover.get("level", 0)), arrival_cover.get("direction", Vector3.FORWARD))
+			var stance := 0.65 * (1.0 - smoothstep(0.0, 0.8, sample.remaining))
+			robot_visual.sample_locomotion(sample.distance, sample.speed, heading, stance, delta)
+		var contacts := int(float(sample.distance) / (stride * 0.5))
+		if contacts > planted:
+			# A stalled frame must not produce a burst of overlapping footsteps.
+			_emit_footstep((contacts + 1) % 2, clampf(float(sample.speed) / movement_top_speed, 0.5, 1.0))
+			planted = contacts
+	global_position = route.endpoint
 	grid_cell = destination_cell
+	if is_instance_valid(robot_visual):
+		robot_visual.set_cover(int(arrival_cover.get("level", 0)), arrival_cover.get("direction", Vector3.FORWARD))
+		elapsed = 0.0
+		while robot_visual.cover_level > 0 and elapsed < 0.18:
+			await tree.process_frame
+			if not is_inside_tree() or generation != _movement_generation:
+				return
+			var delta := get_process_delta_time()
+			elapsed += delta
+			robot_visual.sample_locomotion(route.length, 0, heading, lerpf(0.65, 1.0, smoothstep(0, 0.18, elapsed)), delta)
+		robot_visual.reset_pose()
+	is_moving = false
+	if is_instance_valid(audio_move):
+		audio_move.stop()
+
+
+func _emit_footstep(side: int, strength: float) -> void:
+	if not is_inside_tree() or not is_visible_in_tree():
+		return
+	var point := robot_visual.foot_position(side) if is_instance_valid(robot_visual) else global_position
+	point.y = global_position.y + 0.02
+	footstep.emit(side, point)
+	play_move_sound()
+	if is_instance_valid(audio_move):
+		audio_move.global_position = point
+		audio_move.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+		audio_move.unit_size = 8.0
+		audio_move.volume_db = -9.0
+	if _footsteps == null:
+		_footsteps = preload("res://scripts/presentation/footstep_feedback.gd").new()
+		add_child(_footsteps)
+	_footsteps.plant(point, strength)
+
+
+func cancel_movement() -> void:
+	_movement_generation += 1
+	if is_moving and is_instance_valid(robot_visual):
+		robot_visual.reset_pose()
+	is_moving = false
+	if is_instance_valid(audio_move):
+		audio_move.stop()
+	if is_instance_valid(_footsteps):
+		_footsteps.clear()
+
+
+func _on_movement_visibility_changed() -> void:
+	if not is_visible_in_tree():
+		if is_instance_valid(audio_move):
+			audio_move.stop()
+		if is_instance_valid(_footsteps):
+			_footsteps.clear()
 
 
 func _apply_visual_color() -> void:
@@ -967,6 +1063,7 @@ func _update_alert_badge() -> void:
 
 
 func _exit_tree() -> void:
+	cancel_movement()
 	# Invalidate any coroutine timer before resetting local presentation state.
 	# Do not emit attack_feedback_finished here: leaving the tree can be part of
 	# Controller/scene teardown, where a gameplay callback would be unsafe.

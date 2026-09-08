@@ -21,6 +21,10 @@ var _stance: float = 0.0
 var attack_pose: bool = false
 var aim_target := Vector3.ZERO
 var reaction_direction := Vector3.BACK
+var locomotion_active := false
+var stride_length := 1.5
+var gait_distance := 0.0
+var locomotion_speed := 0.0
 
 
 func _ready() -> void:
@@ -55,6 +59,8 @@ func _process(delta: float) -> void:
 	var actor_position := _actor_position()
 	var moved := actor_position.distance_to(_last_position)
 	_last_position = actor_position
+	if locomotion_active:
+		return
 	if _reaction:
 		return
 	rotation.y = lerp_angle(rotation.y, _target_yaw, 1.0 - exp(-18.0 * delta))
@@ -177,6 +183,7 @@ func set_reaction(progress: float, killed: bool, incoming: Vector3 = Vector3.BAC
 
 
 func reset_pose() -> void:
+	locomotion_active = false
 	_reaction = false
 	_shot = 0.0
 	_motion = 0.0
@@ -185,6 +192,42 @@ func reset_pose() -> void:
 	_start_clip(&"idle")
 	_sample(0.0)
 	_apply_stance()
+
+
+func begin_locomotion() -> void:
+	reset_pose()
+	locomotion_active = true
+	gait_distance = 0.0
+	locomotion_speed = 0.0
+	_start_clip(&"walk")
+
+
+func sample_locomotion(distance: float, speed: float, heading: Vector3, stance: float, delta: float) -> void:
+	gait_distance = distance
+	locomotion_speed = speed
+	if heading.x * heading.x + heading.z * heading.z > 0.0001:
+		_target_yaw = atan2(heading.x, heading.z)
+	rotation.y = lerp_angle(rotation.y, _target_yaw, 1.0 - exp(-12.0 * delta))
+	_sample(distance / stride_length * 0.65, true)
+	var weight := clampf(speed / 1.5, 0, 1)
+	for leg_name in ["LegL", "LegR"]:
+		var leg := find_child(leg_name, true, false) as Node3D
+		leg.rotation *= weight
+		(leg.find_child("Knee*", false, false) as Node3D).rotation *= weight
+	_stance = clampf(stance, 0, 1)
+	_apply_stance()
+	var torso := find_child("Torso", true, false) as Node3D
+	torso.rotation.x = 0.10 * clampf(speed / 3.6, 0, 1) * (1.0 - _stance)
+	var actor := get_parent().get_parent() as PrototypeUnit
+	if actor != null:
+		sync_weapon(actor.weapon_pivot)
+		actor._weapon_pivot_rest_position = actor.weapon_pivot.position
+
+
+func foot_position(side: int) -> Vector3:
+	var leg := find_child("LegL" if side == 0 else "LegR", true, false) as Node3D
+	var sole := leg.find_child("Sole*", true, false) as Node3D
+	return sole.global_position if sole != null else global_position
 
 
 func preview_animation(clip: StringName) -> void:

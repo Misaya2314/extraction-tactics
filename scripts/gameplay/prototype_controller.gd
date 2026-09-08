@@ -508,6 +508,7 @@ func _post_undo_restore() -> void:
 		if not is_instance_valid(unit):
 			continue
 		unit.set_selected(false)
+		unit.cancel_movement()
 		if unit.is_attack_feedback_playing:
 			unit.call("_interrupt_attack_feedback")
 		else:
@@ -2454,6 +2455,7 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 	if not is_instance_valid(unit) or path.size() < 2:
 		return false
 	var start_cell := unit.grid_cell
+	var departure_cover := _cover_pose_at(start_cell)
 	var actor_id := unit.unit_id
 	var target_id := StringName("cell_%d_%d_%d" % [destination.x, destination.y, destination.z])
 	var request := ActionRequestScript.new(
@@ -2487,7 +2489,9 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 		world_points.append(grid.cell_to_world(path[index]))
 	if is_instance_valid(camera_rig) and unit.faction == &"player":
 		camera_rig.begin_movement(unit, world_points, mission_round)
-	await unit.move_along_world_path(world_points, destination)
+	if is_instance_valid(unit.robot_visual):
+		unit.robot_visual.set_cover(departure_cover.level, departure_cover.direction)
+	await unit.move_along_world_path(world_points, destination, _cover_pose_at(destination))
 	if is_instance_valid(camera_rig):
 		camera_rig.end_movement(unit)
 	input_locked = previous_input_locked or _is_terminal()
@@ -3573,22 +3577,28 @@ func _refresh_cover_poses() -> void:
 		combat_presentation.prune_remains()
 	if not is_instance_valid(grid):
 		return
-	var index := grid.get_edge_index()
 	for value in units_by_id.values():
 		var unit := value as PrototypeUnit
-		if not is_instance_valid(unit) or not is_instance_valid(unit.robot_visual) or not unit.is_alive():
+		if not is_instance_valid(unit) or not is_instance_valid(unit.robot_visual) or not unit.is_alive() or unit.is_moving:
 			continue
-		var level := 0
-		var direction := Vector3.FORWARD
-		for offset in GridModel.CARDINAL_DIRECTIONS:
-			var edge := index.get_edge(unit.grid_cell, unit.grid_cell + offset) if index != null else null
-			if edge == null:
-				continue
-			var profile := edge.resolve_profile(0 if edge.cell_a == unit.grid_cell else 1, cover_combat_settings)
-			if profile != null and profile.cover_level > level:
-				level = profile.cover_level
-				direction = Vector3(offset)
-		unit.robot_visual.set_cover(level, direction)
+		var pose := _cover_pose_at(unit.grid_cell)
+		unit.robot_visual.set_cover(pose.level, pose.direction)
+
+
+func _cover_pose_at(cell: Vector3i) -> Dictionary:
+	var pose := {"level": 0, "direction": Vector3.FORWARD}
+	if not is_instance_valid(grid):
+		return pose
+	var index := grid.get_edge_index()
+	for offset in GridModel.CARDINAL_DIRECTIONS:
+		var edge := index.get_edge(cell, cell + offset) if index != null else null
+		if edge == null:
+			continue
+		var profile := edge.resolve_profile(0 if edge.cell_a == cell else 1, cover_combat_settings)
+		if profile != null and profile.cover_level > int(pose.level):
+			pose.level = profile.cover_level
+			pose.direction = Vector3(offset)
+	return pose
 
 
 func _refresh_unit_cover_icons() -> void:
