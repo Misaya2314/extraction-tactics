@@ -46,6 +46,7 @@ const ATTACK_HIGHLIGHT_COLOR := Color(1.0, 0.23, 0.16, 0.48)
 const SKILL_HIGHLIGHT_COLOR := Color(1.0, 0.62, 0.15, 0.46)
 const LOOT_HIGHLIGHT_COLOR := Color(1.0, 0.82, 0.16, 0.56)
 const EXTRACTION_HIGHLIGHT_COLOR := Color(0.2, 0.95, 0.42, 0.56)
+const INVESTIGATION_HIGHLIGHT_COLOR := Color(1.0, 0.72, 0.12, 0.45)
 const MOVE_HIGHLIGHT_SURFACE_OFFSET := 0.025
 const CURSOR_HIGHLIGHT_COLOR := Color(1.0, 1.0, 1.0, 0.45)
 const CURSOR_SURFACE_OFFSET := 0.035
@@ -177,6 +178,7 @@ var _inventory_layout_sync_queued := false
 @onready var attack_highlights_root: Node3D = $AttackHighlights
 @onready var object_highlights_root: Node3D = $ObjectHighlights
 @onready var vision_highlights_root: Node3D = $VisionHighlights
+@onready var investigation_highlights_root: Node3D = get_node_or_null("InvestigationHighlights") as Node3D
 @onready var audio_discover: AudioStreamPlayer = get_node_or_null("AudioDiscover") as AudioStreamPlayer
 @onready var selection_label: Label = $HUD/TopLeftPanel/Margin/VBox/SelectionLabel
 @onready var phase_label: Label = $HUD/TopLeftPanel/Margin/VBox/PhaseLabel
@@ -2971,6 +2973,7 @@ func _run_exploration_tick() -> void:
 				if unit.runtime_state != null and unit.runtime_state.has_method("on_round_turn_started"):
 					unit.runtime_state.on_round_turn_started()
 		pre_turn_end_player_ap.clear()
+		_refresh_highlights()
 
 	_is_running_exploration_tick = false
 
@@ -3272,6 +3275,7 @@ func _refresh_highlights() -> void:
 	_refresh_object_highlights()
 	_refresh_vision_overlay()
 	_refresh_unit_cover_icons()
+	_refresh_investigation_highlights()
 	if can_show_move_highlights and is_instance_valid(grid) and grid.has_cell(_hovered_cell) and _is_cursor_visible():
 		_update_cover_preview(_hovered_cell)
 	var enemies_to_display: Array[PrototypeUnit] = []
@@ -3752,6 +3756,64 @@ func _refresh_object_highlights() -> void:
 			_add_highlight(object_highlights_root, cell, EXTRACTION_HIGHLIGHT_COLOR)
 
 
+func _refresh_investigation_highlights() -> void:
+	if not is_instance_valid(investigation_highlights_root):
+		investigation_highlights_root = get_node_or_null("InvestigationHighlights") as Node3D
+		if not is_instance_valid(investigation_highlights_root) and is_inside_tree():
+			investigation_highlights_root = Node3D.new()
+			investigation_highlights_root.name = "InvestigationHighlights"
+			add_child(investigation_highlights_root)
+	if not is_instance_valid(investigation_highlights_root) or not is_instance_valid(grid):
+		return
+	_clear_children(investigation_highlights_root)
+
+	var targets: Dictionary = {}
+	for enemy_id in _living_enemy_ids():
+		var enemy := _unit_by_id(enemy_id)
+		if not is_instance_valid(enemy) or not enemy.is_alive():
+			continue
+		var alert := enemy_alerts.get(enemy_id) as AlertState
+		if alert == null or not alert.is_suspicious():
+			continue
+		var target_cell := alert.get_last_known_cell()
+		if target_cell == AlertState.INVALID_CELL:
+			var invest_data: Dictionary = suspicious_investigations.get(enemy_id, {})
+			target_cell = invest_data.get(&"target_cell", AlertState.INVALID_CELL)
+		if target_cell != AlertState.INVALID_CELL and grid.has_cell(target_cell):
+			if not targets.has(target_cell):
+				targets[target_cell] = []
+			var enemy_name: String = enemy.name if enemy.name != "" else String(enemy_id)
+			targets[target_cell].append(enemy_name)
+
+	for cell in targets:
+		_add_highlight(investigation_highlights_root, cell, INVESTIGATION_HIGHLIGHT_COLOR, 0.038)
+		var marker := _create_investigation_marker(cell, targets[cell])
+		investigation_highlights_root.add_child(marker)
+
+
+func _create_investigation_marker(cell: Vector3i, enemy_names: Array) -> Node3D:
+	var marker_root := Node3D.new()
+	marker_root.name = "InvestigationMarker_%d_%d_%d" % [cell.x, cell.y, cell.z]
+	var world_pos := grid.cell_to_world(cell)
+	marker_root.position = world_pos + Vector3.UP * 0.65
+
+	var label := Label3D.new()
+	label.name = "Label"
+	var names_text := " · ".join(enemy_names)
+	if enemy_names.size() == 1:
+		label.text = "❓ 探查目标 (%s)" % names_text
+	else:
+		label.text = "❓ 探查目标 (%d人: %s)" % [enemy_names.size(), names_text]
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = 20
+	label.modulate = Color(1.0, 0.88, 0.18, 1.0)
+	label.outline_modulate = Color(0.2, 0.1, 0.0, 0.95)
+	label.outline_size = 4
+	marker_root.add_child(label)
+
+	return marker_root
+
+
 func _clear_highlights() -> void:
 	if is_instance_valid(highlights_root):
 		_clear_children(highlights_root)
@@ -3759,6 +3821,8 @@ func _clear_highlights() -> void:
 		_clear_children(attack_highlights_root)
 	if is_instance_valid(object_highlights_root):
 		_clear_children(object_highlights_root)
+	if is_instance_valid(investigation_highlights_root):
+		_clear_children(investigation_highlights_root)
 	_hide_cover_preview()
 	_hide_unit_cover_icons()
 
