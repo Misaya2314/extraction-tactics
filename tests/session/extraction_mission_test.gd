@@ -41,6 +41,7 @@ func _run() -> void:
 	_test_completed_mission_extraction()
 	_test_incomplete_mission_extraction()
 	_test_objective_match_by_definition_id()
+	_test_mission_panel_ui()
 	
 	for failure in failures:
 		push_error(failure)
@@ -213,19 +214,20 @@ func _test_completed_mission_extraction() -> void:
 	var interact_result := c.interact_with_objective(&"terminal_1")
 	_expect(interact_result.success, "fixture: interacted with terminal")
 	
-	# 移动到撤离点 (6, 0, 1)
+	# 移动到撤离点 (6, 0, 1)，AP 设为 0 测试零 AP 撤离
 	c.grid.vacate(player.grid_cell, player.unit_id)
 	player.grid_cell = Vector3i(6, 0, 1)
 	c.grid.occupy(player.grid_cell, player.unit_id)
-	player.current_action_points = 2
+	player.set_action_points(0)
 	
-	# 撤离提示与确认
+	# 撤离提示与确认（0 AP 允许）
 	var prompt := c.begin_extraction_prompt(&"extraction_1")
-	_expect(prompt.success, "extraction prompt success")
+	_expect(prompt.success, "extraction prompt success with 0 AP")
 	_expect(c.session_manager.get_state() == GameStateManager.State.EXTRACTION, "state is EXTRACTION")
 	
 	var confirm := c.confirm_extraction()
-	_expect(confirm.success, "extraction confirm success")
+	_expect(confirm.success, "extraction confirm success with 0 AP")
+	_expect(player.current_action_points == 0, "extraction consumed 0 AP")
 	_expect(c.session_manager.is_terminal(), "terminal session")
 	_expect(c.session_manager.is_success(), "session success")
 	
@@ -240,18 +242,19 @@ func _test_incomplete_mission_extraction() -> void:
 	var c := _create_fixture(true)
 	var player: PrototypeUnit = c.units_by_id[&"player_0"]
 	
-	# 不与终端交互，直接走到撤离点 (6, 0, 1)
+	# 不与终端交互，直接走到撤离点 (6, 0, 1)，AP 设为 0
 	c.grid.vacate(player.grid_cell, player.unit_id)
 	player.grid_cell = Vector3i(6, 0, 1)
 	c.grid.occupy(player.grid_cell, player.unit_id)
-	player.current_action_points = 2
+	player.set_action_points(0)
 	
-	# 依然允许撤离！
+	# 依然允许 0 AP 撤离！
 	var prompt := c.begin_extraction_prompt(&"extraction_1")
-	_expect(prompt.success, "extraction allowed even when mission incomplete")
+	_expect(prompt.success, "extraction allowed even when mission incomplete and 0 AP")
 	
 	var confirm := c.confirm_extraction()
-	_expect(confirm.success, "extraction confirmed successfully")
+	_expect(confirm.success, "extraction confirmed successfully with 0 AP")
+	_expect(player.current_action_points == 0, "extraction consumed 0 AP")
 	_expect(c.session_manager.is_success(), "session marked success on extraction")
 	
 	# 结算中准确报告未完成
@@ -290,6 +293,55 @@ func _test_objective_match_by_definition_id() -> void:
 	_expect(c.session_manager.is_success(), "session marked success on extraction")
 	var summary: Dictionary = c.mission_tracker.get_summary()
 	_expect(summary[&"all_completed"], "all missions reported completed")
+	_cleanup(c)
+
+
+func _test_mission_panel_ui() -> void:
+	var c := _create_fixture(true)
+	var panel := PanelContainer.new()
+	var vbox := VBoxContainer.new()
+	var title_lbl := Label.new()
+	var steps_cnt := VBoxContainer.new()
+	vbox.add_child(title_lbl)
+	vbox.add_child(steps_cnt)
+	panel.add_child(vbox)
+	c.mission_panel = panel
+	c.mission_title_label = title_lbl
+	c.mission_steps_container = steps_cnt
+	
+	# 初始状态：未完成终端破译
+	c._refresh_mission_panel()
+	_expect(title_lbl.text == "前哨站数据夺取 (0/1)", "mission panel initial title should be '前哨站数据夺取 (0/1)', got '%s'" % title_lbl.text)
+	_expect(steps_cnt.get_child_count() == 2, "mission panel should have 2 steps (hack terminal + extraction)")
+	var step1: Label = steps_cnt.get_child(0) as Label
+	var step2: Label = steps_cnt.get_child(1) as Label
+	_expect(step1.text == "[ ] 破译前哨站机密终端", "step 1 should be unchecked terminal hack")
+	_expect(step2.text.begins_with("[ ] 前往撤离点撤离"), "step 2 should be extraction indicator")
+	
+	# 模拟破译终端
+	c.mission_tracker.record_interaction(&"terminal_1")
+	c._refresh_mission_panel()
+	_expect(title_lbl.text.begins_with("前哨站数据夺取 (1/1)"), "mission panel title after interact should show (1/1)")
+	step1 = steps_cnt.get_child(0) as Label
+	_expect(step1.text == "[✓] 破译前哨站机密终端", "step 1 should be checked after interaction")
+	
+	# 模拟撤回操作（Undo）
+	c.mission_tracker.restore_state({
+		&"interacted_objects": {},
+		&"step_completed": { &"hack_terminal": false }
+	})
+	c._refresh_mission_panel()
+	_expect(title_lbl.text == "前哨站数据夺取 (0/1)", "mission panel title should rollback to (0/1) on undo")
+	step1 = steps_cnt.get_child(0) as Label
+	_expect(step1.text == "[ ] 破译前哨站机密终端", "step 1 should be reverted to unchecked on undo")
+	
+	# 模拟无任务模式
+	c.mission_tracker.configure(null)
+	c._refresh_mission_panel()
+	_expect(title_lbl.text == "暂无任务", "mission panel title for no mission should be '暂无任务'")
+	_expect(steps_cnt.get_child_count() == 0, "no mission should have 0 steps")
+	
+	panel.free()
 	_cleanup(c)
 
 

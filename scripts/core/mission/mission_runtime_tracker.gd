@@ -103,7 +103,7 @@ func get_total_step_count() -> int:
 
 func get_hud_text() -> String:
 	if definition == null or definition.steps.is_empty():
-		return "自由探索 · 前往撤离点撤离"
+		return "暂无任务"
 	for step in definition.steps:
 		if step == null:
 			continue

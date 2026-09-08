@@ -25,8 +25,8 @@ const TacticalStepOutScript = preload("res://scripts/core/cover/tactical_step_ou
 const InventoryGridScript = preload("res://scripts/gameplay/ui/inventory_grid_control.gd")
 const LootGridScript = preload("res://scripts/gameplay/ui/loot_grid_control.gd")
 const MOVE_ACTION_COST := 1
-## Opening a Loot container is a one-AP Interact; confirming an extraction is
-## also one AP, while taking items from an opened container is free.
+## Opening a Loot container is a one-AP Interact; taking items from an opened
+## container is free, while interactive objectives and extractions cost 0 AP.
 const INTERACT_ACTION_COST := 1
 const LOOT_OPEN_ACTION_COST := 1
 const LOOT_ACTION_COST := 0
@@ -59,6 +59,7 @@ const COVER_ICON_SURFACE_OFFSET: float = 0.55
 const COVER_ICON_EDGE_OFFSET_RATIO: float = 0.40
 const COVER_ICON_PIXEL_SIZE: float = 0.003
 const INTERACT_OBJECTIVE_COST: int = 0
+const INTERACT_EXTRACTION_COST: int = 0
 
 const MissionRuntimeTrackerScript = preload("res://scripts/core/mission/mission_runtime_tracker.gd")
 const MissionObjectiveScript = preload("res://scripts/core/session/mission_objective.gd")
@@ -207,6 +208,9 @@ var _inventory_layout_sync_queued := false
 @onready var result_items_label: Label = $HUD/ResultPanel/Margin/VBox/ResultItems
 @onready var result_value_label: Label = $HUD/ResultPanel/Margin/VBox/ResultValue
 @onready var restart_button: Button = $HUD/ResultPanel/Margin/VBox/RestartButton
+@onready var mission_panel: PanelContainer = get_node_or_null("HUD/MissionPanel") as PanelContainer
+@onready var mission_title_label: Label = get_node_or_null("HUD/MissionPanel/Margin/VBox/TitleLabel") as Label
+@onready var mission_steps_container: VBoxContainer = get_node_or_null("HUD/MissionPanel/Margin/VBox/StepsContainer") as VBoxContainer
 
 
 func _load_authoring_scene() -> void:
@@ -259,6 +263,7 @@ func _ready() -> void:
 		return
 	var mission_def = map_definition.get(&"mission_definition") if map_definition != null else null
 	mission_tracker.configure(mission_def)
+	_refresh_mission_panel()
 	_configure_inventory_ui()
 	session_manager.start_exploration()
 	_configure_undo_manager()
@@ -2354,11 +2359,6 @@ func _refresh_inventory_ui() -> void:
 func begin_extraction_prompt(extraction_id: StringName = &"") -> ActionResult:
 	if not _can_use_exploration_action():
 		return _action_rejected(&"wrong_phase", ACTION_INTERACT)
-	# The prompt itself is a zero-cost Interact, but a player with no AP cannot
-	# complete the required one-AP confirmation, so do not open a dead-end panel.
-	if selected_unit.current_action_points < INTERACT_ACTION_COST:
-		_update_hud("无法开始撤离：AP 不足。")
-		return _action_rejected(&"no_ap", ACTION_INTERACT, selected_unit.unit_id, extraction_id)
 	var target_id := extraction_id if extraction_id != &"" else _extraction_at_cell(selected_unit.grid_cell if is_instance_valid(selected_unit) else Vector3i(-1, -1, -1))
 	var placement = object_placements.get(target_id)
 	var player := selected_unit
@@ -2398,7 +2398,7 @@ func confirm_extraction() -> ActionResult:
 		ACTION_INTERACT,
 		player.unit_id,
 		target_id,
-		INTERACT_ACTION_COST,
+		INTERACT_EXTRACTION_COST,
 		{
 			&"operation": &"extraction_confirm",
 			ActionExecutorScript.KEY_ACTOR_CELL: player.grid_cell,
@@ -4506,3 +4506,82 @@ func _update_hud(message: String = "") -> void:
 	_sync_inventory_panel_layout()
 	_queue_inventory_panel_layout_sync()
 	_refresh_undo_buttons()
+	_refresh_mission_panel()
+
+
+func _refresh_mission_panel() -> void:
+	if not is_instance_valid(mission_panel):
+		return
+	if not is_instance_valid(mission_title_label) or not is_instance_valid(mission_steps_container):
+		return
+	for child in mission_steps_container.get_children():
+		mission_steps_container.remove_child(child)
+		child.queue_free()
+	var is_term: bool = session_manager != null and session_manager.is_terminal()
+	var has_mission: bool = mission_tracker != null and mission_tracker.definition != null and not mission_tracker.definition.steps.is_empty()
+	if has_mission:
+		var def = mission_tracker.definition
+		var total_main: int = 0
+		var completed_main: int = 0
+		for step in def.steps:
+			if step == null:
+				continue
+			if not step.is_optional:
+				total_main += 1
+				if mission_tracker.is_step_completed(step.step_id):
+					completed_main += 1
+		var title_name: String = def.title if not def.title.is_empty() else "任务目标"
+		var all_done: bool = mission_tracker.are_all_main_steps_completed()
+		if total_main > 0:
+			if all_done:
+				mission_title_label.text = "%s (%d/%d) · 目标达成" % [title_name, completed_main, total_main]
+			else:
+				mission_title_label.text = "%s (%d/%d)" % [title_name, completed_main, total_main]
+		else:
+			mission_title_label.text = title_name
+		for step in def.steps:
+			if step == null:
+				continue
+			var is_done: bool = mission_tracker.is_step_completed(step.step_id)
+			var step_lbl := Label.new()
+			step_lbl.add_theme_font_size_override(&"font_size", 12)
+			var prefix := "[✓] " if is_done else "[ ] "
+			var opt_tag := "(可选) " if step.is_optional else ""
+			var desc: String = step.description if not step.description.is_empty() else String(step.step_id)
+			step_lbl.text = "%s%s%s" % [prefix, opt_tag, desc]
+			if is_done:
+				step_lbl.add_theme_color_override(&"font_color", Color(0.45, 0.85, 0.45, 1.0))
+			elif step.is_optional:
+				step_lbl.add_theme_color_override(&"font_color", Color(0.85, 0.82, 0.55, 1.0))
+			else:
+				step_lbl.add_theme_color_override(&"font_color", Color(0.90, 0.92, 0.95, 1.0))
+			mission_steps_container.add_child(step_lbl)
+		var exit_lbl := Label.new()
+		exit_lbl.add_theme_font_size_override(&"font_size", 12)
+		if is_term:
+			if session_manager.is_success():
+				exit_lbl.text = "[✓] 成功撤离"
+				exit_lbl.add_theme_color_override(&"font_color", Color(0.45, 0.85, 0.45, 1.0))
+			else:
+				exit_lbl.text = "[×] 全队阵亡"
+				exit_lbl.add_theme_color_override(&"font_color", Color(0.95, 0.4, 0.4, 1.0))
+		else:
+			if all_done:
+				exit_lbl.text = "[ ] 前往撤离点撤离"
+				exit_lbl.add_theme_color_override(&"font_color", Color(0.4, 0.82, 1.0, 1.0))
+			else:
+				exit_lbl.text = "[ ] 前往撤离点撤离 (可提前撤离)"
+				exit_lbl.add_theme_color_override(&"font_color", Color(0.65, 0.70, 0.75, 1.0))
+		mission_steps_container.add_child(exit_lbl)
+	else:
+		mission_title_label.text = "暂无任务"
+		if is_term:
+			var term_lbl := Label.new()
+			term_lbl.add_theme_font_size_override(&"font_size", 12)
+			if session_manager != null and session_manager.is_success():
+				term_lbl.text = "[✓] 成功撤离"
+				term_lbl.add_theme_color_override(&"font_color", Color(0.45, 0.85, 0.45, 1.0))
+			else:
+				term_lbl.text = "[×] 全队阵亡"
+				term_lbl.add_theme_color_override(&"font_color", Color(0.95, 0.4, 0.4, 1.0))
+			mission_steps_container.add_child(term_lbl)

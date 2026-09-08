@@ -312,11 +312,11 @@ theme_override_constants/separation = 6
 
 [node name="ConfirmButton" type="Button" parent="HUD/ExtractionPanel/Margin/VBox/Buttons" unique_id=181262701]
 layout_mode = 2
-text = "Confirm (1 AP)"
+text = "确认撤离"
 
 [node name="CancelButton" type="Button" parent="HUD/ExtractionPanel/Margin/VBox/Buttons" unique_id=2052299687]
 layout_mode = 2
-text = "Cancel"
+text = "取消"
 
 [node name="ResultPanel" type="PanelContainer" parent="HUD" unique_id=644524049]
 visible = false
@@ -353,5 +353,36 @@ text = "目标完成：0 / 0"
 [node name="RestartButton" type="Button" parent="HUD/ResultPanel/Margin/VBox" unique_id=629301909]
 layout_mode = 2
 text = "重新开始本关"
+
+[node name="MissionPanel" type="PanelContainer" parent="HUD" unique_id=2140192831]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -280.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 68.0
+grow_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
+
+[node name="Margin" type="MarginContainer" parent="HUD/MissionPanel" unique_id=2140192832]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="HUD/MissionPanel/Margin" unique_id=2140192833]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="TitleLabel" type="Label" parent="HUD/MissionPanel/Margin/VBox" unique_id=2140192834]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "暂无任务"
+
+[node name="StepsContainer" type="VBoxContainer" parent="HUD/MissionPanel/Margin/VBox" unique_id=2140192835]
+layout_mode = 2
+theme_override_constants/separation = 2
 
 [connection signal="pressed" from="HUD/InventoryPanel/Margin/VBox/HeaderRow/CollapseButton" to="." method="_on_inventory_collapse_pressed"]
