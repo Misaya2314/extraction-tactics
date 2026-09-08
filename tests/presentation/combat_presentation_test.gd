@@ -44,6 +44,9 @@ func _run() -> void:
 	_expect(Time.get_ticks_msec() - started >= 450, "highlight has a real presentation interval")
 	_expect(director.impacts.size() == 2, "multiple visible kills grouped; hidden victim excluded")
 	_expect(not victim.visible and not hidden.visible and not environment.visible, "dead views cleaned after action")
+	_expect(director.remains.size() == 2, "only visible kills leave remains")
+	for entry in director.remains:
+		_expect(entry.node.find_children("*", "CollisionObject3D", true, false).is_empty(), "remains cannot block movement or bullets")
 	_expect(camera_before.is_equal_approx(rig.camera.global_transform), "camera restored exactly")
 	_expect(not rig.cinematic_active and not director.active, "camera and presentation unlocked")
 	_expect(victim.visual_root.transform.is_equal_approx(pose), "pose reset for undo")
@@ -53,13 +56,18 @@ func _run() -> void:
 	victim.current_hp = victim.max_hp
 	victim.visible = true
 	victim.process_mode = Node.PROCESS_MODE_INHERIT
+	director.prune_remains()
+	_expect(director.remains.size() == 1, "reviving a unit removes its remains")
 	director.begin({1: attacker, 2: victim}, rig)
 	victim.take_damage(1, false)
 	director.skip()
+	victim.robot_visual.set_attack_pose(0.5, Vector3.RIGHT, Vector3.ZERO)
+	director._posed_attacker = victim
 	started = Time.get_ticks_msec()
 	await director.play(attacker, victim.position)
 	_expect(Time.get_ticks_msec() - started < 100, "skip completes immediately")
 	_expect(victim.visible and victim.visual_root.transform.is_equal_approx(pose), "survivor restored after skip")
+	_expect(victim.robot_visual.position.is_zero_approx(), "skip clears partially completed peek")
 	# Every candidate blocked: retain the tactical camera, including wall layer 2.
 	var wall := StaticBody3D.new()
 	wall.collision_layer = 2

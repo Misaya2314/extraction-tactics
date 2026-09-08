@@ -572,6 +572,8 @@ func _start_attack_feedback_tweens(profile: WeaponAttackFeedbackProfile, duratio
 	var pivot_recoil_position := _weapon_pivot_rest_position + recoil_offset * 1.35
 	var pivot_rest_rotation := _weapon_pivot_rest_rotation
 	pivot_rest_rotation.y = atan2(float(visual_facing.x), float(visual_facing.y))
+	if is_instance_valid(robot_visual) and robot_visual.attack_pose:
+		pivot_rest_rotation = weapon_pivot.rotation
 	var pivot_recoil_rotation := pivot_rest_rotation
 	pivot_recoil_rotation.x += deg_to_rad(profile.weapon_kick_degrees)
 	_queue_feedback_tween(

@@ -23,6 +23,8 @@ var vfx: CombatVfx
 var _environment_impacts: Array[Vector3] = []
 var _hidden_labels: Dictionary = {}
 var _explosive_views: Dictionary = {}
+var remains: Array[Dictionary] = []
+var _posed_attacker: PrototypeUnit
 
 
 func _ready() -> void:
@@ -81,6 +83,7 @@ func retain_environment(view: EnvironmentObjectView, explosive: bool = false) ->
 
 
 func begin(units: Dictionary, rig: TacticalCameraRig) -> void:
+	prune_remains()
 	active = true
 	skipped = false
 	_before.clear()
@@ -125,7 +128,7 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 
 
-func play(attacker: PrototypeUnit, focus: Vector3, area: bool = false, final_action: bool = false, fire_weapon: bool = true) -> void:
+func play(attacker: PrototypeUnit, focus: Vector3, area: bool = false, final_action: bool = false, fire_weapon: bool = true, peek_offset: Vector3 = Vector3.ZERO) -> void:
 	if not is_inside_tree():
 		finish()
 		return
@@ -154,6 +157,15 @@ func play(attacker: PrototypeUnit, focus: Vector3, area: bool = false, final_act
 		await _blend_camera(_camera_rest, _camera_goal, 0.16)
 	var impact_time := 0.06
 	var reaction_strength := 0.16
+	var aim := focus + Vector3.UP * 1.05
+	for entry in _before:
+		var target: PrototypeUnit = entry.unit
+		if is_instance_valid(target) and target.global_position.distance_to(focus) < 0.1 and is_instance_valid(target.robot_visual):
+			var torso := target.robot_visual.find_child("Torso", true, false) as Node3D
+			aim = torso.global_position
+	if fire_weapon and is_instance_valid(attacker) and is_instance_valid(attacker.robot_visual):
+		_posed_attacker = attacker
+		await _pose_attack(attacker, peek_offset, aim, true)
 	if is_instance_valid(attacker):
 		if attacker.weapon != null and attacker.weapon.attack_feedback_profile != null:
 			impact_time = attacker.weapon.attack_feedback_profile.impact_time
@@ -162,7 +174,7 @@ func play(attacker: PrototypeUnit, focus: Vector3, area: bool = false, final_act
 			attacker.play_attack_feedback()
 			if attacker.is_visible_in_tree() and is_instance_valid(vfx):
 				var source := attacker.muzzle_flash.global_position if is_instance_valid(attacker.muzzle_flash) else attacker.global_position + Vector3.UP
-				vfx.shot(source, focus + Vector3.UP * 1.05, impact_time, reaction_strength > 0.2)
+				vfx.shot(source, aim, impact_time, reaction_strength > 0.2)
 	await _wait(impact_time)
 	# An actor killed by its own blast must not have recoil reset its death pose.
 	if is_instance_valid(attacker) and not attacker.is_alive():
@@ -179,13 +191,15 @@ func play(attacker: PrototypeUnit, focus: Vector3, area: bool = false, final_act
 			_show_blast(position)
 	for entry in impacts:
 		var unit: PrototypeUnit = entry.unit
+		var origin := attacker.global_position + peek_offset if is_instance_valid(attacker) else focus
+		entry["incoming"] = entry.position - (focus if area else origin)
+		entry["impact_kind"] = &"fatal" if entry.killed else (&"armor" if is_instance_valid(unit.robot_visual) else &"normal")
 		if not skipped and is_instance_valid(vfx):
-			var origin := attacker.global_position if is_instance_valid(attacker) else focus
-			vfx.impact(entry.position + Vector3.UP * 1.05, entry.position - origin, entry.position.y)
-		if entry.killed:
-			unit.play_death_sound()
-		else:
-			unit.play_hit_sound()
+			var hit_point: Vector3 = entry.position + Vector3.UP * 1.05
+			if is_instance_valid(unit.robot_visual):
+				hit_point = (unit.robot_visual.find_child("Torso", true, false) as Node3D).global_position
+			vfx.impact(hit_point, entry.incoming, entry.position.y, entry.impact_kind)
+		unit._play_sfx("AudioDeath" if entry.killed else "AudioHit", ImpactAudio.stream(entry.impact_kind))
 		_show_damage(entry)
 	var elapsed := 0.0
 	var wall_time := 0.0
@@ -204,7 +218,7 @@ func play(attacker: PrototypeUnit, focus: Vector3, area: bool = false, final_act
 				continue
 			var progress := clampf(elapsed / (0.7 if entry.killed else 0.34), 0.0, 1.0)
 			if is_instance_valid(unit.robot_visual):
-				unit.robot_visual.set_reaction(progress, entry.killed)
+				unit.robot_visual.set_reaction(progress, entry.killed, entry.incoming)
 				unit.robot_visual.sync_weapon(unit.weapon_pivot)
 				continue
 			var pose: Transform3D = entry.pose
@@ -220,6 +234,8 @@ func play(attacker: PrototypeUnit, focus: Vector3, area: bool = false, final_act
 			if entry.killed:
 				pose.basis = pose.basis.rotated(Vector3.FORWARD, amount * 0.15 * float(entry.fall_sign))
 			unit.visual_root.transform = pose
+	if is_instance_valid(attacker) and attacker.is_alive() and fire_weapon:
+		await _pose_attack(attacker, peek_offset, aim, false)
 	await _wait(0.08 if kills > 0 else 0.0)
 	if cinematic:
 		await _blend_camera(_rig.camera.global_transform if is_instance_valid(_rig) else _camera_rest, _camera_rest, 0.16)
@@ -323,12 +339,21 @@ func finish() -> void:
 	_environment.clear()
 	if is_instance_valid(vfx):
 		vfx.clear()
+	for entry in impacts:
+		if entry.killed and is_instance_valid(entry.unit) and is_instance_valid(entry.unit.robot_visual):
+			entry.unit.robot_visual.set_reaction(1.0, true, entry.get("incoming", Vector3.BACK))
+			entry.unit.robot_visual.sync_weapon(entry.unit.weapon_pivot)
+			_store_remains(entry.unit)
+	if is_instance_valid(_posed_attacker) and is_instance_valid(_posed_attacker.robot_visual):
+		_posed_attacker.robot_visual.set_attack_pose(0.0, Vector3.ZERO, Vector3.ZERO)
+	_posed_attacker = null
 	for entry in _before:
 		var unit: PrototypeUnit = entry.unit
 		if not is_instance_valid(unit):
 			continue
 		unit.defer_damage_feedback = entry.defer_audio
 		if is_instance_valid(unit.robot_visual):
+			unit.robot_visual.set_attack_pose(0.0, Vector3.ZERO, Vector3.ZERO)
 			unit.robot_visual.reset_pose()
 			unit._apply_weapon_facing()
 		if is_instance_valid(unit.visual_root):
@@ -349,3 +374,48 @@ func finish() -> void:
 
 func _exit_tree() -> void:
 	finish()
+
+
+func _pose_attack(unit: PrototypeUnit, offset: Vector3, target: Vector3, opening: bool) -> void:
+	if not is_instance_valid(unit.robot_visual):
+		return
+	var elapsed := 0.0
+	while elapsed < 0.16 and not skipped and is_inside_tree():
+		await get_tree().process_frame
+		if not is_instance_valid(unit):
+			return
+		elapsed += get_process_delta_time()
+		var t := smoothstep(0.0, 1.0, minf(elapsed / 0.16, 1.0))
+		unit.robot_visual.set_attack_pose(t if opening else 1.0 - t, offset, target)
+		unit.robot_visual.sync_weapon(unit.weapon_pivot)
+		if is_instance_valid(vfx):
+			vfx.advance(get_process_delta_time())
+
+
+func _store_remains(unit: PrototypeUnit) -> void:
+	for entry in remains:
+		if entry.source == unit:
+			return
+	var body := Node3D.new()
+	body.name = "RobotRemains"
+	add_child(body)
+	for branch in [unit.robot_visual, unit.weapon_model_root]:
+		for source in branch.find_children("*", "MeshInstance3D", true, false):
+			var mesh := MeshInstance3D.new()
+			mesh.mesh = source.mesh
+			mesh.material_override = source.material_override
+			for i in range(source.mesh.get_surface_count()):
+				mesh.set_surface_override_material(i, source.get_surface_override_material(i))
+			body.add_child(mesh)
+			mesh.global_transform = source.global_transform
+	remains.append({"source": unit, "node": body})
+	while remains.size() > 32:
+		remains.pop_front().node.free()
+
+
+func prune_remains() -> void:
+	for i in range(remains.size() - 1, -1, -1):
+		var entry := remains[i]
+		if not is_instance_valid(entry.source) or entry.source.is_alive():
+			entry.node.free()
+			remains.remove_at(i)

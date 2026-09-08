@@ -2486,6 +2486,7 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 
 
 func _begin_combat_presentation() -> void:
+	_refresh_cover_poses()
 	if combat_presentation == null:
 		combat_presentation = CombatPresentationDirector.new()
 		add_child(combat_presentation)
@@ -2569,15 +2570,12 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 	var applied := result.damage
 	attacker.look_at_cell(target.grid_cell)
 	var is_step_out := cover_query.is_step_out and is_instance_valid(grid)
+	var peek_offset := Vector3.ZERO
 	if is_step_out:
 		var step_world_pos := grid.cell_to_world(cover_query.step_out_cell)
-		var peek_pos := attacker.global_position.lerp(step_world_pos, 0.75)
-		await attacker.step_out_to(peek_pos, 0.15)
+		peek_offset = step_world_pos - attacker.global_position
 
-	await combat_presentation.play(attacker, target.global_position, false, _is_terminal())
-
-	if is_step_out:
-		await attacker.step_back(0.15)
+	await combat_presentation.play(attacker, target.global_position, false, _is_terminal(), true, peek_offset)
 	_refresh_result_panel()
 
 	if attacker.faction == &"enemy" and enemy_post_attack_delay > 0.0 and is_inside_tree():
@@ -3177,6 +3175,7 @@ func _select_unit(unit: PrototypeUnit, allow_enemy: bool = false) -> void:
 
 
 func _refresh_highlights() -> void:
+	_refresh_cover_poses()
 	_clear_highlights()
 	_update_object_visibility()
 	var can_show_tactical_highlights := _can_show_tactical_highlights()
@@ -3535,6 +3534,29 @@ func _get_or_create_cover_sprite(index: int) -> Sprite3D:
 		_cover_indicators_root.add_child(sprite)
 		_cover_icon_pool.append(sprite)
 	return _cover_icon_pool[index]
+
+
+func _refresh_cover_poses() -> void:
+	if combat_presentation != null:
+		combat_presentation.prune_remains()
+	if not is_instance_valid(grid):
+		return
+	var index := grid.get_edge_index()
+	for value in units_by_id.values():
+		var unit := value as PrototypeUnit
+		if not is_instance_valid(unit) or not is_instance_valid(unit.robot_visual) or not unit.is_alive():
+			continue
+		var level := 0
+		var direction := Vector3.FORWARD
+		for offset in GridModel.CARDINAL_DIRECTIONS:
+			var edge := index.get_edge(unit.grid_cell, unit.grid_cell + offset) if index != null else null
+			if edge == null:
+				continue
+			var profile := edge.resolve_profile(0 if edge.cell_a == unit.grid_cell else 1, cover_combat_settings)
+			if profile != null and profile.cover_level > level:
+				level = profile.cover_level
+				direction = Vector3(offset)
+		unit.robot_visual.set_cover(level, direction)
 
 
 func _refresh_unit_cover_icons() -> void:

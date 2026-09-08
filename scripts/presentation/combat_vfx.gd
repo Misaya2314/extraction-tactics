@@ -55,14 +55,16 @@ func shot(source: Vector3, target: Vector3, flight_time: float, shotgun: bool = 
 	_particle(source, Vector3.ZERO, Vector3.ONE * (0.22 if shotgun else 0.14), Color(1, 0.8, 0.3, 0.9), 0.045, &"flash", source.y)
 
 
-func impact(position: Vector3, incoming: Vector3, ground: float) -> void:
+func impact(position: Vector3, incoming: Vector3, ground: float, kind: StringName = &"normal") -> void:
 	var backward := -incoming.normalized()
-	for i in range(10):
+	var spark_color := Color(0.55, 0.85, 1.0) if kind == &"armor" else Color(1, 0.65, 0.16)
+	var count := 20 if kind == &"fatal" else (14 if kind == &"armor" else 7)
+	for i in range(count):
 		var velocity := (backward + Vector3(_rng.randf_range(-1, 1), _rng.randf_range(0.1, 1), _rng.randf_range(-1, 1))).normalized() * _rng.randf_range(1.2, 3.0)
-		_particle(position, velocity, Vector3(0.025, 0.025, 0.10), Color(1, 0.65, 0.16), 0.28 + _rng.randf() * 0.18, &"spark", ground)
+		_particle(position, velocity, Vector3(0.025, 0.025, 0.10), spark_color, 0.28 + _rng.randf() * 0.18, &"spark", ground)
 	for i in range(5):
 		_particle(position, Vector3(_rng.randf_range(-0.3, 0.3), 0.4, _rng.randf_range(-0.3, 0.3)), Vector3.ONE * 0.10, Color(0.32, 0.36, 0.39, 0.35), 0.6, &"smoke", ground)
-	for i in range(4):
+	for i in range(10 if kind == &"fatal" else 4):
 		_particle(position, backward * 0.6 + Vector3(_rng.randf_range(-1, 1), 1, _rng.randf_range(-1, 1)), Vector3(0.045, 0.025, 0.055), Color(0.40, 0.46, 0.48), 0.6, &"debris", ground)
 
 
