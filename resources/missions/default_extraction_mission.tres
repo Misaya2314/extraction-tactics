@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="MissionDefinition" format=3 uid="uid://dhutyva446v18"]
+
+[ext_resource type="Script" uid="uid://dm05yuupcc2uh" path="res://scripts/core/mission/mission_step_definition.gd" id="1_step_script"]
+[ext_resource type="Script" uid="uid://dcrccbj6hr210" path="res://scripts/core/mission/mission_definition.gd" id="2_mission_script"]
+
+[sub_resource type="Resource" id="Resource_step_1"]
+script = ExtResource("1_step_script")
+step_id = &"hack_terminal"
+description = "破译前哨站机密终端"
+target_id = &"prototype_objective_terminal_001"
+
+[resource]
+script = ExtResource("2_mission_script")
+mission_id = &"outpost_recon"
+title = "前哨站机密搜取"
+briefing = "潜入敌军据点，破译中央数据终端，获取情报后安全撤离。"
+steps = Array[Resource]([SubResource("Resource_step_1")])

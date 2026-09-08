@@ -21,6 +21,7 @@ static func build(author: TacticalMapAuthor) -> Dictionary:
 
 	definition.map_id = author.map_id
 	definition.objective_spawn_ids = author.objective_spawn_ids.duplicate()
+	definition.mission_definition = author.mission_definition
 	definition.footprint_size = author.footprint_size
 	definition.level_count = author.level_count
 	definition.cell_size = author.cell_dimensions

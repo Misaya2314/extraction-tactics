@@ -8,6 +8,7 @@ enum Kind {
 	EXPLOSIVE,
 	DOOR,
 	GENERIC,
+	OBJECTIVE,
 }
 
 @export var object_id: StringName = &"object"

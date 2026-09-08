@@ -1,0 +1,31 @@
+[gd_scene format=3]
+
+[ext_resource type="ArrayMesh" path="res://assets/models/kenney_factory-kit_3.0/Models/OBJ format/screen-panel-wide.obj" id="1_screen_panel"]
+
+[sub_resource type="BoxShape3D" id="BoxShape_terminal"]
+size = Vector3(1.2, 1.0, 0.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape_interaction"]
+size = Vector3(1.8, 1.0, 1.8)
+
+[node name="PrototypeObjectiveTerminal" type="Node3D"]
+
+[node name="TerminalMesh" type="MeshInstance3D" parent="."]
+scale = Vector3(1.2, 1.2, 1.2)
+mesh = ExtResource("1_screen_panel")
+
+[node name="TerminalBody" type="StaticBody3D" parent="."]
+collision_layer = 2
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TerminalBody"]
+shape = SubResource("BoxShape_terminal")
+position = Vector3(0, 0.5, 0)
+
+[node name="InteractionArea" type="Area3D" parent="."]
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractionArea"]
+shape = SubResource("BoxShape_interaction")
+position = Vector3(0, 0.5, 0)

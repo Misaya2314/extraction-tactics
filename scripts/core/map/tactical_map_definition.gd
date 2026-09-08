@@ -21,6 +21,7 @@ const MAX_LEVEL_COUNT: int = 32
 @export var map_id: StringName = &"tactical_map"
 ## Empty selects all authored enemy spawns. Explicit IDs select a subset.
 @export var objective_spawn_ids: Array[StringName] = []
+@export var mission_definition: Resource = null
 @export var footprint_size: Vector2i = Vector2i.ZERO
 @export var level_count: int = 1
 @export var cell_size: Vector3 = Vector3(2.0, 2.0, 2.0)
@@ -73,3 +74,12 @@ func get_extraction_cells() -> Array[Vector3i]:
 		if placement.kind == MapObjectPlacement.Kind.EXTRACTION:
 			result.append(placement.cell)
 	return result
+
+
+func get_objective_cells() -> Array[Vector3i]:
+	var result: Array[Vector3i] = []
+	for placement in objects:
+		if placement.kind == MapObjectPlacement.Kind.OBJECTIVE:
+			result.append(placement.cell)
+	return result
+

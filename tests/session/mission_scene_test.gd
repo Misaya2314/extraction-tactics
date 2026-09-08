@@ -40,7 +40,6 @@ func _run() -> void:
 	await process_frame
 	_expect(c.mission_objective.target_ids.size() == 1, "authored target resolved to runtime ID")
 	_expect(not c.result_panel.visible, "result hidden before outcome")
-	_expect(c.phase_label.text.contains("0/1"), "HUD initial objective")
 	var player: PrototypeUnit = c.units_by_id[c.all_player_ids[0]]
 	var enemy: PrototypeUnit = c.units_by_id[c.all_enemy_ids[0]]
 	var enemy_hp := enemy.current_hp
@@ -50,9 +49,11 @@ func _run() -> void:
 	c.grid.occupy(enemy.grid_cell, enemy.unit_id)
 	var attack := await c._attack_with_unit(player, enemy)
 	_expect(attack.success, "real weapon action succeeds")
-	_expect(c.session_manager.is_success() and c.result_panel.visible, "victory shows actual result panel")
-	_expect(c.result_title_label.text == "关卡胜利", "victory title")
-	_expect(c.result_value_label.text.contains("1 / 1"), "result progress")
+	_expect(not c.session_manager.is_terminal(), "killing enemy does not trigger victory directly")
+	c.session_manager.start_extraction()
+	c.session_manager.confirm_extraction()
+	_expect(c.session_manager.is_success() and c.result_panel.visible, "extraction shows actual result panel")
+	_expect(c.result_title_label.text == "撤离成功", "victory title")
 	_expect(c.end_turn_button.disabled, "terminal end-turn disabled")
 	_expect(not c._can_undo_in_current_context(), "terminal undo disabled")
 	c._on_restart_pressed()
@@ -73,7 +74,7 @@ func _run() -> void:
 	c.turn_manager.configure(c.all_player_ids, c.all_enemy_ids)
 	c.turn_manager.start_combat(false)
 	await c._run_enemy_turn()
-	_expect(c.session_manager.is_failure() and c.result_title_label.text == "关卡失败", "defeat shows actual result panel")
+	_expect(c.session_manager.is_failure() and c.result_title_label.text == "行动失败", "defeat shows actual result panel")
 	_expect(c.mission_round == 1 and c.input_locked, "enemy animation cannot advance next round or unlock terminal input")
 	c._on_restart_pressed()
 	await scene_changed
@@ -88,7 +89,7 @@ func _run() -> void:
 	enemy.grid_cell = Vector3i(1, 0, 1)
 	c.grid.occupy(enemy.grid_cell, enemy.unit_id)
 	c._attack_with_unit(player, enemy)
-	_expect(c.session_manager.is_success(), "final attack commits before animation")
+	_expect(not c.session_manager.is_terminal(), "final attack commits without auto-ending game")
 	_expect(c.combat_presentation.active and not c.result_panel.visible, "final result waits for presentation")
 	_expect(enemy.visible, "logically dead target retained for death animation")
 	c._on_restart_pressed()

@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://67vt5a0pdyiv" path="res://scripts/map_authoring/tactical_map_author.gd" id="1_xwpqc"]
 [ext_resource type="Resource" uid="uid://s1dtd4vmbcj0" path="res://resources/map_tiles/libraries/default_placeable_library.tres" id="2_jlto7"]
+[ext_resource type="Resource" uid="uid://dhutyva446v18" path="res://resources/missions/default_extraction_mission.tres" id="2_qsi72"]
 [ext_resource type="Script" uid="uid://cb70l5i2lpm7x" path="res://scripts/core/map/tactical_cell_override.gd" id="3_3k41q"]
 [ext_resource type="Script" uid="uid://tcmykitriw8v" path="res://scripts/core/map/tactical_edge_placement.gd" id="4_ro4ct"]
 [ext_resource type="Script" uid="uid://dgr3igoi2vu4q" path="res://scripts/core/map/tactical_map_authoring_data.gd" id="5_vic0i"]
@@ -9,6 +10,7 @@
 [ext_resource type="Script" uid="uid://7boxf3uhxunf" path="res://scripts/map_authoring/map_object_marker_3d.gd" id="7_vic0i"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_extraction_marker.tscn" id="8_qsi72"]
 [ext_resource type="Script" uid="uid://nwx8r6qag522" path="res://scripts/map_authoring/unit_spawn_marker_3d.gd" id="9_fvmb6"]
+[ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_objective_terminal.tscn" id="10_fvmb6"]
 [ext_resource type="Resource" uid="uid://c4s2swg26llnf" path="res://resources/units/player_alpha.tres" id="10_ic114"]
 
 [sub_resource type="Resource" id="Resource_jlto7"]
@@ -24,6 +26,7 @@ ambient_light_energy = 0.7
 [node name="MapAuthoring_gym" type="Node3D" unique_id=2066201418]
 script = ExtResource("1_xwpqc")
 map_id = &"gym"
+mission_definition = ExtResource("2_qsi72")
 level_count = 1
 placeable_library = ExtResource("2_jlto7")
 authoring_data = SubResource("Resource_jlto7")
@@ -60,7 +63,20 @@ kind = 1
 scene = ExtResource("8_qsi72")
 cell = Vector3i(1, 0, 26)
 
-[node name="_Preview" type="Node3D" parent="Objects/撤离点_001" unique_id=16706684 instance=ExtResource("8_qsi72")]
+[node name="_Preview" type="Node3D" parent="Objects/撤离点_001" unique_id=476321309 instance=ExtResource("8_qsi72")]
+metadata/map_marker_preview = true
+
+[node name="prototype_objective_terminal_001" type="Node3D" parent="Objects" unique_id=845449559]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1, 39)
+script = ExtResource("7_vic0i")
+object_id = &"prototype_objective_terminal_001"
+definition_id = &"prototype_objective_terminal"
+kind = 5
+scene = ExtResource("10_fvmb6")
+blocks_movement = true
+cell = Vector3i(2, 0, 19)
+
+[node name="_Preview" type="Node3D" parent="Objects/prototype_objective_terminal_001" unique_id=1061712186 instance=ExtResource("10_fvmb6")]
 metadata/map_marker_preview = true
 
 [node name="Spawns" type="Node3D" parent="." unique_id=764398877]

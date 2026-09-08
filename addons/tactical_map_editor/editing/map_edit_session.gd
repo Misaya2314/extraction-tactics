@@ -1955,8 +1955,11 @@ func _replace_object_at(cell: Vector3i) -> bool:
 		if old_node.get_parent() != null:
 			old_node.get_parent().remove_child(old_node)
 		old_node.free()
+	var prefix := String(entry.get("definition_id", ""))
+	if prefix.is_empty():
+		prefix = String(entry.get("label", "object"))
 	var record := {
-		"object_id": _next_object_id(String(entry.get("label", "object"))),
+		"object_id": _next_object_id(prefix),
 		"kind": int(entry.get("object_kind", 4)),
 		"cell": cell,
 		"facing": _facing_for_quarters(),
@@ -2835,7 +2838,7 @@ func _placement_kind_from_value(value: Variant) -> String:
 
 func _object_kind_from_value(value: Variant) -> int:
 	if value is int:
-		return clampi(int(value), 0, 4)
+		return clampi(int(value), 0, 5)
 	var text_value := String(value).to_lower()
 	match text_value:
 		"loot":
@@ -2848,6 +2851,8 @@ func _object_kind_from_value(value: Variant) -> int:
 			return 3
 		"generic":
 			return 4
+		"objective":
+			return 5
 	return 4
 
 
@@ -2861,6 +2866,10 @@ func _object_kind_name(kind: int) -> String:
 			return "Explosive"
 		3:
 			return "Door"
+		4:
+			return "Generic"
+		5:
+			return "Objective"
 	return "Generic"
 
 

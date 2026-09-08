@@ -58,9 +58,15 @@ const COVER_DISTANCE_ALPHA_FACTORS: Array[float] = [1.0, 0.65]
 const COVER_ICON_SURFACE_OFFSET: float = 0.55
 const COVER_ICON_EDGE_OFFSET_RATIO: float = 0.40
 const COVER_ICON_PIXEL_SIZE: float = 0.003
+const INTERACT_OBJECTIVE_COST: int = 0
 
+const MissionRuntimeTrackerScript = preload("res://scripts/core/mission/mission_runtime_tracker.gd")
 const MissionObjectiveScript = preload("res://scripts/core/session/mission_objective.gd")
+var mission_tracker: RefCounted = MissionRuntimeTrackerScript.new()
 var mission_objective = MissionObjectiveScript.new()
+var objective_placements: Dictionary = {}
+var objective_cells: Array[Vector3i] = []
+var objective_visuals_by_placement_id: Dictionary = {}
 var _action_effect_depth: int = 0
 var _pending_deaths: Array[PrototypeUnit] = []
 var mission_round: int = 1
@@ -247,13 +253,12 @@ func _ready() -> void:
 	_apply_map_rules()
 	_spawn_initial_units()
 	_configure_encounter_models()
-	if not _mission_configuration_valid or mission_objective.target_ids.is_empty() or (
-		not map_definition.objective_spawn_ids.is_empty()
-		and mission_objective.target_ids.size() != map_definition.objective_spawn_ids.size()
-	):
-		push_error("关卡目标无效：请配置至少一个有效敌人，且目标出生 ID 不可重复。")
+	if not _mission_configuration_valid:
+		push_error("关卡配置无效：单位生成失败。")
 		input_locked = true
 		return
+	var mission_def = map_definition.get(&"mission_definition") if map_definition != null else null
+	mission_tracker.configure(mission_def)
 	_configure_inventory_ui()
 	session_manager.start_exploration()
 	_configure_undo_manager()
@@ -569,13 +574,12 @@ func _execute_runtime_action(request: Variant, actor: PrototypeUnit = null) -> A
 func _evaluate_mission_outcome() -> void:
 	if _undo_restoring or _action_effect_depth > 0 or session_manager == null or not session_manager.is_active():
 		return
-	if mission_objective.target_ids.is_empty():
-		return
 	# Failure wins ties; all damage and chain reactions have already finished.
 	if _living_player_count() == 0:
 		session_manager.report_team_defeated()
-	elif mission_objective.progress(units_by_id)[&"success"]:
-		session_manager.complete_mission()
+		return
+	if mission_tracker != null:
+		mission_tracker.update_elimination_progress(units_by_id)
 
 
 func _commit_environment_action_points(cost: int, actor: PrototypeUnit) -> bool:
@@ -650,6 +654,7 @@ func _capture_undo_state() -> Dictionary:
 		&"selected_unit_id": selected_id,
 		&"open_loot_container_id": open_loot_container_id,
 		&"restore_inventory_after_loot": _restore_inventory_after_loot,
+		&"mission_tracker_snapshot": mission_tracker.capture_state() if mission_tracker != null else {},
 	}
 
 
@@ -914,6 +919,10 @@ func _restore_undo_state_internal(checkpoint: Dictionary) -> bool:
 	last_action_result = null
 	last_cover_query = null
 	last_cover_damage.clear()
+	if mission_tracker != null and checkpoint.has(&"mission_tracker_snapshot"):
+		var tracker_snapshot = checkpoint.get(&"mission_tracker_snapshot")
+		if tracker_snapshot is Dictionary:
+			mission_tracker.restore_state(tracker_snapshot)
 	return true
 
 
@@ -1280,17 +1289,25 @@ func _handle_interact_action(request: Variant, _context: Variant) -> Variant:
 				_set_inventory_body_collapsed(false)
 			return true
 		&"extraction_prompt":
-			if not mission_objective.target_ids.is_empty():
-				return _action_rejected(&"mission_requires_objective", ACTION_INTERACT)
 			if not session_manager.start_extraction():
 				return _action_rejected(&"wrong_phase", ACTION_INTERACT, request.actor_id, request.target_id)
-			extraction_panel.visible = true
+			if is_instance_valid(extraction_panel):
+				extraction_panel.visible = true
 			return true
 		&"extraction_confirm":
-			if not mission_objective.target_ids.is_empty():
-				return _action_rejected(&"mission_requires_objective", ACTION_INTERACT)
 			if not session_manager.confirm_extraction():
 				return _action_rejected(&"wrong_phase", ACTION_INTERACT, request.actor_id, request.target_id)
+			return true
+		&"objective_interact":
+			var placement = object_placements.get(request.target_id)
+			var def_id: StringName = placement.definition_id if placement != null else &""
+			if mission_tracker != null and mission_tracker.is_object_interacted(request.target_id, def_id):
+				return _action_rejected(&"target_unavailable", ACTION_INTERACT, request.actor_id, request.target_id)
+			if mission_tracker != null:
+				mission_tracker.record_interaction(request.target_id, def_id)
+			_update_hud("与目标【%s】交互完成！" % request.target_id)
+			_log("%s 与任务目标 %s 交互完成。" % [request.actor_id, request.target_id])
+			_refresh_highlights()
 			return true
 	return _action_rejected(&"invalid_target", ACTION_INTERACT, request.actor_id, request.target_id)
 
@@ -1427,6 +1444,9 @@ func _set_action_mode(mode: int, slot_index: int = -1) -> void:
 
 func _index_map_objects() -> void:
 	object_placements.clear()
+	objective_placements.clear()
+	objective_cells.clear()
+	objective_visuals_by_placement_id.clear()
 	environment_objects_by_placement_id.clear()
 	environment_objects_by_instance_id.clear()
 	environment_views_by_placement_id.clear()
@@ -1442,6 +1462,10 @@ func _index_map_objects() -> void:
 		if placement.kind == MapObjectPlacement.Kind.EXTRACTION:
 			if not extraction_cells.has(placement.cell):
 				extraction_cells.append(placement.cell)
+		elif placement.kind == MapObjectPlacement.Kind.OBJECTIVE:
+			if not objective_cells.has(placement.cell):
+				objective_cells.append(placement.cell)
+			objective_placements[placement.object_id] = placement
 		elif placement.kind == MapObjectPlacement.Kind.LOOT:
 			if not _runtime_content_ready:
 				push_error("Loot placement %s skipped: Game content manifest is invalid or unavailable." % placement.object_id)
@@ -1474,6 +1498,21 @@ func _index_map_objects() -> void:
 			environment_objects_by_instance_id[environment_state.instance_id] = environment_state
 	_index_environment_visual_nodes()
 	_sync_environment_object_views()
+	var environment_node := get_node_or_null("Environment")
+	for obj_id in objective_placements.keys():
+		var obj_placement: MapObjectPlacement = objective_placements[obj_id]
+		if obj_placement != null and obj_placement.scene != null:
+			if not objective_visuals_by_placement_id.has(obj_id):
+				var visual := obj_placement.scene.instantiate()
+				if visual is Node3D:
+					visual.name = "Objective_%s" % String(obj_id)
+					if is_instance_valid(environment_node):
+						environment_node.add_child(visual)
+					else:
+						add_child(visual)
+					if is_instance_valid(grid):
+						visual.position = grid.cell_to_world(obj_placement.cell)
+					objective_visuals_by_placement_id[obj_id] = visual
 
 
 func _index_loot_visual_nodes() -> void:
@@ -1974,6 +2013,9 @@ func _handle_cell_click(clicked_cell: Vector3i) -> void:
 		if placement != null and placement.kind == MapObjectPlacement.Kind.LOOT:
 			interact_with_loot(object_id)
 			return
+		if placement != null and placement.kind == MapObjectPlacement.Kind.OBJECTIVE:
+			interact_with_objective(object_id)
+			return
 		if placement != null and placement.kind == MapObjectPlacement.Kind.EXTRACTION:
 			if is_instance_valid(selected_unit) and selected_unit.grid_cell == clicked_cell:
 				begin_extraction_prompt(object_id)
@@ -2048,9 +2090,51 @@ func interact_with_object(object_id: StringName) -> ActionResult:
 		return _action_rejected(&"invalid_target", ACTION_INTERACT, selected_unit.unit_id if is_instance_valid(selected_unit) else &"", object_id)
 	if placement.kind == MapObjectPlacement.Kind.LOOT:
 		return interact_with_loot(object_id)
+	if placement.kind == MapObjectPlacement.Kind.OBJECTIVE:
+		return interact_with_objective(object_id)
 	if placement.kind == MapObjectPlacement.Kind.EXTRACTION:
 		return begin_extraction_prompt(object_id)
 	return _action_rejected(&"invalid_target", ACTION_INTERACT, selected_unit.unit_id if is_instance_valid(selected_unit) else &"", object_id)
+
+
+func interact_with_objective(object_id: StringName) -> ActionResult:
+	if not _can_use_loot_action():
+		return _action_rejected(&"wrong_phase", ACTION_INTERACT)
+	var placement = object_placements.get(object_id)
+	if placement == null or placement.kind != MapObjectPlacement.Kind.OBJECTIVE:
+		return _action_rejected(&"invalid_target", ACTION_INTERACT, selected_unit.unit_id if is_instance_valid(selected_unit) else &"", object_id)
+	var player := selected_unit
+	if not is_instance_valid(player):
+		return _action_rejected(&"invalid_target", ACTION_INTERACT, &"", object_id)
+	var def_id: StringName = placement.definition_id if placement != null else &""
+	if mission_tracker != null and mission_tracker.is_object_interacted(object_id, def_id):
+		_update_hud("目标【%s】已完成交互，无需重复操作。" % object_id)
+		return _action_rejected(&"target_unavailable", ACTION_INTERACT, player.unit_id, object_id)
+	
+	var actor_cell: Vector3i = player.grid_cell
+	var target_cell: Vector3i = placement.cell
+	var request := ActionRequestScript.new(
+		ACTION_INTERACT,
+		player.unit_id,
+		object_id,
+		INTERACT_OBJECTIVE_COST,
+		{
+			&"operation": &"objective_interact",
+			ActionExecutorScript.KEY_ACTOR_CELL: actor_cell,
+			ActionExecutorScript.KEY_TARGET_CELL: target_cell,
+			ActionExecutorScript.KEY_INTERACTION_RANGE: INTERACTION_RANGE,
+			ActionExecutorScript.KEY_TARGET_VALID: true,
+			ActionExecutorScript.KEY_TARGET_AVAILABLE: not (mission_tracker != null and mission_tracker.is_object_interacted(object_id, def_id)),
+		}
+	)
+	var result := _execute_runtime_action(request, player)
+	if not result.success:
+		_update_hud(_action_message("无法与目标交互", result.reason))
+		return result
+	_update_hud("已与目标【%s】交互（消耗 0 AP）。" % object_id)
+	_log("%s 与任务目标 %s 交互（消耗 0 AP）。" % [player.name, object_id])
+	_refresh_highlights()
+	return result
 
 
 func loot_item(index: int) -> ActionResult:
@@ -2268,9 +2352,6 @@ func _refresh_inventory_ui() -> void:
 
 
 func begin_extraction_prompt(extraction_id: StringName = &"") -> ActionResult:
-	if not mission_objective.target_ids.is_empty():
-		_update_hud("本关通过消灭目标敌人完成，无需撤离。")
-		return _action_rejected(&"mission_requires_objective", ACTION_INTERACT)
 	if not _can_use_exploration_action():
 		return _action_rejected(&"wrong_phase", ACTION_INTERACT)
 	# The prompt itself is a zero-cost Interact, but a player with no AP cannot
@@ -2306,8 +2387,6 @@ func begin_extraction_prompt(extraction_id: StringName = &"") -> ActionResult:
 
 
 func confirm_extraction() -> ActionResult:
-	if not mission_objective.target_ids.is_empty():
-		return ActionResultScript.rejected(&"mission_requires_objective")
 	if session_manager == null or session_manager.get_state() != GameStateManagerScript.State.EXTRACTION:
 		return _action_rejected(&"wrong_phase", ACTION_INTERACT)
 	var player := selected_unit
@@ -4113,7 +4192,7 @@ func _on_session_result_changed(result: RefCounted) -> void:
 	_clear_highlights()
 	_hide_hover_cursor()
 	_refresh_undo_buttons()
-	var message := "目标完成，关卡胜利。" if result.success else "全队失去战斗能力，关卡失败。"
+	var message := "成功撤离。" if result.success else "全队失去战斗能力，行动失败。"
 	_log(message)
 	_refresh_result_panel()
 	_update_hud(message)
@@ -4123,12 +4202,31 @@ func _refresh_result_panel() -> void:
 	if not is_instance_valid(result_panel) or session_manager == null:
 		return
 	result_panel.visible = session_manager.is_terminal() and (combat_presentation == null or not combat_presentation.active)
-	var progress: Dictionary = mission_objective.progress(units_by_id)
-	result_title_label.text = "关卡胜利" if session_manager.is_success() else "关卡失败"
-	result_value_label.text = "目标：消灭指定敌人 %d / %d" % [progress[&"completed"], progress[&"total"]]
-	result_items_label.text = "%s\n战斗回合：%d · 己方存活：%d\n可重新开始本关，失败不会永久丢失装备。" % [
-		"结束原因：目标完成" if session_manager.is_success() else "结束原因：全队阵亡",
-		mission_round, _living_player_count()]
+	var is_success: bool = session_manager.is_success()
+	result_title_label.text = "撤离成功" if is_success else "行动失败"
+	var summary: Dictionary = mission_tracker.get_summary() if mission_tracker != null else {}
+	if is_success:
+		if bool(summary.get(&"has_mission", false)):
+			var all_done: bool = bool(summary.get(&"all_completed", false))
+			var completed_steps: Array = summary.get(&"completed_steps", [])
+			var pending_steps: Array = summary.get(&"pending_steps", [])
+			var status_str := "全部达成" if all_done else "未完成（提前撤离）"
+			var lines: Array[String] = ["任务：%s【%s】" % [summary.get(&"title", "任务目标"), status_str]]
+			if not completed_steps.is_empty():
+				lines.append("已完成：%s" % "、".join(completed_steps))
+			if not pending_steps.is_empty():
+				lines.append("未完成：%s" % "、".join(pending_steps))
+			result_value_label.text = "\n".join(lines)
+		else:
+			result_value_label.text = "自由搜寻并安全撤离。"
+		result_items_label.text = "结束原因：成功撤离\n战斗回合：%d · 己方存活：%d\n可重新开始本关。" % [
+			mission_round, _living_player_count()
+		]
+	else:
+		result_value_label.text = "全队失去战斗能力。"
+		result_items_label.text = "结束原因：全队阵亡\n战斗回合：%d · 己方存活：%d\n可重新开始本关，失败不会永久丢失装备。" % [
+			mission_round, _living_player_count()
+		]
 
 
 func _inventory_item_rotation(item: InventoryItemInstance) -> int:
@@ -4361,10 +4459,10 @@ func _update_hud(message: String = "") -> void:
 	if not is_instance_valid(turn_manager):
 		return
 	if _is_terminal():
-		message = "目标完成，关卡胜利。" if session_manager.is_success() else "全队阵亡，关卡失败。"
+		message = "成功撤离。" if session_manager.is_success() else "全队阵亡，行动失败。"
 	if is_instance_valid(phase_label):
-		var progress: Dictionary = mission_objective.progress(units_by_id)
-		phase_label.text = "%s · 回合 %d · 目标 %d/%d" % [_phase_name(), mission_round, progress[&"completed"], progress[&"total"]]
+		var hud_mission_text: String = mission_tracker.get_hud_text() if mission_tracker != null else ""
+		phase_label.text = "%s · 回合 %d · %s" % [_phase_name(), mission_round, hud_mission_text]
 	if is_instance_valid(alert_label):
 		alert_label.text = "敌方警戒：%s" % _alert_summary()
 	if is_instance_valid(selection_label):

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="TacticalObjectDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/map/tactical_object_definition.gd" id="1_object"]
+[ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_objective_terminal.tscn" id="2_scene"]
+
+[resource]
+script = ExtResource("1_object")
+object_kind = &"objective"
+category = &"对象 / 任务目标"
+description = "用于任务交互的核心数据终端，靠近后可交互并推进任务。"
+scene = ExtResource("2_scene")
+blocks_movement = true
+blocks_los = false
+placeable_id = &"prototype_objective_terminal"
+display_name = "任务控制终端"
+placement_kind = 2
+tags = PackedStringArray()

@@ -301,13 +301,28 @@ func _test_default_library_object_entries() -> void:
 	var session = SessionScript.new()
 	session.begin_for_author(author, author)
 	var object_entries: Array = session.get_placeables("", SessionScript.TargetLayer.OBJECT)
-	for required_id in ["prototype_loot_crate", "prototype_extraction_marker", "prototype_explosive_barrel"]:
+	for required_id in ["prototype_loot_crate", "prototype_extraction_marker", "prototype_explosive_barrel", "prototype_objective_terminal"]:
 		var index := _find_placeable(object_entries, required_id)
 		_expect(index >= 0, "default objects: Object palette should contain %s" % required_id)
 	if _find_placeable(object_entries, "prototype_loot_crate") >= 0:
 		var loot_entry: Dictionary = object_entries[_find_placeable(object_entries, "prototype_loot_crate")]
 		var loot_table := loot_entry.get("loot_table", null) as LootTableDefinition
 		_expect(loot_table != null and loot_table.is_valid(), "default objects: loot crate entry should retain a valid loot table")
+	var terminal_palette_index := _find_placeable(object_entries, "prototype_objective_terminal")
+	if terminal_palette_index >= 0:
+		var all_placeables := session.get_placeables()
+		var real_index := _find_placeable(all_placeables, "prototype_objective_terminal")
+		session.select_placeable(real_index)
+		session.begin_stroke("paint terminal")
+		_expect(session.apply_at(Vector3i(0, 0, 0)), "paint: objective terminal should place on floor")
+		session.finish_stroke(null)
+		var objects := author.get_node("Objects") as Node
+		_expect(objects.get_child_count() == 1, "paint: objects root should have 1 child")
+		var marker := objects.get_child(0) as MapObjectMarker3D
+		_expect(marker != null, "paint: placed node should be MapObjectMarker3D")
+		_expect(marker.kind == MapObjectPlacement.Kind.OBJECTIVE, "paint: placed marker kind should be OBJECTIVE (5)")
+		_expect(marker.definition_id == &"prototype_objective_terminal", "paint: placed marker should record definition_id")
+		_expect(String(marker.object_id).begins_with("prototype_objective_terminal_"), "paint: marker object_id should use definition_id prefix")
 	author.free()
 
 
