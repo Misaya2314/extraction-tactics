@@ -72,8 +72,7 @@
     "res://resources/map_tiles/definitions/structure/",
     "res://resources/units/",
     "res://resources/map_tiles/definitions/terrain/",
-    "res://resources/combat/",
-    "res://resources/weapons/"
+    "res://resources/combat/"
   ],
   "table_functions": {
     "filter": [

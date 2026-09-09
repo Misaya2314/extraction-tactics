@@ -46,6 +46,7 @@ const ATTACK_HIGHLIGHT_COLOR := Color(1.0, 0.23, 0.16, 0.48)
 const SKILL_HIGHLIGHT_COLOR := Color(1.0, 0.62, 0.15, 0.46)
 const LOOT_HIGHLIGHT_COLOR := Color(1.0, 0.82, 0.16, 0.56)
 const EXTRACTION_HIGHLIGHT_COLOR := Color(0.2, 0.95, 0.42, 0.56)
+const INVESTIGATION_HIGHLIGHT_COLOR := Color(1.0, 0.72, 0.12, 0.45)
 const MOVE_HIGHLIGHT_SURFACE_OFFSET := 0.025
 const CURSOR_HIGHLIGHT_COLOR := Color(1.0, 1.0, 1.0, 0.45)
 const CURSOR_SURFACE_OFFSET := 0.035
@@ -74,6 +75,7 @@ var mission_round: int = 1
 var _camera_known_enemies: Dictionary = {}
 var _camera_visibility_initialized := false
 var _run_generation: int = 0
+var _inherit_enemy_turn_ap: bool = false
 var combat_presentation: CombatPresentationDirector
 var _mission_configuration_valid: bool = true
 
@@ -176,6 +178,7 @@ var _inventory_layout_sync_queued := false
 @onready var attack_highlights_root: Node3D = $AttackHighlights
 @onready var object_highlights_root: Node3D = $ObjectHighlights
 @onready var vision_highlights_root: Node3D = $VisionHighlights
+@onready var investigation_highlights_root: Node3D = get_node_or_null("InvestigationHighlights") as Node3D
 @onready var audio_discover: AudioStreamPlayer = get_node_or_null("AudioDiscover") as AudioStreamPlayer
 @onready var selection_label: Label = $HUD/TopLeftPanel/Margin/VBox/SelectionLabel
 @onready var phase_label: Label = $HUD/TopLeftPanel/Margin/VBox/PhaseLabel
@@ -670,6 +673,7 @@ func _capture_undo_state() -> Dictionary:
 		&"selected_unit_id": selected_id,
 		&"open_loot_container_id": open_loot_container_id,
 		&"restore_inventory_after_loot": _restore_inventory_after_loot,
+		&"_inherit_enemy_turn_ap": _inherit_enemy_turn_ap,
 		&"mission_tracker_snapshot": mission_tracker.capture_state() if mission_tracker != null else {},
 	}
 
@@ -871,6 +875,7 @@ func _restore_undo_state_internal(checkpoint: Dictionary) -> bool:
 	var active_raw: Variant = checkpoint.get(&"active_encounter_id", &"")
 	active_encounter_id = StringName(active_raw) if active_raw is String or active_raw is StringName else &""
 	world_tick = int(checkpoint.get(&"world_tick", 0))
+	_inherit_enemy_turn_ap = bool(checkpoint.get(&"_inherit_enemy_turn_ap", false))
 
 	if not _restore_undo_alerts(checkpoint.get(&"enemy_alerts", null)):
 		return false
@@ -2475,7 +2480,8 @@ func _move_unit(unit: PrototypeUnit, destination: Vector3i, path: Array[Vector3i
 	)
 	var previous_input_locked := input_locked
 	input_locked = true
-	end_turn_button.disabled = true
+	if is_instance_valid(end_turn_button):
+		end_turn_button.disabled = true
 	_clear_highlights()
 	var result := _execute_runtime_action(request, unit)
 	if not result.success:
@@ -2914,13 +2920,20 @@ func _run_exploration_tick() -> void:
 	_is_running_exploration_tick = true
 	for enemy_id in _living_enemy_ids():
 		var enemy := _unit_by_id(enemy_id)
+		if is_instance_valid(enemy) and enemy.is_alive():
+			enemy.reset_action_points()
+			if enemy.runtime_state != null and enemy.runtime_state.has_method("on_round_turn_started"):
+				enemy.runtime_state.on_round_turn_started()
+	for enemy_id in _living_enemy_ids():
+		var enemy := _unit_by_id(enemy_id)
 		if not is_instance_valid(enemy) or not enemy.is_alive():
 			continue
 		var alert := enemy_alerts.get(enemy_id) as AlertState
 		var patrol_route := enemy_patrols.get(enemy_id) as PatrolRoute
 		var invest_info: Dictionary = suspicious_investigations.get(enemy_id, {})
 		var plan := EnemyTacticalAI.plan_exploration_step(
-			enemy.grid_cell, alert, patrol_route, invest_info, grid, enemy.move_range
+			enemy.grid_cell, alert, patrol_route, invest_info, grid, enemy.move_range,
+			enemy.current_action_points, MOVE_ACTION_COST
 		)
 		suspicious_investigations[enemy_id] = plan.get(&"updated_investigation", invest_info)
 		match plan.get(&"intent"):
@@ -2928,18 +2941,20 @@ func _run_exploration_tick() -> void:
 				var next_cell: Vector3i = plan[&"destination"]
 				var path: Array[Vector3i] = []
 				path.assign(plan[&"path"])
+				var ap_cost: int = int(plan.get(&"ap_cost", MOVE_ACTION_COST))
 				if not grid.is_occupied(next_cell) or next_cell == enemy.grid_cell:
-					await _move_unit(enemy, next_cell, path, 0)
+					await _move_unit(enemy, next_cell, path, ap_cost)
 					if _evaluate_detection():
 						break
 			EnemyTacticalAI.IntentType.PATROL_STEP:
 				var next_cell: Vector3i = plan[&"destination"]
 				var path: Array[Vector3i] = []
 				path.assign(plan[&"path"])
+				var ap_cost: int = int(plan.get(&"ap_cost", MOVE_ACTION_COST))
 				# Route state (advance/dwell) is already updated inside the
 				# plan; only execute the movement here.
 				if not grid.is_occupied(next_cell) or next_cell == enemy.grid_cell:
-					await _move_unit(enemy, next_cell, path, 0)
+					await _move_unit(enemy, next_cell, path, ap_cost)
 					if _evaluate_detection():
 						break
 			EnemyTacticalAI.IntentType.CALM_DOWN:
@@ -2962,6 +2977,7 @@ func _run_exploration_tick() -> void:
 				if unit.runtime_state != null and unit.runtime_state.has_method("on_round_turn_started"):
 					unit.runtime_state.on_round_turn_started()
 		pre_turn_end_player_ap.clear()
+		_refresh_highlights()
 
 	_is_running_exploration_tick = false
 
@@ -3095,7 +3111,10 @@ func _start_combat(player_first: bool, alert_enemy: PrototypeUnit, known_cell: V
 		session_manager.resolve_combat()
 		return false
 	if not player_first:
+		_inherit_enemy_turn_ap = false
 		_run_enemy_turn.call_deferred()
+	else:
+		_inherit_enemy_turn_ap = true
 	if reason.begins_with("发现玩家") or (not player_first and reason == ""):
 		play_discover_sound()
 	return true
@@ -3106,13 +3125,17 @@ func _run_enemy_turn() -> void:
 		return
 	input_locked = true
 	_refresh_undo_buttons()
-	end_turn_button.disabled = true
+	if is_instance_valid(end_turn_button):
+		end_turn_button.disabled = true
 	_clear_highlights()
+	var inheriting_turn_ap := _inherit_enemy_turn_ap
+	_inherit_enemy_turn_ap = false
 	for enemy_id in turn_manager.get_enemy_ids().duplicate():
 		var enemy := _unit_by_id(enemy_id)
 		if not is_instance_valid(enemy) or not enemy.is_alive():
 			continue
-		enemy.reset_action_points()
+		if not inheriting_turn_ap:
+			enemy.reset_action_points()
 		var action_attempts := 0
 		var max_action_attempts := maxi(enemy.max_action_points + 1, 1)
 		while enemy.current_action_points > 0 and not _is_terminal() and turn_manager.is_enemy_turn() and action_attempts < max_action_attempts:
@@ -3182,7 +3205,8 @@ func _run_enemy_turn() -> void:
 			# enemy and player turns.  Capturing from phase_changed would be too
 			# early and would preserve the previous player's depleted AP.
 			_capture_undo_turn_checkpoint()
-	end_turn_button.disabled = turn_manager.is_terminal()
+	if is_instance_valid(end_turn_button):
+		end_turn_button.disabled = turn_manager.is_terminal()
 	_refresh_undo_buttons()
 	_refresh_highlights()
 
@@ -3255,6 +3279,7 @@ func _refresh_highlights() -> void:
 	_refresh_object_highlights()
 	_refresh_vision_overlay()
 	_refresh_unit_cover_icons()
+	_refresh_investigation_highlights()
 	if can_show_move_highlights and is_instance_valid(grid) and grid.has_cell(_hovered_cell) and _is_cursor_visible():
 		_update_cover_preview(_hovered_cell)
 	var enemies_to_display: Array[PrototypeUnit] = []
@@ -3741,6 +3766,64 @@ func _refresh_object_highlights() -> void:
 			_add_highlight(object_highlights_root, cell, EXTRACTION_HIGHLIGHT_COLOR)
 
 
+func _refresh_investigation_highlights() -> void:
+	if not is_instance_valid(investigation_highlights_root):
+		investigation_highlights_root = get_node_or_null("InvestigationHighlights") as Node3D
+		if not is_instance_valid(investigation_highlights_root) and is_inside_tree():
+			investigation_highlights_root = Node3D.new()
+			investigation_highlights_root.name = "InvestigationHighlights"
+			add_child(investigation_highlights_root)
+	if not is_instance_valid(investigation_highlights_root) or not is_instance_valid(grid):
+		return
+	_clear_children(investigation_highlights_root)
+
+	var targets: Dictionary = {}
+	for enemy_id in _living_enemy_ids():
+		var enemy := _unit_by_id(enemy_id)
+		if not is_instance_valid(enemy) or not enemy.is_alive():
+			continue
+		var alert := enemy_alerts.get(enemy_id) as AlertState
+		if alert == null or not alert.is_suspicious():
+			continue
+		var target_cell := alert.get_last_known_cell()
+		if target_cell == AlertState.INVALID_CELL:
+			var invest_data: Dictionary = suspicious_investigations.get(enemy_id, {})
+			target_cell = invest_data.get(&"target_cell", AlertState.INVALID_CELL)
+		if target_cell != AlertState.INVALID_CELL and grid.has_cell(target_cell):
+			if not targets.has(target_cell):
+				targets[target_cell] = []
+			var enemy_name: String = enemy.name if enemy.name != "" else String(enemy_id)
+			targets[target_cell].append(enemy_name)
+
+	for cell in targets:
+		_add_highlight(investigation_highlights_root, cell, INVESTIGATION_HIGHLIGHT_COLOR, 0.038)
+		var marker := _create_investigation_marker(cell, targets[cell])
+		investigation_highlights_root.add_child(marker)
+
+
+func _create_investigation_marker(cell: Vector3i, enemy_names: Array) -> Node3D:
+	var marker_root := Node3D.new()
+	marker_root.name = "InvestigationMarker_%d_%d_%d" % [cell.x, cell.y, cell.z]
+	var world_pos := grid.cell_to_world(cell)
+	marker_root.position = world_pos + Vector3.UP * 0.65
+
+	var label := Label3D.new()
+	label.name = "Label"
+	var names_text := " · ".join(enemy_names)
+	if enemy_names.size() == 1:
+		label.text = "❓ 探查目标 (%s)" % names_text
+	else:
+		label.text = "❓ 探查目标 (%d人: %s)" % [enemy_names.size(), names_text]
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = 20
+	label.modulate = Color(1.0, 0.88, 0.18, 1.0)
+	label.outline_modulate = Color(0.2, 0.1, 0.0, 0.95)
+	label.outline_size = 4
+	marker_root.add_child(label)
+
+	return marker_root
+
+
 func _clear_highlights() -> void:
 	if is_instance_valid(highlights_root):
 		_clear_children(highlights_root)
@@ -3748,6 +3831,8 @@ func _clear_highlights() -> void:
 		_clear_children(attack_highlights_root)
 	if is_instance_valid(object_highlights_root):
 		_clear_children(object_highlights_root)
+	if is_instance_valid(investigation_highlights_root):
+		_clear_children(investigation_highlights_root)
 	_hide_cover_preview()
 	_hide_unit_cover_icons()
 
@@ -3905,6 +3990,7 @@ func _resolve_death_encounter(unit: PrototypeUnit) -> void:
 				turn_manager.reset_to_exploration()
 				turn_manager.configure(_living_player_ids(), [])
 				active_encounter_id = &""
+				_inherit_enemy_turn_ap = false
 				session_manager.resolve_combat()
 	_update_enemy_visibility()
 	_refresh_highlights()
@@ -3930,6 +4016,7 @@ func _on_phase_changed(_previous: TurnManager.Phase, _current: TurnManager.Phase
 			resolved_encounters[resolved_id] = true
 		active_encounter_id = &""
 		turn_manager.configure(_living_player_ids(), [])
+		_inherit_enemy_turn_ap = false
 		session_manager.resolve_combat()
 	elif _current == TurnManager.Phase.DEFEAT and session_manager != null:
 		session_manager.report_team_defeated()
