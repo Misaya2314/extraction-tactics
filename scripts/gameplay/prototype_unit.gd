@@ -323,6 +323,8 @@ func get_weapon_summary() -> String:
 
 
 func set_selected(is_selected: bool) -> void:
+	if _occlusion_material != null:
+		_occlusion_material.set_shader_parameter("emphasis", 1.0 if is_selected else 0.0)
 	if is_instance_valid(selection_marker):
 		selection_marker.visible = is_selected
 
@@ -955,7 +957,33 @@ func _on_movement_visibility_changed() -> void:
 			_footsteps.clear()
 
 
+var _occlusion_material: ShaderMaterial
+var _occlusion_anchor: Node3D
+
+
+func _process(_delta: float) -> void:
+	if _occlusion_material != null and is_visible_in_tree():
+		_occlusion_material.set_shader_parameter("actor_center", _occlusion_anchor.global_position if is_instance_valid(_occlusion_anchor) else global_position + Vector3.UP)
+
+
+func _refresh_occlusion_visuals() -> void:
+	if not is_instance_valid(_occlusion_anchor) and is_instance_valid(robot_visual):
+		_occlusion_anchor = robot_visual.find_child("Torso", true, false) as Node3D
+	if _occlusion_material == null:
+		_occlusion_material = ShaderMaterial.new()
+		_occlusion_material.shader = preload("res://assets/shaders/unit_occlusion.gdshader")
+	_occlusion_material.set_shader_parameter("silhouette_color", visual_color)
+	_occlusion_material.set_shader_parameter("active", is_alive())
+	# Instance overlays preserve imported/shared materials and follow animated joints.
+	# Visibility is inherited from the unit, so fog-hidden enemies stay hidden.
+	for model in [robot_visual, weapon_model_root]:
+		if is_instance_valid(model):
+			for mesh in model.find_children("*", "MeshInstance3D", true, false):
+				mesh.material_overlay = _occlusion_material
+
+
 func _apply_visual_color() -> void:
+	_refresh_occlusion_visuals()
 	if is_instance_valid(robot_visual):
 		robot_visual.set_team_color(visual_color)
 	if not is_instance_valid(body_mesh):
@@ -1013,6 +1041,7 @@ func _refresh_weapon_model() -> void:
 	model_root.position = weapon.world_model_position
 	model_root.rotation_degrees = weapon.world_model_rotation_degrees
 	model_root.scale = weapon.world_model_scale
+	_refresh_occlusion_visuals()
 
 
 func _apply_muzzle_position() -> void:
@@ -1023,6 +1052,8 @@ func _apply_muzzle_position() -> void:
 
 
 func _update_status_label() -> void:
+	if _occlusion_material != null:
+		_occlusion_material.set_shader_parameter("active", is_alive())
 	if not is_instance_valid(status_label):
 		return
 	status_label.text = "%s\nHP %d/%d · AP %d/%d" % [
@@ -1063,6 +1094,10 @@ func _update_alert_badge() -> void:
 
 
 func _exit_tree() -> void:
+	for model in [robot_visual, weapon_model_root]:
+		if is_instance_valid(model):
+			for mesh in model.find_children("*", "MeshInstance3D", true, false):
+				mesh.material_overlay = null
 	cancel_movement()
 	# Invalidate any coroutine timer before resetting local presentation state.
 	# Do not emit attack_feedback_finished here: leaving the tree can be part of
