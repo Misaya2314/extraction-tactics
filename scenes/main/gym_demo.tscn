@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/main/prototype_main.tscn" id="1_main"]
+[ext_resource type="Resource" path="res://resources/maps/gym.tres" id="2_gym"]
+
+[node name="GymDemo" instance=ExtResource("1_main")]
+map_definition = ExtResource("2_gym")

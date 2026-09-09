@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="MissionDefinition" format=3 uid="uid://bpb2k0m4vo21o"]
+
+[ext_resource type="Script" uid="uid://dcrccbj6hr210" path="res://scripts/core/mission/mission_definition.gd" id="1_tacoo"]
+[ext_resource type="Script" uid="uid://dm05yuupcc2uh" path="res://scripts/core/mission/mission_step_definition.gd" id="2_d4deu"]
+
+[sub_resource type="Resource" id="Resource_tacoo"]
+script = ExtResource("2_d4deu")
+step_id = &"secure_relay"
+description = "控制北侧中继终端"
+target_id = &"gym_terminal"
+
+[resource]
+script = ExtResource("1_tacoo")
+mission_id = &"gym_relay_raid"
+title = "中继站突入"
+briefing = "突入货运站，控制北侧中继终端并从东北集合点结束行动。中央通道适合交替掩护；东侧检修道可绕开货场，但需防范近距离守卫。"
+steps = Array[Resource]([SubResource("Resource_tacoo")])
