@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_profile")
 profile_id = &"shotgun"
+sound_pitch = 0.7
 recoil_distance = 0.12
 weapon_kick_degrees = 10.0
 body_squash = 0.08

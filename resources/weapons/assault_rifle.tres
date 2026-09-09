@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="WeaponDefinition" format=3 uid="uid://dl4xbce24g1dm"]
 
 [ext_resource type="Script" uid="uid://dbe47d37q7bxk" path="res://scripts/core/combat/weapon_definition.gd" id="1_weapon"]
-[ext_resource type="Resource" path="res://resources/weapons/feedback_profiles/rifle.tres" id="2_feedback"]
+[ext_resource type="Resource" path="res://resources/weapons/feedback_profiles/assault_burst.tres" id="2_feedback"]
 [ext_resource type="PackedScene" path="res://assets/models/sentinel/lancer_rifle.glb" id="3_model"]
 
 [resource]

@@ -406,6 +406,9 @@ func play_shoot_sound() -> void:
 	if stream == null:
 		stream = shoot_sfx
 	_play_sfx("AudioShoot", stream)
+	var player := get_node_or_null("AudioShoot") as AudioStreamPlayer3D
+	if player != null:
+		player.pitch_scale = weapon.attack_feedback_profile.sound_pitch if weapon != null and weapon.attack_feedback_profile != null else 1.0
 
 
 func play_hit_sound() -> void:

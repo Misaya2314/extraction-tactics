@@ -193,10 +193,20 @@ func play(attacker: PrototypeUnit, focus: Vector3, area: bool = false, final_act
 			impact_time = attacker.weapon.attack_feedback_profile.impact_time
 			reaction_strength = attacker.weapon.attack_feedback_profile.impact_strength
 		if not skipped and fire_weapon:
-			attacker.play_attack_feedback()
-			if attacker.is_visible_in_tree() and is_instance_valid(vfx):
-				var source := attacker.muzzle_flash.global_position if is_instance_valid(attacker.muzzle_flash) else attacker.global_position + Vector3.UP
-				vfx.shot(source, aim, impact_time, reaction_strength > 0.2)
+			var profile := attacker.weapon.attack_feedback_profile if attacker.weapon != null else null
+			var count := profile.burst_count if profile != null else 1
+			for shot_index in range(count):
+				if skipped or not is_instance_valid(attacker) or not is_inside_tree():
+					break
+				attacker.play_attack_feedback()
+				if is_instance_valid(attacker.robot_visual):
+					attacker.robot_visual.set_attack_pose(1.0, peek_offset, aim)
+					attacker.robot_visual.sync_weapon(attacker.weapon_pivot)
+				if attacker.is_visible_in_tree() and is_instance_valid(vfx):
+					var source := attacker.muzzle_flash.global_position if is_instance_valid(attacker.muzzle_flash) else attacker.global_position + Vector3.UP
+					vfx.shot(source, aim, impact_time, reaction_strength > 0.2)
+				if shot_index < count - 1:
+					await _wait(profile.burst_interval)
 	await _wait(impact_time)
 	# An actor killed by its own blast must not have recoil reset its death pose.
 	if is_instance_valid(attacker) and not attacker.is_alive():

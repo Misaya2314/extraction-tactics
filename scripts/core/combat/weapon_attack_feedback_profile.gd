@@ -6,6 +6,9 @@ extends Resource
 ## This resource never participates in damage, range, AP, or hit validation.
 @export var profile_id: StringName = &""
 @export var attack_sound: AudioStream
+@export_range(1, 5, 1) var burst_count: int = 1
+@export_range(0.04, 0.3, 0.01) var burst_interval: float = 0.09
+@export_range(0.5, 2.0, 0.05) var sound_pitch: float = 1.0
 @export_range(0.0, 0.5) var impact_time: float = 0.06
 @export_range(0.0, 0.5) var impact_strength: float = 0.16
 @export_range(0.0, 0.5, 0.005, "suffix:m") var recoil_distance: float = 0.05

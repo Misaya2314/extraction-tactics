@@ -2554,7 +2554,7 @@ func _attack_with_unit(attacker: PrototypeUnit, target: PrototypeUnit) -> Action
 	var cover_query := query_attack_cover(attacker.grid_cell, target.grid_cell)
 	last_cover_query = cover_query
 	var cover_damage := CoverResolverScript.resolve_damage(
-		attacker.attack_damage,
+		weapon_damage_at(attacker, attacker.grid_cell, target.grid_cell),
 		cover_query.profile,
 		cover_combat_settings,
 		cover_query.source_edge
@@ -2694,7 +2694,7 @@ func attack_environment_object(
 	var cover_query := query_attack_cover(attacker.grid_cell, target.cell)
 	last_cover_query = cover_query
 	var cover_damage := CoverResolverScript.resolve_damage(
-		attacker.attack_damage,
+		weapon_damage_at(attacker, attacker.grid_cell, target.cell),
 		cover_query.profile,
 		cover_combat_settings,
 		cover_query.source_edge
@@ -2896,6 +2896,10 @@ func _can_player_see_with_grid(observer: Vector3i, target: Vector3i, vision_rang
 		grid,
 		_perception_edge_index()
 	)
+
+
+func weapon_damage_at(unit: PrototypeUnit, origin: Vector3i, target: Vector3i) -> int:
+	return unit.weapon.damage_at_distance(_manhattan(origin, target)) if unit.weapon != null else unit.attack_damage
 
 
 func can_attack_line(attacker_cell: Vector3i, target_cell: Vector3i, attack_range: int, vacated_cells: Array[Vector3i] = []) -> bool:
@@ -3393,6 +3397,8 @@ func _refresh_action_bar() -> void:
 		var atk_dmg := selected_unit.attack_damage if has_player_selection else 0
 		var atk_range := selected_unit.attack_range if has_player_selection else 0
 		attack_action_button.tooltip_text = "攻击\n消耗：%d AP | 伤害：%d | 射程：%d\n点击进入攻击模式，左键选择红色高亮目标射击。" % [atk_cost, atk_dmg, atk_range]
+	if has_player_selection and selected_unit.weapon != null:
+		attack_action_button.tooltip_text += "\n" + selected_unit.weapon.get_summary()
 	if is_instance_valid(skill_0_action_button):
 		_refresh_single_skill_button(skill_0_action_button, 0, has_player_selection, can_show_actions)
 	if is_instance_valid(skill_1_action_button):
@@ -3542,7 +3548,7 @@ var _landing_label: Label
 
 ## Read-only hypothetical move; never spend AP or move the actor/occupancy.
 func query_landing_preview(cell: Vector3i) -> Dictionary:
-	var result := {"valid": false, "remaining_ap": 0, "targets": [], "reason": "不可到达"}
+	var result := {"valid": false, "remaining_ap": 0, "targets": [], "damage": {}, "reason": "不可到达"}
 	if not _can_show_move_highlights() or not is_instance_valid(grid):
 		return result
 	if cell == selected_unit.grid_cell or not grid.is_walkable(cell) or grid.is_occupied(cell):
@@ -3561,6 +3567,9 @@ func query_landing_preview(cell: Vector3i) -> Dictionary:
 			continue
 		if can_attack_line(cell, enemy.grid_cell, selected_unit.attack_range, [selected_unit.grid_cell]):
 			result.targets.append(enemy.name)
+			var cover := query_attack_cover(cell, enemy.grid_cell, true, [selected_unit.grid_cell])
+			var predicted := CoverResolverScript.resolve_damage(weapon_damage_at(selected_unit, cell, enemy.grid_cell), cover.profile, cover_combat_settings, cover.source_edge)
+			result.damage[enemy.name] = mini(enemy.current_hp, int(predicted.effective_damage))
 	result.reason = "无可攻击的已知目标" if result.targets.is_empty() else ""
 	return result
 
@@ -3592,7 +3601,7 @@ func _update_landing_preview(cell: Vector3i) -> void:
 	if not data.targets.is_empty():
 		var names: Array[String] = []
 		for target_name in data.targets.slice(0, 4):
-			names.append(String(target_name).left(22))
+			names.append("%s · 预计 %d 伤害" % [String(target_name).left(22), data.damage.get(target_name, 0)])
 		details = "可攻击已知目标：%d\n%s" % [data.targets.size(), "\n".join(names)]
 		if data.targets.size() > 4:
 			details += "\n另有 %d 个目标" % (data.targets.size() - 4)

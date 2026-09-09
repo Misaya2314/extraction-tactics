@@ -10,6 +10,8 @@ extends Resource
 @export_range(1, 999, 1) var damage: int = 1
 @export_range(1, 99, 1) var range: int = 1
 @export_range(1, 9, 1) var ap_cost: int = 1
+@export_range(0, 99, 1) var full_damage_range: int = 0
+@export_range(1, 999, 1) var minimum_damage: int = 1
 @export var attack_feedback_profile: WeaponAttackFeedbackProfile
 @export var world_model_scene: PackedScene
 @export var world_model_position: Vector3 = Vector3.ZERO
@@ -33,4 +35,16 @@ func validate() -> bool:
 
 
 func get_summary() -> String:
-	return "%s | 伤害 %d | 射程 %d | AP %d" % [display_name, damage, range, ap_cost]
+	var summary := "%s | 伤害 %d | 射程 %d | AP %d" % [display_name, damage, range, ap_cost]
+	if full_damage_range > 0 and full_damage_range < range:
+		summary += " | %d 格内满伤，最远 %d 伤害" % [full_damage_range, minimum_damage]
+	return summary
+
+
+func damage_at_distance(distance: int) -> int:
+	if distance < 0 or distance > range:
+		return 0
+	if full_damage_range <= 0 or full_damage_range >= range or distance <= full_damage_range:
+		return damage
+	var fraction := float(distance - full_damage_range) / float(range - full_damage_range)
+	return roundi(lerpf(float(damage), float(clampi(minimum_damage, 1, damage)), fraction))

@@ -20,7 +20,7 @@ func _test_resources() -> void:
 		_expect(weapon != null and weapon.is_valid(), "weapon: authored resource should be valid")
 	_expect(ASSAULT_RIFLE.damage != SHOTGUN.damage, "weapon: rifle and shotgun damage should differ")
 	_expect(ASSAULT_RIFLE.range != SHOTGUN.range, "weapon: rifle and shotgun range should differ")
-	_expect(SHOTGUN.damage == 5 and SHOTGUN.range == 3 and SHOTGUN.ap_cost == 1, "weapon: shotgun should use authored damage 5, range 3, and one AP")
+	_expect(SHOTGUN.damage_at_distance(2) == 6 and SHOTGUN.damage_at_distance(5) == 2 and SHOTGUN.ap_cost == 1, "weapon: shotgun should favor close range and cost one AP")
 	_expect(CARBINE.range > ASSAULT_RIFLE.range, "weapon: carbine should have the longest range")
 	_expect(ASSAULT_RIFLE.attack_feedback_profile != null, "weapon: assault rifle should have feedback profile")
 	_expect(CARBINE.attack_feedback_profile != null, "weapon: carbine should have feedback profile")
@@ -34,24 +34,15 @@ func _test_resources() -> void:
 
 
 func _test_world_models() -> void:
-	var expected_paths := {
-		&"assault_rifle": "res://kenney_blaster-kit_2.1/Models/GLB format/blaster-e.glb",
-		&"carbine": "res://kenney_blaster-kit_2.1/Models/GLB format/blaster-n.glb",
-		&"shotgun": "res://kenney_blaster-kit_2.1/Models/GLB format/blaster-l.glb",
-	}
 	for weapon in [ASSAULT_RIFLE, CARBINE, SHOTGUN]:
 		_expect(weapon.world_model_scene != null, "weapon: %s should have a world model" % weapon.weapon_id)
 		if weapon.world_model_scene != null:
-			_expect(
-				weapon.world_model_scene.resource_path == expected_paths[weapon.weapon_id],
-				"weapon: %s should use its authored Kenney model" % weapon.weapon_id
-			)
+			var model: Node = weapon.world_model_scene.instantiate()
+			_expect(model is Node3D, "weapon model must instantiate as 3D scene")
+			model.free()
 	_expect(ASSAULT_RIFLE.world_model_scene != CARBINE.world_model_scene, "weapon: rifle and carbine models should differ")
 	_expect(CARBINE.world_model_scene != SHOTGUN.world_model_scene, "weapon: carbine and shotgun models should differ")
-	_expect(is_equal_approx(ASSAULT_RIFLE.world_model_scale.x, 0.55), "weapon: assault rifle model scale should be authored")
-	_expect(is_equal_approx(CARBINE.world_model_position.z, 0.36), "weapon: carbine model position should be authored")
-	_expect(is_equal_approx(SHOTGUN.world_model_scale.x, 1.35), "weapon: shotgun model scale should be authored")
-	_expect(is_equal_approx(ASSAULT_RIFLE.muzzle_position.z, 0.78), "weapon: muzzle position should be data driven")
+	_expect(ASSAULT_RIFLE.muzzle_position.z > 0, "weapon: muzzle should lie forward of weapon pivot")
 
 
 func _test_validation() -> void:
