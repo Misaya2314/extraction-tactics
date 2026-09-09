@@ -847,6 +847,10 @@ func spend_action_points(cost: int) -> bool:
 
 signal footstep(side: int, point: Vector3)
 @export var movement_top_speed: float = 3.6
+@export_range(1.0, 3.0, 0.1) var movement_playback_rate: float = 1.7
+@export_range(0.6, 4.0, 0.1) var movement_max_duration: float = 1.8
+const COVER_DEPARTURE_DURATION := 0.12
+const COVER_ARRIVAL_DURATION := 0.12
 var is_moving := false
 var _movement_generation := 0
 var _footsteps = null
@@ -862,6 +866,8 @@ func move_along_world_path(
 	route.build(global_position, world_points, movement_top_speed)
 	if route.duration <= 0.0 or not is_inside_tree():
 		return
+	# Compress only the route clock; global battle speed remains independently usable.
+	var route_rate: float = route.duration / movement_duration_for(route.duration)
 	var generation := _movement_generation
 	is_moving = true
 	var heading: Vector3 = route.sample(0).direction
@@ -872,13 +878,13 @@ func move_along_world_path(
 	var tree := get_tree()
 	var elapsed := 0.0
 	# Leave cover before translating; the domain position/AP have already committed.
-	while departure > 0.0 and elapsed < 0.16:
+	while departure > 0.0 and elapsed < COVER_DEPARTURE_DURATION:
 		await tree.process_frame
 		if not is_inside_tree() or generation != _movement_generation:
 			return
 		var delta := get_process_delta_time()
 		elapsed += delta
-		robot_visual.sample_locomotion(0, 0, heading, 1.0 - smoothstep(0, 0.16, elapsed), delta)
+		robot_visual.sample_locomotion(0, 0, heading, 1.0 - smoothstep(0, COVER_DEPARTURE_DURATION, elapsed), delta)
 	elapsed = 0.0
 	var planted := 0
 	var stride := robot_visual.stride_length if is_instance_valid(robot_visual) else 1.5
@@ -887,7 +893,7 @@ func move_along_world_path(
 		if not is_inside_tree() or generation != _movement_generation:
 			return
 		var delta := get_process_delta_time()
-		elapsed = minf(route.duration, elapsed + delta)
+		elapsed = minf(route.duration, elapsed + delta * route_rate)
 		var sample: Dictionary = route.sample(elapsed)
 		global_position = sample.position
 		heading = sample.direction
@@ -896,7 +902,7 @@ func move_along_world_path(
 			if sample.remaining < 0.8:
 				robot_visual.set_cover(int(arrival_cover.get("level", 0)), arrival_cover.get("direction", Vector3.FORWARD))
 			var stance := 0.65 * (1.0 - smoothstep(0.0, 0.8, sample.remaining))
-			robot_visual.sample_locomotion(sample.distance, sample.speed, heading, stance, delta)
+			robot_visual.sample_locomotion(sample.distance, sample.speed * route_rate, heading, stance, delta * route_rate)
 		var contacts := int(float(sample.distance) / (stride * 0.5))
 		if contacts > planted:
 			# A stalled frame must not produce a burst of overlapping footsteps.
@@ -907,17 +913,21 @@ func move_along_world_path(
 	if is_instance_valid(robot_visual):
 		robot_visual.set_cover(int(arrival_cover.get("level", 0)), arrival_cover.get("direction", Vector3.FORWARD))
 		elapsed = 0.0
-		while robot_visual.cover_level > 0 and elapsed < 0.18:
+		while robot_visual.cover_level > 0 and elapsed < COVER_ARRIVAL_DURATION:
 			await tree.process_frame
 			if not is_inside_tree() or generation != _movement_generation:
 				return
 			var delta := get_process_delta_time()
 			elapsed += delta
-			robot_visual.sample_locomotion(route.length, 0, heading, lerpf(0.65, 1.0, smoothstep(0, 0.18, elapsed)), delta)
+			robot_visual.sample_locomotion(route.length, 0, heading, lerpf(0.65, 1.0, smoothstep(0, COVER_ARRIVAL_DURATION, elapsed)), delta)
 		robot_visual.reset_pose()
 	is_moving = false
 	if is_instance_valid(audio_move):
 		audio_move.stop()
+
+
+func movement_duration_for(route_duration: float) -> float:
+	return minf(maxf(route_duration, 0.0) / maxf(movement_playback_rate, 0.1), maxf(movement_max_duration, 0.1))
 
 
 func _emit_footstep(side: int, strength: float) -> void:

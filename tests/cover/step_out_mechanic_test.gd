@@ -119,6 +119,9 @@ func _test_blocked_and_occupied_candidate() -> void:
 	_expect(not blocked_query.can_attack(), "step_out: when all open tiles are occupied, step out must fail")
 
 	# Vacate ally
+	var preview_query := controller.query_attack_cover(Vector3i(1, 0, 1), Vector3i(0, 0, 0), true, [Vector3i(0, 0, 1)])
+	_expect(preview_query.can_attack() and preview_query.is_step_out, "step_out: hypothetical vacated cell should allow preview")
+	_expect(grid.get_occupant(Vector3i(0, 0, 1)) == &"ally_unit", "step_out: preview must preserve real occupancy")
 	grid.vacate(Vector3i(0, 0, 1), &"ally_unit")
 	# Target now at (0, 0, 0)
 	var clear_query := controller.query_attack_cover(Vector3i(1, 0, 1), Vector3i(0, 0, 0), true)

@@ -28,6 +28,12 @@ func _run() -> void:
 	var unit := preload("res://scenes/main/prototype_unit.tscn").instantiate() as PrototypeUnit
 	root.add_child(unit)
 	unit.configure(Vector3i.ZERO, &"player", Color.CYAN)
+	for distance in [2.0, 6.0, 12.0, 20.0]:
+		path.build(Vector3.ZERO, [Vector3(distance, 0, 0)])
+		var presentation_duration := unit.movement_duration_for(path.duration)
+		check(presentation_duration <= 1.8, "long routes must fit movement time budget")
+		check(presentation_duration <= path.duration / 1.7 + 0.001, "movement baseline must be faster independently of battle speed")
+		print("MOVE_PACING %.0fm: %.2fs -> %.2fs" % [distance, path.duration, presentation_duration])
 	unit.robot_visual.set_cover(1, Vector3.BACK)
 	unit.robot_visual.set_attack_pose(0, Vector3.ZERO, Vector3.ZERO)
 	unit.footstep.connect(func(side: int, _point: Vector3) -> void: contacts.append(side))

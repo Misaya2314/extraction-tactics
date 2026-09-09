@@ -54,7 +54,8 @@ static func find_step_out(
 	grid: GridModel,
 	edge_index: TacticalEdgeIndex = null,
 	settings: CoverCombatSettings = null,
-	opaque_cells: Dictionary = {}
+	opaque_cells: Dictionary = {},
+	vacated_cells: Array[Vector3i] = []
 ) -> CoverQueryResult:
 	if grid == null or not grid.is_initialized():
 		return null
@@ -83,7 +84,7 @@ static func find_step_out(
 			continue
 
 		# Candidate cell must be unoccupied (free tile)
-		if grid.is_occupied(candidate_cell):
+		if grid.is_occupied(candidate_cell) and not vacated_cells.has(candidate_cell):
 			continue
 
 		# The path from attacker_cell to candidate_cell must be unblocked

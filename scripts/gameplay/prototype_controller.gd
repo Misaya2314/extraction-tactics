@@ -1353,6 +1353,8 @@ func _handle_loot_action(request: Variant, _context: Variant) -> Variant:
 
 
 func _process(_delta: float) -> void:
+	if input_locked or _is_terminal():
+		_hide_cover_preview()
 	if _is_cursor_visible() and not input_locked and not _is_terminal():
 		var viewport := get_viewport()
 		if is_instance_valid(viewport):
@@ -2819,7 +2821,7 @@ func can_attack_environment_object(
 ## Public debug/test entry and the single authority used by player, AI and
 ## attack highlighting.  It deliberately delegates to the shared line query;
 ## callers must not recreate LOS or edge-cover rules.
-func query_attack_cover(attacker_cell: Vector3i, target_cell: Vector3i, allow_step_out: bool = true) -> CoverQueryResult:
+func query_attack_cover(attacker_cell: Vector3i, target_cell: Vector3i, allow_step_out: bool = true, vacated_cells: Array[Vector3i] = []) -> CoverQueryResult:
 	if grid == null:
 		return CoverQueryResult.new()
 	var direct_query := CoverQueryScript.query(
@@ -2840,7 +2842,8 @@ func query_attack_cover(attacker_cell: Vector3i, target_cell: Vector3i, allow_st
 		grid,
 		grid.get_edge_index(),
 		cover_combat_settings,
-		opaque_cells
+		opaque_cells,
+		vacated_cells
 	)
 	if step_out_result != null and step_out_result.can_attack():
 		return step_out_result
@@ -2895,10 +2898,10 @@ func _can_player_see_with_grid(observer: Vector3i, target: Vector3i, vision_rang
 	)
 
 
-func can_attack_line(attacker_cell: Vector3i, target_cell: Vector3i, attack_range: int) -> bool:
+func can_attack_line(attacker_cell: Vector3i, target_cell: Vector3i, attack_range: int, vacated_cells: Array[Vector3i] = []) -> bool:
 	if attack_range < 0 or _manhattan(attacker_cell, target_cell) > attack_range:
 		return false
-	var query := query_attack_cover(attacker_cell, target_cell, true)
+	var query := query_attack_cover(attacker_cell, target_cell, true, vacated_cells)
 	if query.can_attack():
 		if query.is_step_out:
 			if _manhattan(query.step_out_cell, target_cell) > attack_range:
@@ -3447,6 +3450,9 @@ func _is_cursor_visible() -> bool:
 
 
 func _update_hover_cursor(screen_position: Vector2) -> void:
+	if get_viewport().gui_get_hovered_control() != null:
+		_hide_hover_cursor()
+		return
 	if not is_instance_valid(grid) or input_locked or _is_terminal():
 		_hide_hover_cursor()
 		return
@@ -3530,8 +3536,77 @@ func _get_or_create_cursor_mesh(index: int) -> MeshInstance3D:
 	return _cursor_mesh_pool[index]
 
 
+var _landing_panel: PanelContainer
+var _landing_label: Label
+
+
+## Read-only hypothetical move; never spend AP or move the actor/occupancy.
+func query_landing_preview(cell: Vector3i) -> Dictionary:
+	var result := {"valid": false, "remaining_ap": 0, "targets": [], "reason": "不可到达"}
+	if not _can_show_move_highlights() or not is_instance_valid(grid):
+		return result
+	if cell == selected_unit.grid_cell or not grid.is_walkable(cell) or grid.is_occupied(cell):
+		return result
+	var path := grid.find_path(selected_unit.grid_cell, cell)
+	if path.size() < 2 or grid.get_path_cost(path) > selected_unit.move_range:
+		return result
+	result.valid = true
+	result.remaining_ap = selected_unit.current_action_points - MOVE_ACTION_COST
+	if result.remaining_ap < selected_unit.attack_ap_cost:
+		result.reason = "AP 不足，移动后无法攻击"
+		return result
+	for enemy_id in _enemy_ids_for_context():
+		var enemy := _unit_by_id(enemy_id)
+		if not is_instance_valid(enemy) or not enemy.is_alive() or not enemy.is_visible_in_tree() or enemy.faction == selected_unit.faction:
+			continue
+		if can_attack_line(cell, enemy.grid_cell, selected_unit.attack_range, [selected_unit.grid_cell]):
+			result.targets.append(enemy.name)
+	result.reason = "无可攻击的已知目标" if result.targets.is_empty() else ""
+	return result
+
+
+func _update_landing_preview(cell: Vector3i) -> void:
+	var data := query_landing_preview(cell)
+	if not data.valid:
+		return
+	var hud := get_node_or_null("HUD")
+	if hud == null:
+		return
+	if not is_instance_valid(_landing_panel):
+		_landing_panel = PanelContainer.new()
+		_landing_panel.name = "LandingPreview"
+		_landing_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.04, 0.08, 0.12, 0.94)
+		style.content_margin_left = 12
+		style.content_margin_right = 12
+		style.content_margin_top = 8
+		style.content_margin_bottom = 8
+		_landing_panel.add_theme_stylebox_override("panel", style)
+		hud.add_child(_landing_panel)
+		_landing_label = Label.new()
+		_landing_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_landing_label.add_theme_font_size_override("font_size", 16)
+		_landing_panel.add_child(_landing_label)
+	var details: String = data.reason
+	if not data.targets.is_empty():
+		var names: Array[String] = []
+		for target_name in data.targets.slice(0, 4):
+			names.append(String(target_name).left(22))
+		details = "可攻击已知目标：%d\n%s" % [data.targets.size(), "\n".join(names)]
+		if data.targets.size() > 4:
+			details += "\n另有 %d 个目标" % (data.targets.size() - 4)
+	_landing_label.text = "移动后 AP：%d（消耗 %d）\n%s" % [data.remaining_ap, MOVE_ACTION_COST, details]
+	_landing_panel.reset_size()
+	var viewport_size := get_viewport().get_visible_rect().size
+	var point := get_viewport().get_mouse_position() + Vector2(24, 24)
+	_landing_panel.position = point.clamp(Vector2(8, 8), (viewport_size - _landing_panel.size - Vector2(8, 8)).max(Vector2(8, 8)))
+	_landing_panel.show()
+
+
 func _update_cover_preview(center_cell: Vector3i) -> void:
 	_hide_cover_preview()
+	_update_landing_preview(center_cell)
 	if not is_instance_valid(grid) or not is_instance_valid(_cover_indicators_root):
 		return
 	var edge_index := grid.get_edge_index()
@@ -3577,6 +3652,8 @@ func _update_cover_preview(center_cell: Vector3i) -> void:
 
 
 func _hide_cover_preview() -> void:
+	if is_instance_valid(_landing_panel):
+		_landing_panel.hide()
 	for sprite in _cover_icon_pool:
 		if is_instance_valid(sprite):
 			sprite.visible = false
