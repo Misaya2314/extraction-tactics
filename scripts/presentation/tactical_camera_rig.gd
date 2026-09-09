@@ -12,6 +12,9 @@ signal dynamic_moments_changed(enabled: bool)
 @export var map_world_min: Vector2 = Vector2(0.0, 0.0)
 @export var map_world_max: Vector2 = Vector2(22.0, 18.0)
 @export var navigation_margin: float = 3.0
+@export_range(0.0, 5.0, 0.25) var board_margin_cells: float = 1.5
+var _walkable_bounds: Array[Rect2] = []
+var _board_margin := 0.0
 @export var follow_smoothing: float = 7.0
 @export var focus_smoothing: float = 10.0
 @export_range(0.2, 0.9) var follow_safe_fraction: float = 0.6
@@ -68,6 +71,7 @@ func _process(delta: float) -> void:
 		position += movement * movement_speed * delta
 		_clamp_to_map()
 	_update_automatic_camera(delta)
+	_clamp_to_map()
 
 	_current_zoom = move_toward(_current_zoom, _target_zoom, zoom_smoothing * delta)
 	_apply_zoom(_current_zoom)
@@ -139,6 +143,9 @@ func _apply_zoom(distance: float) -> void:
 
 
 func _clamp_to_map() -> void:
+	if not _walkable_bounds.is_empty():
+		global_position = constrain_board_focus(global_position)
+		return
 	var minimum_x := map_world_min.x + navigation_margin
 	var maximum_x := map_world_max.x - navigation_margin
 	var minimum_z := map_world_min.y + navigation_margin
@@ -165,6 +172,7 @@ func focus_world_position(world_position: Vector3, immediate: bool = false) -> v
 		return
 	manual_override = false
 	_focus_goal = Vector3(world_position.x, 0.0, world_position.z)
+	_focus_goal = constrain_board_focus(_focus_goal)
 	_focus_active = not immediate
 	if not immediate:
 		return
@@ -317,7 +325,41 @@ func _notification(what: int) -> void:
 		_dragging = false
 
 
+func set_walkable_bounds(rectangles: Array[Rect2], cell_size: float) -> void:
+	_walkable_bounds = rectangles.duplicate()
+	_board_margin = maxf(0, board_margin_cells) * maxf(cell_size, 0.01)
+	if not _walkable_bounds.is_empty():
+		var bounds := _walkable_bounds[0]
+		for rect in _walkable_bounds:
+			bounds = bounds.merge(rect)
+		map_world_min = bounds.position
+		map_world_max = bounds.end
+	_clamp_to_map()
+	_focus_goal = constrain_board_focus(_focus_goal)
+
+
+## Clamp to the union of standable tile footprints plus an exterior buffer.
+## Unlike a bounding rectangle this also excludes large holes in sparse maps.
+func constrain_board_focus(point: Vector3) -> Vector3:
+	if _walkable_bounds.is_empty():
+		return point
+	var horizontal := Vector2(point.x, point.z)
+	var nearest := horizontal
+	var best_distance := INF
+	for rect in _walkable_bounds:
+		var candidate := horizontal.clamp(rect.position, rect.end)
+		var distance := candidate.distance_squared_to(horizontal)
+		if distance <= _board_margin * _board_margin:
+			return Vector3(point.x, 0, point.z)
+		if distance < best_distance:
+			best_distance = distance
+			nearest = candidate
+	var limited := nearest + (horizontal - nearest).normalized() * _board_margin
+	return Vector3(limited.x, 0, limited.y)
+
+
 func set_map_bounds(minimum: Vector2, maximum: Vector2) -> void:
+	_walkable_bounds.clear()
 	map_world_min = minimum
 	map_world_max = maximum
 	_clamp_to_map()

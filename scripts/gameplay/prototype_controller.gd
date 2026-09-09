@@ -1694,14 +1694,18 @@ func _placement_property(placement: Object, property_name: StringName, default_v
 
 
 func _apply_camera_bounds() -> void:
-	if not is_instance_valid(camera_rig):
+	if not is_instance_valid(camera_rig) or grid == null or map_definition == null:
 		return
-	var bounds_min := Vector2(map_definition.origin.x, map_definition.origin.z)
-	var bounds_max := bounds_min + Vector2(
-		float(map_definition.footprint_size.x) * map_definition.cell_size.x,
-		float(map_definition.footprint_size.y) * map_definition.cell_size.z
-	)
-	camera_rig.set_map_bounds(bounds_min, bounds_max)
+	var rectangles: Array[Rect2] = []
+	var size := Vector2(grid.cell_dimensions.x, grid.cell_dimensions.z)
+	for cell_data in map_definition.cells:
+		if cell_data != null and grid.is_walkable(cell_data.coordinate):
+			var center := grid.cell_to_world(cell_data.coordinate)
+			rectangles.append(Rect2(Vector2(center.x, center.z) - size * 0.5, size))
+	if rectangles.is_empty():
+		# Empty/invalid boards retain a bounded safe anchor, not an unbounded camera.
+		rectangles.append(Rect2(Vector2(map_definition.origin.x, map_definition.origin.z), size))
+	camera_rig.set_walkable_bounds(rectangles, maxf(size.x, size.y))
 
 
 func _apply_map_rules() -> void:
@@ -1762,6 +1766,7 @@ func _rebuild_dynamic_environment_rules() -> void:
 	# not become opaque to perception.
 	for cell in base_los.keys():
 		grid.set_cell_blockers(cell, bool(base_los[cell]), bool(base_projectile.get(cell, false)))
+	_apply_camera_bounds()
 
 
 func _spawn_initial_units() -> void:
