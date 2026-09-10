@@ -50,6 +50,8 @@ const INVESTIGATION_HIGHLIGHT_COLOR := Color(1.0, 0.72, 0.12, 0.45)
 const MOVE_HIGHLIGHT_SURFACE_OFFSET := 0.025
 const CURSOR_HIGHLIGHT_COLOR := Color(1.0, 1.0, 1.0, 0.45)
 const CURSOR_SURFACE_OFFSET := 0.035
+const LANDING_ATTACK_HIGHLIGHT_COLOR := Color(1.0, 0.35, 0.2, 0.62)
+const LANDING_ATTACK_SURFACE_OFFSET := 0.045
 const HALF_COVER_TEXTURE: Texture2D = preload("res://assets/textures/half_cover.png")
 const FULL_COVER_TEXTURE: Texture2D = preload("res://assets/textures/full_cover.png")
 const CURSOR_HIGHLIGHT_DISTANCE: int = 0
@@ -155,6 +157,8 @@ var _cover_indicators_root: Node3D = null
 var _cover_icon_pool: Array[Sprite3D] = []
 var _unit_cover_indicators_root: Node3D = null
 var _unit_cover_icon_pool: Array[Sprite3D] = []
+var _landing_attack_indicators_root: Node3D = null
+var _landing_attack_mesh_pool: Array[MeshInstance3D] = []
 ## Shared, lazily-built highlight resources so whole-map overlay rebuilds reuse
 ## one Mesh + one Material per color instead of allocating per cell, which
 ## otherwise exhausts the D3D12 RESOURCES descriptor heap on large maps.
@@ -3534,6 +3538,10 @@ func _init_hover_cursor() -> void:
 		_unit_cover_indicators_root = Node3D.new()
 		_unit_cover_indicators_root.name = "UnitCoverIndicators"
 		add_child(_unit_cover_indicators_root)
+	if not is_instance_valid(_landing_attack_indicators_root):
+		_landing_attack_indicators_root = Node3D.new()
+		_landing_attack_indicators_root.name = "LandingAttackIndicators"
+		add_child(_landing_attack_indicators_root)
 	_hover_cursor = _get_or_create_cursor_mesh(0)
 
 
@@ -3673,6 +3681,28 @@ func query_landing_preview(cell: Vector3i) -> Dictionary:
 	return result
 
 
+## Read-only landing-cell threat preview: living, visible enemies whose tactical
+## distance to the landing cell is within the unit's weapon range. Deliberately
+## ignores attack AP, cover and line of sight so the move plan can show range
+## reach, while hidden enemies never leak.
+func query_landing_attack_targets(cell: Vector3i) -> Array[PrototypeUnit]:
+	var targets: Array[PrototypeUnit] = []
+	if not _can_show_move_highlights() or not is_instance_valid(grid):
+		return targets
+	if cell == selected_unit.grid_cell or not grid.is_walkable(cell) or grid.is_occupied(cell):
+		return targets
+	var path := grid.find_path(selected_unit.grid_cell, cell)
+	if path.size() < 2 or grid.get_path_cost(path) > selected_unit.move_range:
+		return targets
+	for enemy_id in _enemy_ids_for_context():
+		var enemy := _unit_by_id(enemy_id)
+		if not is_instance_valid(enemy) or not enemy.is_alive() or not enemy.is_visible_in_tree() or enemy.faction == selected_unit.faction:
+			continue
+		if _manhattan(cell, enemy.grid_cell) <= selected_unit.attack_range:
+			targets.append(enemy)
+	return targets
+
+
 func _update_landing_preview(cell: Vector3i) -> void:
 	var data := query_landing_preview(cell)
 	if not data.valid:
@@ -3712,9 +3742,48 @@ func _update_landing_preview(cell: Vector3i) -> void:
 	_landing_panel.show()
 
 
+func _update_landing_attack_highlights(center_cell: Vector3i) -> void:
+	_hide_landing_attack_highlights()
+	if not is_instance_valid(_landing_attack_indicators_root) or not is_instance_valid(grid):
+		return
+	var index := 0
+	for enemy in query_landing_attack_targets(center_cell):
+		var highlight := _get_or_create_landing_attack_mesh(index)
+		index += 1
+		highlight.material_override = _get_cached_highlight_material(LANDING_ATTACK_HIGHLIGHT_COLOR)
+		highlight.set_meta(&"grid_cell", enemy.grid_cell)
+		var target_pos := grid.cell_to_world(enemy.grid_cell) + Vector3.UP * LANDING_ATTACK_SURFACE_OFFSET
+		if is_inside_tree():
+			highlight.global_position = target_pos
+		else:
+			highlight.position = target_pos
+		highlight.visible = true
+
+
+func _hide_landing_attack_highlights() -> void:
+	for highlight in _landing_attack_mesh_pool:
+		if is_instance_valid(highlight):
+			highlight.visible = false
+
+
+func _get_or_create_landing_attack_mesh(index: int) -> MeshInstance3D:
+	while index >= _landing_attack_mesh_pool.size():
+		var highlight := MeshInstance3D.new()
+		highlight.name = "LandingAttack_%d" % _landing_attack_mesh_pool.size()
+		highlight.mesh = _get_cached_highlight_mesh(
+			Vector3(grid.cell_dimensions.x * 0.88, 0.035, grid.cell_dimensions.z * 0.88)
+		)
+		highlight.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		highlight.visible = false
+		_landing_attack_indicators_root.add_child(highlight)
+		_landing_attack_mesh_pool.append(highlight)
+	return _landing_attack_mesh_pool[index]
+
+
 func _update_cover_preview(center_cell: Vector3i) -> void:
 	_hide_cover_preview()
 	_update_landing_preview(center_cell)
+	_update_landing_attack_highlights(center_cell)
 	if not is_instance_valid(grid) or not is_instance_valid(_cover_indicators_root):
 		return
 	var edge_index := grid.get_edge_index()
@@ -3762,6 +3831,7 @@ func _update_cover_preview(center_cell: Vector3i) -> void:
 func _hide_cover_preview() -> void:
 	if is_instance_valid(_landing_panel):
 		_landing_panel.hide()
+	_hide_landing_attack_highlights()
 	for sprite in _cover_icon_pool:
 		if is_instance_valid(sprite):
 			sprite.visible = false

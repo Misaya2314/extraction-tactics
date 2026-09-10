@@ -5,6 +5,7 @@
 - 移动后剩余 AP 和本次移动消耗。
 - 剩余 AP 足够攻击时，从该落点可攻击的已知目标数量及名称（最多列出四个）。
 - AP 不足或没有可攻击目标时，分别显示对应原因。
+- 悬停可到达格时，以红色格高亮从该落点射程内的已知敌人。该高亮只按战术距离判断，忽略攻击 AP、掩体与视线，隐藏敌人不泄露。
 
 当前格、占用格、不可到达格不显示落点面板。移入 UI、离开地图、切换模式、行动锁定时清除预览。
 
@@ -12,4 +13,4 @@
 
 预览基于当前战场状态；移动触发遭遇或其他状态变化后，仍以实际行动校验为准。
 
-验证：`tests/gameplay/landing_preview_test.gd`、`tests/cover/step_out_mechanic_test.gd`；主场景已检查提示面板渲染。
+验证：`tests/gameplay/landing_preview_test.gd`、`tests/gameplay/landing_attack_highlight_test.gd`、`tests/cover/step_out_mechanic_test.gd`；主场景已检查提示面板渲染。
