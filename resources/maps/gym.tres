@@ -7,6 +7,7 @@
 [ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_half.tres" id="5_geo0k"]
 [ext_resource type="Resource" path="res://resources/missions/gym_relay_raid.tres" id="6_08m7v"]
 [ext_resource type="Script" path="res://scripts/core/map/map_object_placement.gd" id="7_t132w"]
+[ext_resource type="PackedScene" path="res://scenes/prototype/environment/portable_cover.tscn" id="8_5m2d4"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_explosive_barrel.tscn" id="8_l3701"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_extraction_marker.tscn" id="9_2128q"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_objective_terminal.tscn" id="10_nay45"]
@@ -20,390 +21,390 @@
 [ext_resource type="Resource" path="res://resources/units/player_bravo.tres" id="18_nnd8o"]
 [ext_resource type="Script" path="res://scripts/core/map/map_transition_data.gd" id="19_l5b50"]
 
-[sub_resource type="Resource" id="Resource_uyqfx"]
+[sub_resource type="Resource" id="Resource_tbtth"]
 script = ExtResource("1_0kyig")
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_cipdy"]
+[sub_resource type="Resource" id="Resource_jitfk"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_jva8x"]
+[sub_resource type="Resource" id="Resource_geo0k"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_pmaco"]
+[sub_resource type="Resource" id="Resource_08m7v"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_d3quh"]
+[sub_resource type="Resource" id="Resource_t132w"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_oipi7"]
+[sub_resource type="Resource" id="Resource_l3701"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_p63qb"]
+[sub_resource type="Resource" id="Resource_2128q"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_ygqx6"]
+[sub_resource type="Resource" id="Resource_nay45"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_7dhs0"]
+[sub_resource type="Resource" id="Resource_4ni0w"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_v37g2"]
+[sub_resource type="Resource" id="Resource_nlrna"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_04yjf"]
+[sub_resource type="Resource" id="Resource_27mvw"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_ghu8e"]
+[sub_resource type="Resource" id="Resource_ju5u8"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_55qcy"]
+[sub_resource type="Resource" id="Resource_cc1rh"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_np1wp"]
+[sub_resource type="Resource" id="Resource_v1vf1"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_s2u7d"]
+[sub_resource type="Resource" id="Resource_m72bv"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_obmlt"]
+[sub_resource type="Resource" id="Resource_nnd8o"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 0)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_wu8jk"]
+[sub_resource type="Resource" id="Resource_l5b50"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_lfaib"]
+[sub_resource type="Resource" id="Resource_uyqfx"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_83124"]
+[sub_resource type="Resource" id="Resource_cipdy"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_ufjqv"]
+[sub_resource type="Resource" id="Resource_jva8x"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_hyafd"]
+[sub_resource type="Resource" id="Resource_pmaco"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_qxsg4"]
+[sub_resource type="Resource" id="Resource_d3quh"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_kajxh"]
+[sub_resource type="Resource" id="Resource_oipi7"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_vf0gv"]
+[sub_resource type="Resource" id="Resource_p63qb"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_j3a1v"]
+[sub_resource type="Resource" id="Resource_ygqx6"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_xrhhr"]
+[sub_resource type="Resource" id="Resource_7dhs0"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_as41m"]
+[sub_resource type="Resource" id="Resource_v37g2"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_oo5nr"]
+[sub_resource type="Resource" id="Resource_04yjf"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_ym5wd"]
+[sub_resource type="Resource" id="Resource_ghu8e"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_cch6c"]
+[sub_resource type="Resource" id="Resource_55qcy"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_75hhd"]
+[sub_resource type="Resource" id="Resource_np1wp"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_ps14x"]
+[sub_resource type="Resource" id="Resource_s2u7d"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 1)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_mjuoi"]
+[sub_resource type="Resource" id="Resource_obmlt"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_ik6ul"]
+[sub_resource type="Resource" id="Resource_wu8jk"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_enhr5"]
+[sub_resource type="Resource" id="Resource_lfaib"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_b745g"]
+[sub_resource type="Resource" id="Resource_83124"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_wyem3"]
+[sub_resource type="Resource" id="Resource_ufjqv"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_g0k25"]
+[sub_resource type="Resource" id="Resource_hyafd"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_tffbb"]
+[sub_resource type="Resource" id="Resource_qxsg4"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_cpxuk"]
+[sub_resource type="Resource" id="Resource_kajxh"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_x8bj2"]
+[sub_resource type="Resource" id="Resource_vf0gv"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_acixl"]
+[sub_resource type="Resource" id="Resource_j3a1v"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_8urs7"]
+[sub_resource type="Resource" id="Resource_xrhhr"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_xfv4r"]
+[sub_resource type="Resource" id="Resource_as41m"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_upofo"]
+[sub_resource type="Resource" id="Resource_oo5nr"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_3he7m"]
+[sub_resource type="Resource" id="Resource_ym5wd"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_7o1ik"]
+[sub_resource type="Resource" id="Resource_cch6c"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_aw3qk"]
+[sub_resource type="Resource" id="Resource_75hhd"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 2)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_qw0j8"]
+[sub_resource type="Resource" id="Resource_ps14x"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_3ccip"]
+[sub_resource type="Resource" id="Resource_mjuoi"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_yc45s"]
+[sub_resource type="Resource" id="Resource_ik6ul"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_oxs7d"]
+[sub_resource type="Resource" id="Resource_enhr5"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_yy6ts"]
+[sub_resource type="Resource" id="Resource_b745g"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_hk5pq"]
+[sub_resource type="Resource" id="Resource_wyem3"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_st8l8"]
+[sub_resource type="Resource" id="Resource_g0k25"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_6hshu"]
+[sub_resource type="Resource" id="Resource_tffbb"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_uxh1h"]
+[sub_resource type="Resource" id="Resource_cpxuk"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_prjtx"]
+[sub_resource type="Resource" id="Resource_x8bj2"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_8xxf6"]
+[sub_resource type="Resource" id="Resource_acixl"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_63stl"]
+[sub_resource type="Resource" id="Resource_8urs7"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_r2tib"]
+[sub_resource type="Resource" id="Resource_xfv4r"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_njxdh"]
+[sub_resource type="Resource" id="Resource_upofo"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_gdm28"]
+[sub_resource type="Resource" id="Resource_3he7m"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_eperb"]
+[sub_resource type="Resource" id="Resource_7o1ik"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 3)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_fi42a"]
+[sub_resource type="Resource" id="Resource_aw3qk"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 4)
 walkable = false
@@ -413,88 +414,88 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_vhy1t"]
+[sub_resource type="Resource" id="Resource_qw0j8"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 4)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_lskbe"]
+[sub_resource type="Resource" id="Resource_3ccip"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 4)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_1nes8"]
+[sub_resource type="Resource" id="Resource_yc45s"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 4)
 walkable = false
 occluder_height = 0.7
 terrain_tags = PackedStringArray("floor", "low_cover")
 
-[sub_resource type="Resource" id="Resource_wuqpx"]
+[sub_resource type="Resource" id="Resource_oxs7d"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 4)
 walkable = false
 occluder_height = 0.7
 terrain_tags = PackedStringArray("floor", "low_cover")
 
-[sub_resource type="Resource" id="Resource_1opi4"]
+[sub_resource type="Resource" id="Resource_yy6ts"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 4)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_k2vaf"]
+[sub_resource type="Resource" id="Resource_hk5pq"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 4)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_2ui2i"]
+[sub_resource type="Resource" id="Resource_st8l8"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 4)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_c0u1q"]
+[sub_resource type="Resource" id="Resource_6hshu"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 4)
 walkable = false
 occluder_height = 0.7
 terrain_tags = PackedStringArray("floor", "low_cover")
 
-[sub_resource type="Resource" id="Resource_gw2xj"]
+[sub_resource type="Resource" id="Resource_uxh1h"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 4)
 walkable = false
 occluder_height = 0.7
 terrain_tags = PackedStringArray("floor", "low_cover")
 
-[sub_resource type="Resource" id="Resource_yoeby"]
+[sub_resource type="Resource" id="Resource_prjtx"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 4)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_dhwmh"]
+[sub_resource type="Resource" id="Resource_8xxf6"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 4)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_05p8n"]
+[sub_resource type="Resource" id="Resource_63stl"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 4)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_fpxmt"]
+[sub_resource type="Resource" id="Resource_r2tib"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 4)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_60yle"]
+[sub_resource type="Resource" id="Resource_njxdh"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 4)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_vglax"]
+[sub_resource type="Resource" id="Resource_gdm28"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 4)
 walkable = false
@@ -505,7 +506,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_fvj15"]
+[sub_resource type="Resource" id="Resource_eperb"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 5)
 walkable = false
@@ -515,80 +516,80 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_fxlf3"]
+[sub_resource type="Resource" id="Resource_fi42a"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 5)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_6rq0s"]
+[sub_resource type="Resource" id="Resource_vhy1t"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 5)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_i3ws8"]
+[sub_resource type="Resource" id="Resource_lskbe"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 5)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_4v8qn"]
+[sub_resource type="Resource" id="Resource_1nes8"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 5)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_jmtya"]
+[sub_resource type="Resource" id="Resource_wuqpx"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 5)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_24ok5"]
+[sub_resource type="Resource" id="Resource_1opi4"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 5)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_voco8"]
+[sub_resource type="Resource" id="Resource_k2vaf"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 5)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_gb7px"]
+[sub_resource type="Resource" id="Resource_2ui2i"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 5)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_ugspm"]
+[sub_resource type="Resource" id="Resource_c0u1q"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 5)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_2wfb2"]
+[sub_resource type="Resource" id="Resource_gw2xj"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 5)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_i6gf4"]
+[sub_resource type="Resource" id="Resource_yoeby"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 5)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_u1fff"]
+[sub_resource type="Resource" id="Resource_dhwmh"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 5)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_te17o"]
+[sub_resource type="Resource" id="Resource_05p8n"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 5)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_7v7my"]
+[sub_resource type="Resource" id="Resource_fpxmt"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 5)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_qvr7r"]
+[sub_resource type="Resource" id="Resource_60yle"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 5)
 walkable = false
@@ -599,7 +600,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_cc02e"]
+[sub_resource type="Resource" id="Resource_vglax"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 6)
 walkable = false
@@ -609,7 +610,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_bk52h"]
+[sub_resource type="Resource" id="Resource_fvj15"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 6)
 walkable = false
@@ -619,7 +620,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_f1kta"]
+[sub_resource type="Resource" id="Resource_fxlf3"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 6)
 walkable = false
@@ -629,7 +630,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_qtjn1"]
+[sub_resource type="Resource" id="Resource_6rq0s"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 6)
 walkable = false
@@ -639,17 +640,17 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_of6hi"]
+[sub_resource type="Resource" id="Resource_i3ws8"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 6)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_tn23s"]
+[sub_resource type="Resource" id="Resource_4v8qn"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 6)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_is2fn"]
+[sub_resource type="Resource" id="Resource_jmtya"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 6)
 walkable = false
@@ -659,7 +660,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_1qv4b"]
+[sub_resource type="Resource" id="Resource_24ok5"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 6)
 walkable = false
@@ -669,17 +670,17 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_yi0w6"]
+[sub_resource type="Resource" id="Resource_voco8"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 6)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_b7qbu"]
+[sub_resource type="Resource" id="Resource_gb7px"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 6)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_c2hoc"]
+[sub_resource type="Resource" id="Resource_ugspm"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 6)
 walkable = false
@@ -689,7 +690,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_1o1em"]
+[sub_resource type="Resource" id="Resource_2wfb2"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 6)
 walkable = false
@@ -699,25 +700,25 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_mw1rn"]
+[sub_resource type="Resource" id="Resource_i6gf4"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 6)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_wtwdt"]
+[sub_resource type="Resource" id="Resource_u1fff"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 6)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_iavfb"]
+[sub_resource type="Resource" id="Resource_te17o"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 6)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_2ah2p"]
+[sub_resource type="Resource" id="Resource_7v7my"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 6)
 walkable = false
@@ -728,7 +729,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_dlqqu"]
+[sub_resource type="Resource" id="Resource_qvr7r"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 7)
 walkable = false
@@ -738,62 +739,62 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_tfw36"]
+[sub_resource type="Resource" id="Resource_cc02e"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 7)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_rtqw2"]
+[sub_resource type="Resource" id="Resource_bk52h"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 7)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_yxy18"]
+[sub_resource type="Resource" id="Resource_f1kta"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 7)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_4hejj"]
+[sub_resource type="Resource" id="Resource_qtjn1"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 7)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_rmjvo"]
+[sub_resource type="Resource" id="Resource_of6hi"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 7)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_7txd8"]
+[sub_resource type="Resource" id="Resource_tn23s"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 7)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_7f1ch"]
+[sub_resource type="Resource" id="Resource_is2fn"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 7)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_pnwco"]
+[sub_resource type="Resource" id="Resource_1qv4b"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 7)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_v3nlb"]
+[sub_resource type="Resource" id="Resource_yi0w6"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 7)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_0o42j"]
+[sub_resource type="Resource" id="Resource_b7qbu"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 7)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_vrnv8"]
+[sub_resource type="Resource" id="Resource_c2hoc"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 7)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_k2fcj"]
+[sub_resource type="Resource" id="Resource_1o1em"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 7)
 walkable = false
@@ -804,19 +805,19 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_rkrui"]
+[sub_resource type="Resource" id="Resource_mw1rn"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 7)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_0qh16"]
+[sub_resource type="Resource" id="Resource_wtwdt"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 7)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_5f46v"]
+[sub_resource type="Resource" id="Resource_iavfb"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 7)
 walkable = false
@@ -827,7 +828,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_85vrn"]
+[sub_resource type="Resource" id="Resource_2ah2p"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 8)
 walkable = false
@@ -837,22 +838,22 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_1wph0"]
+[sub_resource type="Resource" id="Resource_dlqqu"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 8)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_520ar"]
+[sub_resource type="Resource" id="Resource_tfw36"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 8)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_1nl2h"]
+[sub_resource type="Resource" id="Resource_rtqw2"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 8)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_7sttl"]
+[sub_resource type="Resource" id="Resource_yxy18"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 8)
 walkable = false
@@ -862,7 +863,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_gqgj0"]
+[sub_resource type="Resource" id="Resource_4hejj"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 8)
 walkable = false
@@ -872,41 +873,41 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_b5opw"]
+[sub_resource type="Resource" id="Resource_rmjvo"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 8)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_3xwvt"]
+[sub_resource type="Resource" id="Resource_7txd8"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 8)
 walkable = false
 occluder_height = 0.7
 terrain_tags = PackedStringArray("floor", "low_cover")
 
-[sub_resource type="Resource" id="Resource_bymcb"]
+[sub_resource type="Resource" id="Resource_7f1ch"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 8)
 walkable = false
 occluder_height = 0.7
 terrain_tags = PackedStringArray("floor", "low_cover")
 
-[sub_resource type="Resource" id="Resource_sd3nh"]
+[sub_resource type="Resource" id="Resource_pnwco"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 8)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_txdi0"]
+[sub_resource type="Resource" id="Resource_v3nlb"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 8)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_34447"]
+[sub_resource type="Resource" id="Resource_0o42j"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 8)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_rmuvm"]
+[sub_resource type="Resource" id="Resource_vrnv8"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 8)
 walkable = false
@@ -917,19 +918,19 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_msvxg"]
+[sub_resource type="Resource" id="Resource_k2fcj"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 8)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_1mfst"]
+[sub_resource type="Resource" id="Resource_rkrui"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 8)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_tnecv"]
+[sub_resource type="Resource" id="Resource_0qh16"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 8)
 walkable = false
@@ -940,7 +941,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_ilv6w"]
+[sub_resource type="Resource" id="Resource_5f46v"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 9)
 walkable = false
@@ -950,22 +951,22 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_xn7cm"]
+[sub_resource type="Resource" id="Resource_85vrn"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 9)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_lw0ee"]
+[sub_resource type="Resource" id="Resource_1wph0"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 9)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_44evg"]
+[sub_resource type="Resource" id="Resource_520ar"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 9)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_o2h4y"]
+[sub_resource type="Resource" id="Resource_1nl2h"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 9)
 walkable = false
@@ -975,7 +976,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_wdj4d"]
+[sub_resource type="Resource" id="Resource_7sttl"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 9)
 walkable = false
@@ -985,55 +986,55 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_lndn1"]
+[sub_resource type="Resource" id="Resource_gqgj0"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 9)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_x5aro"]
+[sub_resource type="Resource" id="Resource_b5opw"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 9)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_iujh6"]
+[sub_resource type="Resource" id="Resource_3xwvt"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 9)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_y7gm6"]
+[sub_resource type="Resource" id="Resource_bymcb"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 9)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_bvfla"]
+[sub_resource type="Resource" id="Resource_sd3nh"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 9)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_eakpb"]
+[sub_resource type="Resource" id="Resource_txdi0"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 9)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_bhs5n"]
+[sub_resource type="Resource" id="Resource_34447"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 9)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_g03fp"]
+[sub_resource type="Resource" id="Resource_rmuvm"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 9)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_fmyqy"]
+[sub_resource type="Resource" id="Resource_msvxg"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 9)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_5p7gk"]
+[sub_resource type="Resource" id="Resource_1mfst"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 9)
 walkable = false
@@ -1044,7 +1045,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_rpoqk"]
+[sub_resource type="Resource" id="Resource_tnecv"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 10)
 walkable = false
@@ -1054,37 +1055,37 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_x126b"]
+[sub_resource type="Resource" id="Resource_ilv6w"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 10)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_7a4qf"]
+[sub_resource type="Resource" id="Resource_xn7cm"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 10)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_jm5y3"]
+[sub_resource type="Resource" id="Resource_lw0ee"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 10)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_bqd0i"]
+[sub_resource type="Resource" id="Resource_44evg"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 10)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_cgv1m"]
+[sub_resource type="Resource" id="Resource_o2h4y"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 10)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_ws6kv"]
+[sub_resource type="Resource" id="Resource_wdj4d"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 10)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_llhlb"]
+[sub_resource type="Resource" id="Resource_lndn1"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 10)
 walkable = false
@@ -1092,7 +1093,7 @@ terrain_id = &"void"
 terrain_tags = PackedStringArray("void")
 hazard_id = &"void"
 
-[sub_resource type="Resource" id="Resource_eq7lw"]
+[sub_resource type="Resource" id="Resource_x5aro"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 10)
 walkable = false
@@ -1100,22 +1101,22 @@ terrain_id = &"void"
 terrain_tags = PackedStringArray("void")
 hazard_id = &"void"
 
-[sub_resource type="Resource" id="Resource_j2cup"]
+[sub_resource type="Resource" id="Resource_iujh6"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 10)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_xbi3n"]
+[sub_resource type="Resource" id="Resource_y7gm6"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 10)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_mcl4e"]
+[sub_resource type="Resource" id="Resource_bvfla"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 10)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_fqlp7"]
+[sub_resource type="Resource" id="Resource_eakpb"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 10)
 walkable = false
@@ -1126,7 +1127,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_dll2g"]
+[sub_resource type="Resource" id="Resource_bhs5n"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 10)
 walkable = false
@@ -1134,13 +1135,13 @@ occluder_height = 0.7
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt", "low_cover")
 
-[sub_resource type="Resource" id="Resource_s7i5c"]
+[sub_resource type="Resource" id="Resource_g03fp"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 10)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_qulcg"]
+[sub_resource type="Resource" id="Resource_fmyqy"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 10)
 walkable = false
@@ -1151,7 +1152,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_lmi8l"]
+[sub_resource type="Resource" id="Resource_5p7gk"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 11)
 walkable = false
@@ -1161,51 +1162,51 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_bdl5c"]
+[sub_resource type="Resource" id="Resource_rpoqk"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 11)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_l4weo"]
+[sub_resource type="Resource" id="Resource_x126b"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 11)
 walkable = false
 occluder_height = 0.7
 terrain_tags = PackedStringArray("floor", "low_cover")
 
-[sub_resource type="Resource" id="Resource_quqap"]
+[sub_resource type="Resource" id="Resource_7a4qf"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 11)
 walkable = false
 occluder_height = 0.7
 terrain_tags = PackedStringArray("floor", "low_cover")
 
-[sub_resource type="Resource" id="Resource_3mtdl"]
+[sub_resource type="Resource" id="Resource_jm5y3"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 11)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_bnprv"]
+[sub_resource type="Resource" id="Resource_bqd0i"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 11)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_sjjby"]
+[sub_resource type="Resource" id="Resource_cgv1m"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 11)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_xchte"]
+[sub_resource type="Resource" id="Resource_ws6kv"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 11)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_gfkad"]
+[sub_resource type="Resource" id="Resource_llhlb"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 11)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_b2s0i"]
+[sub_resource type="Resource" id="Resource_eq7lw"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 11)
 walkable = false
@@ -1215,7 +1216,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_q5r3k"]
+[sub_resource type="Resource" id="Resource_j2cup"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 11)
 walkable = false
@@ -1225,12 +1226,12 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_14h1s"]
+[sub_resource type="Resource" id="Resource_xbi3n"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 11)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_ppew0"]
+[sub_resource type="Resource" id="Resource_mcl4e"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 11)
 walkable = false
@@ -1241,19 +1242,19 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_dvbfy"]
+[sub_resource type="Resource" id="Resource_fqlp7"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 11)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_gds5o"]
+[sub_resource type="Resource" id="Resource_dll2g"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 11)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_5wpk0"]
+[sub_resource type="Resource" id="Resource_s7i5c"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 11)
 walkable = false
@@ -1264,7 +1265,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_tg56g"]
+[sub_resource type="Resource" id="Resource_qulcg"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 12)
 walkable = false
@@ -1274,64 +1275,64 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_pg2co"]
+[sub_resource type="Resource" id="Resource_lmi8l"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 12)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_gkjdv"]
+[sub_resource type="Resource" id="Resource_bdl5c"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 12)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_gj1ls"]
+[sub_resource type="Resource" id="Resource_l4weo"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 12)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_xiu68"]
+[sub_resource type="Resource" id="Resource_quqap"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 12)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_mvhm8"]
+[sub_resource type="Resource" id="Resource_3mtdl"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 12)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_mefud"]
+[sub_resource type="Resource" id="Resource_bnprv"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 12)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_241s1"]
+[sub_resource type="Resource" id="Resource_sjjby"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 12)
 walkable = false
 occluder_height = 0.7
 terrain_tags = PackedStringArray("floor", "low_cover")
 
-[sub_resource type="Resource" id="Resource_fbo1a"]
+[sub_resource type="Resource" id="Resource_xchte"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 12)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_3dp84"]
+[sub_resource type="Resource" id="Resource_gfkad"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 12)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_pypbs"]
+[sub_resource type="Resource" id="Resource_b2s0i"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 12)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_fwjlr"]
+[sub_resource type="Resource" id="Resource_q5r3k"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 12)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_hufn6"]
+[sub_resource type="Resource" id="Resource_14h1s"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 12)
 walkable = false
@@ -1342,19 +1343,19 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_i7a3i"]
+[sub_resource type="Resource" id="Resource_ppew0"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 12)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_v6cr4"]
+[sub_resource type="Resource" id="Resource_dvbfy"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 12)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_jj1wi"]
+[sub_resource type="Resource" id="Resource_gds5o"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 12)
 walkable = false
@@ -1365,7 +1366,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_36kuj"]
+[sub_resource type="Resource" id="Resource_5wpk0"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 13)
 walkable = false
@@ -1375,62 +1376,62 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_tpwic"]
+[sub_resource type="Resource" id="Resource_tg56g"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 13)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_lv6t6"]
+[sub_resource type="Resource" id="Resource_pg2co"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 13)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_jlg84"]
+[sub_resource type="Resource" id="Resource_gkjdv"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 13)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_pj0nw"]
+[sub_resource type="Resource" id="Resource_gj1ls"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 13)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_cbmfc"]
+[sub_resource type="Resource" id="Resource_xiu68"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 13)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_i5wrw"]
+[sub_resource type="Resource" id="Resource_mvhm8"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 13)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_uvm0s"]
+[sub_resource type="Resource" id="Resource_mefud"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 13)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_sycsp"]
+[sub_resource type="Resource" id="Resource_241s1"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 13)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_o7b0i"]
+[sub_resource type="Resource" id="Resource_fbo1a"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 13)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_4s4p1"]
+[sub_resource type="Resource" id="Resource_3dp84"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 13)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_6omp6"]
+[sub_resource type="Resource" id="Resource_pypbs"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 13)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_0vkof"]
+[sub_resource type="Resource" id="Resource_fwjlr"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 13)
 walkable = false
@@ -1441,19 +1442,19 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_qta16"]
+[sub_resource type="Resource" id="Resource_hufn6"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 13)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_hjh7m"]
+[sub_resource type="Resource" id="Resource_i7a3i"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 13)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_p26to"]
+[sub_resource type="Resource" id="Resource_v6cr4"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 13)
 walkable = false
@@ -1464,7 +1465,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_b8ipk"]
+[sub_resource type="Resource" id="Resource_jj1wi"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 14)
 walkable = false
@@ -1474,7 +1475,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_6vue5"]
+[sub_resource type="Resource" id="Resource_36kuj"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 14)
 walkable = false
@@ -1484,7 +1485,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_4vx08"]
+[sub_resource type="Resource" id="Resource_tpwic"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 14)
 walkable = false
@@ -1494,7 +1495,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_2kham"]
+[sub_resource type="Resource" id="Resource_lv6t6"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 14)
 walkable = false
@@ -1504,7 +1505,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_qpw74"]
+[sub_resource type="Resource" id="Resource_jlg84"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 14)
 walkable = false
@@ -1514,7 +1515,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_tw2cc"]
+[sub_resource type="Resource" id="Resource_pj0nw"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 14)
 walkable = false
@@ -1524,27 +1525,27 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_fcm1u"]
+[sub_resource type="Resource" id="Resource_cbmfc"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 14)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_3t1xu"]
+[sub_resource type="Resource" id="Resource_i5wrw"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 14)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_qtrvn"]
+[sub_resource type="Resource" id="Resource_uvm0s"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 14)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_itsor"]
+[sub_resource type="Resource" id="Resource_sycsp"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 14)
 terrain_tags = PackedStringArray("floor")
 
-[sub_resource type="Resource" id="Resource_u1302"]
+[sub_resource type="Resource" id="Resource_o7b0i"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 14)
 walkable = false
@@ -1554,7 +1555,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_dnx26"]
+[sub_resource type="Resource" id="Resource_4s4p1"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 14)
 walkable = false
@@ -1564,7 +1565,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor", "wall")
 
-[sub_resource type="Resource" id="Resource_wqnm4"]
+[sub_resource type="Resource" id="Resource_6omp6"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 14)
 walkable = false
@@ -1575,19 +1576,19 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_iyqw7"]
+[sub_resource type="Resource" id="Resource_0vkof"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 14)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_ybn8a"]
+[sub_resource type="Resource" id="Resource_qta16"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 14)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_acbgp"]
+[sub_resource type="Resource" id="Resource_hjh7m"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 14)
 walkable = false
@@ -1598,7 +1599,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_70c3j"]
+[sub_resource type="Resource" id="Resource_p26to"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 15)
 walkable = false
@@ -1609,91 +1610,91 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_4j0ku"]
+[sub_resource type="Resource" id="Resource_b8ipk"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_bw7gd"]
+[sub_resource type="Resource" id="Resource_6vue5"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_kss4m"]
+[sub_resource type="Resource" id="Resource_4vx08"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_sgqxp"]
+[sub_resource type="Resource" id="Resource_2kham"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_jkdai"]
+[sub_resource type="Resource" id="Resource_qpw74"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_34f0a"]
+[sub_resource type="Resource" id="Resource_tw2cc"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_kvsex"]
+[sub_resource type="Resource" id="Resource_fcm1u"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_urp05"]
+[sub_resource type="Resource" id="Resource_3t1xu"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_dgc5i"]
+[sub_resource type="Resource" id="Resource_qtrvn"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_7ll01"]
+[sub_resource type="Resource" id="Resource_itsor"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_opbng"]
+[sub_resource type="Resource" id="Resource_u1302"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_xk632"]
+[sub_resource type="Resource" id="Resource_dnx26"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_1f5dc"]
+[sub_resource type="Resource" id="Resource_wqnm4"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_wvsvh"]
+[sub_resource type="Resource" id="Resource_iyqw7"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 15)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_k8s6s"]
+[sub_resource type="Resource" id="Resource_ybn8a"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 15)
 walkable = false
@@ -1704,7 +1705,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_owroa"]
+[sub_resource type="Resource" id="Resource_acbgp"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 16)
 walkable = false
@@ -1715,31 +1716,31 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_owfoh"]
+[sub_resource type="Resource" id="Resource_70c3j"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 16)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_i3dwj"]
+[sub_resource type="Resource" id="Resource_4j0ku"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 16)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_hmlk4"]
+[sub_resource type="Resource" id="Resource_bw7gd"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 16)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_t4d4g"]
+[sub_resource type="Resource" id="Resource_kss4m"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 16)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_2501f"]
+[sub_resource type="Resource" id="Resource_sgqxp"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 16)
 walkable = false
@@ -1747,7 +1748,7 @@ occluder_height = 0.7
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt", "low_cover")
 
-[sub_resource type="Resource" id="Resource_rpq7n"]
+[sub_resource type="Resource" id="Resource_jkdai"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 16)
 walkable = false
@@ -1755,25 +1756,25 @@ occluder_height = 0.7
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt", "low_cover")
 
-[sub_resource type="Resource" id="Resource_v5xtq"]
+[sub_resource type="Resource" id="Resource_34f0a"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 16)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_b11yy"]
+[sub_resource type="Resource" id="Resource_kvsex"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 16)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_prq37"]
+[sub_resource type="Resource" id="Resource_urp05"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 16)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_2i3tl"]
+[sub_resource type="Resource" id="Resource_dgc5i"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 16)
 walkable = false
@@ -1781,31 +1782,31 @@ occluder_height = 0.7
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt", "low_cover")
 
-[sub_resource type="Resource" id="Resource_kbb56"]
+[sub_resource type="Resource" id="Resource_7ll01"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 16)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_5ln62"]
+[sub_resource type="Resource" id="Resource_opbng"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 16)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_c1ng4"]
+[sub_resource type="Resource" id="Resource_xk632"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 16)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_cx8wt"]
+[sub_resource type="Resource" id="Resource_1f5dc"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 16)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_y5joo"]
+[sub_resource type="Resource" id="Resource_wvsvh"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 16)
 walkable = false
@@ -1816,7 +1817,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_3csfl"]
+[sub_resource type="Resource" id="Resource_k8s6s"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 17)
 walkable = false
@@ -1827,91 +1828,91 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_1wsvg"]
+[sub_resource type="Resource" id="Resource_owroa"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_mtrs4"]
+[sub_resource type="Resource" id="Resource_owfoh"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_4r1jj"]
+[sub_resource type="Resource" id="Resource_i3dwj"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_chbd6"]
+[sub_resource type="Resource" id="Resource_hmlk4"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_1wlj1"]
+[sub_resource type="Resource" id="Resource_t4d4g"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_2gaye"]
+[sub_resource type="Resource" id="Resource_2501f"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_tk1io"]
+[sub_resource type="Resource" id="Resource_rpq7n"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_05b44"]
+[sub_resource type="Resource" id="Resource_v5xtq"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_5xlej"]
+[sub_resource type="Resource" id="Resource_b11yy"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_7wnyg"]
+[sub_resource type="Resource" id="Resource_prq37"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_8vs0i"]
+[sub_resource type="Resource" id="Resource_2i3tl"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_v2h5i"]
+[sub_resource type="Resource" id="Resource_kbb56"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_o6klm"]
+[sub_resource type="Resource" id="Resource_5ln62"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_0ja2i"]
+[sub_resource type="Resource" id="Resource_c1ng4"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 17)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_32bqu"]
+[sub_resource type="Resource" id="Resource_cx8wt"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 17)
 walkable = false
@@ -1922,7 +1923,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_2o57t"]
+[sub_resource type="Resource" id="Resource_y5joo"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 18)
 walkable = false
@@ -1933,91 +1934,91 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_i60sj"]
+[sub_resource type="Resource" id="Resource_3csfl"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_0040l"]
+[sub_resource type="Resource" id="Resource_1wsvg"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_8e4dd"]
+[sub_resource type="Resource" id="Resource_mtrs4"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_oh3sb"]
+[sub_resource type="Resource" id="Resource_4r1jj"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_8yrq5"]
+[sub_resource type="Resource" id="Resource_chbd6"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_b8t1w"]
+[sub_resource type="Resource" id="Resource_1wlj1"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_pellu"]
+[sub_resource type="Resource" id="Resource_2gaye"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_v2f5f"]
+[sub_resource type="Resource" id="Resource_tk1io"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_c3gwo"]
+[sub_resource type="Resource" id="Resource_05b44"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_4ejym"]
+[sub_resource type="Resource" id="Resource_5xlej"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_5u6uq"]
+[sub_resource type="Resource" id="Resource_7wnyg"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_kx5qu"]
+[sub_resource type="Resource" id="Resource_8vs0i"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_5fkba"]
+[sub_resource type="Resource" id="Resource_v2h5i"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_ueu13"]
+[sub_resource type="Resource" id="Resource_o6klm"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 18)
 terrain_id = &"floor_alt"
 terrain_tags = PackedStringArray("floor_alt")
 
-[sub_resource type="Resource" id="Resource_q0orf"]
+[sub_resource type="Resource" id="Resource_0ja2i"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 18)
 walkable = false
@@ -2028,7 +2029,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_26fqs"]
+[sub_resource type="Resource" id="Resource_32bqu"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(0, 0, 19)
 walkable = false
@@ -2039,7 +2040,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_4rewk"]
+[sub_resource type="Resource" id="Resource_2o57t"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(1, 0, 19)
 walkable = false
@@ -2050,7 +2051,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_hau0e"]
+[sub_resource type="Resource" id="Resource_i60sj"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(2, 0, 19)
 walkable = false
@@ -2061,7 +2062,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_7d3ai"]
+[sub_resource type="Resource" id="Resource_0040l"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(3, 0, 19)
 walkable = false
@@ -2072,7 +2073,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_xfb4q"]
+[sub_resource type="Resource" id="Resource_8e4dd"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(4, 0, 19)
 walkable = false
@@ -2083,7 +2084,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_0adtm"]
+[sub_resource type="Resource" id="Resource_oh3sb"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(5, 0, 19)
 walkable = false
@@ -2094,7 +2095,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_6fxej"]
+[sub_resource type="Resource" id="Resource_8yrq5"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(6, 0, 19)
 walkable = false
@@ -2105,7 +2106,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_1dvpr"]
+[sub_resource type="Resource" id="Resource_b8t1w"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 19)
 walkable = false
@@ -2116,7 +2117,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_nxw83"]
+[sub_resource type="Resource" id="Resource_pellu"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 19)
 walkable = false
@@ -2127,7 +2128,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_lk8pg"]
+[sub_resource type="Resource" id="Resource_v2f5f"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(9, 0, 19)
 walkable = false
@@ -2138,7 +2139,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_1pg8k"]
+[sub_resource type="Resource" id="Resource_c3gwo"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(10, 0, 19)
 walkable = false
@@ -2149,7 +2150,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_ykfv8"]
+[sub_resource type="Resource" id="Resource_4ejym"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(11, 0, 19)
 walkable = false
@@ -2160,7 +2161,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_qy604"]
+[sub_resource type="Resource" id="Resource_5u6uq"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(12, 0, 19)
 walkable = false
@@ -2171,7 +2172,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_f0vc5"]
+[sub_resource type="Resource" id="Resource_kx5qu"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(13, 0, 19)
 walkable = false
@@ -2182,7 +2183,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_8uguf"]
+[sub_resource type="Resource" id="Resource_5fkba"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(14, 0, 19)
 walkable = false
@@ -2193,7 +2194,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_wrbcq"]
+[sub_resource type="Resource" id="Resource_ueu13"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(15, 0, 19)
 walkable = false
@@ -2204,7 +2205,7 @@ sight_block = 1.0
 projectile_block = 1.0
 terrain_tags = PackedStringArray("floor_alt", "wall")
 
-[sub_resource type="Resource" id="Resource_emd8x"]
+[sub_resource type="Resource" id="Resource_q0orf"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 3)
 cell_b = Vector3i(0, 0, 4)
@@ -2222,7 +2223,7 @@ source_cell = Vector3i(0, 0, 4)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_b16x5"]
+[sub_resource type="Resource" id="Resource_26fqs"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 3)
 cell_b = Vector3i(3, 0, 4)
@@ -2237,7 +2238,7 @@ source_cell = Vector3i(3, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_mdrgg"]
+[sub_resource type="Resource" id="Resource_4rewk"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(4, 0, 3)
 cell_b = Vector3i(4, 0, 4)
@@ -2252,7 +2253,7 @@ source_cell = Vector3i(4, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_k0xot"]
+[sub_resource type="Resource" id="Resource_hau0e"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(8, 0, 3)
 cell_b = Vector3i(8, 0, 4)
@@ -2267,7 +2268,7 @@ source_cell = Vector3i(8, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_deccj"]
+[sub_resource type="Resource" id="Resource_7d3ai"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(9, 0, 3)
 cell_b = Vector3i(9, 0, 4)
@@ -2282,7 +2283,7 @@ source_cell = Vector3i(9, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_02h6r"]
+[sub_resource type="Resource" id="Resource_xfb4q"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(15, 0, 3)
 cell_b = Vector3i(15, 0, 4)
@@ -2300,7 +2301,7 @@ source_cell = Vector3i(15, 0, 4)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_eakda"]
+[sub_resource type="Resource" id="Resource_0adtm"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 4)
 cell_b = Vector3i(1, 0, 4)
@@ -2318,7 +2319,7 @@ source_cell = Vector3i(0, 0, 4)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_hlp7n"]
+[sub_resource type="Resource" id="Resource_6fxej"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(2, 0, 4)
 cell_b = Vector3i(3, 0, 4)
@@ -2333,7 +2334,7 @@ source_cell = Vector3i(3, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_xegq2"]
+[sub_resource type="Resource" id="Resource_1dvpr"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 4)
 cell_b = Vector3i(3, 0, 5)
@@ -2348,7 +2349,7 @@ source_cell = Vector3i(3, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_rnlvr"]
+[sub_resource type="Resource" id="Resource_nxw83"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(4, 0, 4)
 cell_b = Vector3i(5, 0, 4)
@@ -2363,7 +2364,7 @@ source_cell = Vector3i(4, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_yqvuu"]
+[sub_resource type="Resource" id="Resource_lk8pg"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(4, 0, 4)
 cell_b = Vector3i(4, 0, 5)
@@ -2378,7 +2379,7 @@ source_cell = Vector3i(4, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_0ouw5"]
+[sub_resource type="Resource" id="Resource_1pg8k"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(7, 0, 4)
 cell_b = Vector3i(8, 0, 4)
@@ -2393,7 +2394,7 @@ source_cell = Vector3i(8, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_b5nox"]
+[sub_resource type="Resource" id="Resource_ykfv8"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(8, 0, 4)
 cell_b = Vector3i(8, 0, 5)
@@ -2408,7 +2409,7 @@ source_cell = Vector3i(8, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_ac2tr"]
+[sub_resource type="Resource" id="Resource_qy604"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(9, 0, 4)
 cell_b = Vector3i(10, 0, 4)
@@ -2423,7 +2424,7 @@ source_cell = Vector3i(9, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_6u4re"]
+[sub_resource type="Resource" id="Resource_f0vc5"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(9, 0, 4)
 cell_b = Vector3i(9, 0, 5)
@@ -2438,7 +2439,7 @@ source_cell = Vector3i(9, 0, 4)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_x8xc7"]
+[sub_resource type="Resource" id="Resource_8uguf"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 4)
 cell_b = Vector3i(15, 0, 4)
@@ -2456,7 +2457,7 @@ source_cell = Vector3i(15, 0, 4)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_nhwin"]
+[sub_resource type="Resource" id="Resource_wrbcq"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 5)
 cell_b = Vector3i(1, 0, 5)
@@ -2474,7 +2475,7 @@ source_cell = Vector3i(0, 0, 5)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_brw0k"]
+[sub_resource type="Resource" id="Resource_emd8x"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(1, 0, 5)
 cell_b = Vector3i(1, 0, 6)
@@ -2492,7 +2493,7 @@ source_cell = Vector3i(1, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_qcl60"]
+[sub_resource type="Resource" id="Resource_b16x5"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(2, 0, 5)
 cell_b = Vector3i(2, 0, 6)
@@ -2510,7 +2511,7 @@ source_cell = Vector3i(2, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_hqqw3"]
+[sub_resource type="Resource" id="Resource_mdrgg"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 5)
 cell_b = Vector3i(3, 0, 6)
@@ -2528,7 +2529,7 @@ source_cell = Vector3i(3, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_xrbey"]
+[sub_resource type="Resource" id="Resource_k0xot"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(6, 0, 5)
 cell_b = Vector3i(6, 0, 6)
@@ -2546,7 +2547,7 @@ source_cell = Vector3i(6, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_vweoc"]
+[sub_resource type="Resource" id="Resource_deccj"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(7, 0, 5)
 cell_b = Vector3i(7, 0, 6)
@@ -2564,7 +2565,7 @@ source_cell = Vector3i(7, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_7k7xc"]
+[sub_resource type="Resource" id="Resource_02h6r"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(10, 0, 5)
 cell_b = Vector3i(10, 0, 6)
@@ -2582,7 +2583,7 @@ source_cell = Vector3i(10, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_o2gnu"]
+[sub_resource type="Resource" id="Resource_eakda"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 5)
 cell_b = Vector3i(11, 0, 6)
@@ -2600,7 +2601,7 @@ source_cell = Vector3i(11, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_xpbxv"]
+[sub_resource type="Resource" id="Resource_hlp7n"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 5)
 cell_b = Vector3i(15, 0, 5)
@@ -2618,7 +2619,7 @@ source_cell = Vector3i(15, 0, 5)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_3622d"]
+[sub_resource type="Resource" id="Resource_xegq2"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(1, 0, 6)
 cell_b = Vector3i(1, 0, 7)
@@ -2636,7 +2637,7 @@ source_cell = Vector3i(1, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_hfj0j"]
+[sub_resource type="Resource" id="Resource_rnlvr"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(2, 0, 6)
 cell_b = Vector3i(2, 0, 7)
@@ -2654,7 +2655,7 @@ source_cell = Vector3i(2, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_rjk4a"]
+[sub_resource type="Resource" id="Resource_yqvuu"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 6)
 cell_b = Vector3i(4, 0, 6)
@@ -2672,7 +2673,7 @@ source_cell = Vector3i(3, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_swwyj"]
+[sub_resource type="Resource" id="Resource_0ouw5"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 6)
 cell_b = Vector3i(3, 0, 7)
@@ -2690,7 +2691,7 @@ source_cell = Vector3i(3, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_el3ml"]
+[sub_resource type="Resource" id="Resource_b5nox"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(5, 0, 6)
 cell_b = Vector3i(6, 0, 6)
@@ -2708,7 +2709,7 @@ source_cell = Vector3i(6, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_a1rg3"]
+[sub_resource type="Resource" id="Resource_ac2tr"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(6, 0, 6)
 cell_b = Vector3i(6, 0, 7)
@@ -2726,7 +2727,7 @@ source_cell = Vector3i(6, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_4aoe4"]
+[sub_resource type="Resource" id="Resource_6u4re"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(7, 0, 6)
 cell_b = Vector3i(8, 0, 6)
@@ -2744,7 +2745,7 @@ source_cell = Vector3i(7, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_jrtbw"]
+[sub_resource type="Resource" id="Resource_x8xc7"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(7, 0, 6)
 cell_b = Vector3i(7, 0, 7)
@@ -2762,7 +2763,7 @@ source_cell = Vector3i(7, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_an1aj"]
+[sub_resource type="Resource" id="Resource_nhwin"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(9, 0, 6)
 cell_b = Vector3i(10, 0, 6)
@@ -2780,7 +2781,7 @@ source_cell = Vector3i(10, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_3k4ux"]
+[sub_resource type="Resource" id="Resource_brw0k"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(10, 0, 6)
 cell_b = Vector3i(10, 0, 7)
@@ -2798,7 +2799,7 @@ source_cell = Vector3i(10, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_qtugn"]
+[sub_resource type="Resource" id="Resource_qcl60"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 6)
 cell_b = Vector3i(12, 0, 6)
@@ -2816,7 +2817,7 @@ source_cell = Vector3i(11, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_vrk8k"]
+[sub_resource type="Resource" id="Resource_hqqw3"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 6)
 cell_b = Vector3i(11, 0, 7)
@@ -2834,7 +2835,7 @@ source_cell = Vector3i(11, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_xjaq6"]
+[sub_resource type="Resource" id="Resource_xrbey"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(12, 0, 6)
 cell_b = Vector3i(12, 0, 7)
@@ -2852,7 +2853,7 @@ source_cell = Vector3i(12, 0, 7)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_fasu2"]
+[sub_resource type="Resource" id="Resource_vweoc"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 6)
 cell_b = Vector3i(15, 0, 6)
@@ -2870,7 +2871,7 @@ source_cell = Vector3i(15, 0, 6)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_82m4w"]
+[sub_resource type="Resource" id="Resource_7k7xc"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 7)
 cell_b = Vector3i(1, 0, 7)
@@ -2888,7 +2889,7 @@ source_cell = Vector3i(0, 0, 7)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_xexxu"]
+[sub_resource type="Resource" id="Resource_o2gnu"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(4, 0, 7)
 cell_b = Vector3i(4, 0, 8)
@@ -2906,7 +2907,7 @@ source_cell = Vector3i(4, 0, 8)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_o3dq1"]
+[sub_resource type="Resource" id="Resource_xpbxv"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(5, 0, 7)
 cell_b = Vector3i(5, 0, 8)
@@ -2924,7 +2925,7 @@ source_cell = Vector3i(5, 0, 8)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_dbfmx"]
+[sub_resource type="Resource" id="Resource_3622d"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(7, 0, 7)
 cell_b = Vector3i(7, 0, 8)
@@ -2939,7 +2940,7 @@ source_cell = Vector3i(7, 0, 8)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_1ehgi"]
+[sub_resource type="Resource" id="Resource_hfj0j"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(8, 0, 7)
 cell_b = Vector3i(8, 0, 8)
@@ -2954,7 +2955,7 @@ source_cell = Vector3i(8, 0, 8)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_oarf3"]
+[sub_resource type="Resource" id="Resource_rjk4a"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 7)
 cell_b = Vector3i(12, 0, 7)
@@ -2972,7 +2973,7 @@ source_cell = Vector3i(12, 0, 7)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_wya55"]
+[sub_resource type="Resource" id="Resource_swwyj"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(12, 0, 7)
 cell_b = Vector3i(13, 0, 7)
@@ -2990,7 +2991,7 @@ source_cell = Vector3i(12, 0, 7)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_brt5n"]
+[sub_resource type="Resource" id="Resource_el3ml"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 7)
 cell_b = Vector3i(15, 0, 7)
@@ -3008,7 +3009,7 @@ source_cell = Vector3i(15, 0, 7)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_7oq0d"]
+[sub_resource type="Resource" id="Resource_a1rg3"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 8)
 cell_b = Vector3i(1, 0, 8)
@@ -3026,7 +3027,7 @@ source_cell = Vector3i(0, 0, 8)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_v778b"]
+[sub_resource type="Resource" id="Resource_4aoe4"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 8)
 cell_b = Vector3i(4, 0, 8)
@@ -3044,7 +3045,7 @@ source_cell = Vector3i(4, 0, 8)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_b3no7"]
+[sub_resource type="Resource" id="Resource_jrtbw"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(5, 0, 8)
 cell_b = Vector3i(6, 0, 8)
@@ -3062,7 +3063,7 @@ source_cell = Vector3i(5, 0, 8)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_ru5b2"]
+[sub_resource type="Resource" id="Resource_an1aj"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(6, 0, 8)
 cell_b = Vector3i(7, 0, 8)
@@ -3077,7 +3078,7 @@ source_cell = Vector3i(7, 0, 8)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_u7svs"]
+[sub_resource type="Resource" id="Resource_3k4ux"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(7, 0, 8)
 cell_b = Vector3i(7, 0, 9)
@@ -3092,7 +3093,7 @@ source_cell = Vector3i(7, 0, 8)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_phxly"]
+[sub_resource type="Resource" id="Resource_qtugn"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(8, 0, 8)
 cell_b = Vector3i(9, 0, 8)
@@ -3107,7 +3108,7 @@ source_cell = Vector3i(8, 0, 8)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_tvyoc"]
+[sub_resource type="Resource" id="Resource_vrk8k"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(8, 0, 8)
 cell_b = Vector3i(8, 0, 9)
@@ -3122,7 +3123,7 @@ source_cell = Vector3i(8, 0, 8)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_utnnp"]
+[sub_resource type="Resource" id="Resource_xjaq6"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 8)
 cell_b = Vector3i(12, 0, 8)
@@ -3140,7 +3141,7 @@ source_cell = Vector3i(12, 0, 8)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_ebqad"]
+[sub_resource type="Resource" id="Resource_fasu2"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(12, 0, 8)
 cell_b = Vector3i(13, 0, 8)
@@ -3158,7 +3159,7 @@ source_cell = Vector3i(12, 0, 8)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_fe2ir"]
+[sub_resource type="Resource" id="Resource_82m4w"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(12, 0, 8)
 cell_b = Vector3i(12, 0, 9)
@@ -3176,7 +3177,7 @@ source_cell = Vector3i(12, 0, 8)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_0lbkm"]
+[sub_resource type="Resource" id="Resource_xexxu"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 8)
 cell_b = Vector3i(15, 0, 8)
@@ -3194,7 +3195,7 @@ source_cell = Vector3i(15, 0, 8)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_1ca56"]
+[sub_resource type="Resource" id="Resource_o3dq1"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 9)
 cell_b = Vector3i(1, 0, 9)
@@ -3212,7 +3213,7 @@ source_cell = Vector3i(0, 0, 9)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_qhyyq"]
+[sub_resource type="Resource" id="Resource_dbfmx"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 9)
 cell_b = Vector3i(4, 0, 9)
@@ -3230,7 +3231,7 @@ source_cell = Vector3i(4, 0, 9)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_ujkxw"]
+[sub_resource type="Resource" id="Resource_1ehgi"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(4, 0, 9)
 cell_b = Vector3i(4, 0, 10)
@@ -3248,7 +3249,7 @@ source_cell = Vector3i(4, 0, 9)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_ai7bx"]
+[sub_resource type="Resource" id="Resource_oarf3"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(5, 0, 9)
 cell_b = Vector3i(6, 0, 9)
@@ -3266,7 +3267,7 @@ source_cell = Vector3i(5, 0, 9)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_tdewo"]
+[sub_resource type="Resource" id="Resource_wya55"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(5, 0, 9)
 cell_b = Vector3i(5, 0, 10)
@@ -3284,7 +3285,7 @@ source_cell = Vector3i(5, 0, 9)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_1woet"]
+[sub_resource type="Resource" id="Resource_brt5n"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(12, 0, 9)
 cell_b = Vector3i(12, 0, 10)
@@ -3302,7 +3303,7 @@ source_cell = Vector3i(12, 0, 10)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_p0k2r"]
+[sub_resource type="Resource" id="Resource_7oq0d"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(13, 0, 9)
 cell_b = Vector3i(13, 0, 10)
@@ -3317,7 +3318,7 @@ source_cell = Vector3i(13, 0, 10)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_qt65j"]
+[sub_resource type="Resource" id="Resource_v778b"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 9)
 cell_b = Vector3i(15, 0, 9)
@@ -3335,7 +3336,7 @@ source_cell = Vector3i(15, 0, 9)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_nsgcu"]
+[sub_resource type="Resource" id="Resource_b3no7"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 10)
 cell_b = Vector3i(1, 0, 10)
@@ -3353,7 +3354,7 @@ source_cell = Vector3i(0, 0, 10)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_p1rvh"]
+[sub_resource type="Resource" id="Resource_ru5b2"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(2, 0, 10)
 cell_b = Vector3i(2, 0, 11)
@@ -3368,7 +3369,7 @@ source_cell = Vector3i(2, 0, 11)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_34bj4"]
+[sub_resource type="Resource" id="Resource_u7svs"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 10)
 cell_b = Vector3i(3, 0, 11)
@@ -3383,7 +3384,7 @@ source_cell = Vector3i(3, 0, 11)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_w813l"]
+[sub_resource type="Resource" id="Resource_phxly"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(9, 0, 10)
 cell_b = Vector3i(9, 0, 11)
@@ -3401,7 +3402,7 @@ source_cell = Vector3i(9, 0, 11)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_cuqmp"]
+[sub_resource type="Resource" id="Resource_tvyoc"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(10, 0, 10)
 cell_b = Vector3i(10, 0, 11)
@@ -3419,7 +3420,7 @@ source_cell = Vector3i(10, 0, 11)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_8r54m"]
+[sub_resource type="Resource" id="Resource_utnnp"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 10)
 cell_b = Vector3i(12, 0, 10)
@@ -3437,7 +3438,7 @@ source_cell = Vector3i(12, 0, 10)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_fuub6"]
+[sub_resource type="Resource" id="Resource_ebqad"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(13, 0, 10)
 cell_b = Vector3i(14, 0, 10)
@@ -3452,7 +3453,7 @@ source_cell = Vector3i(13, 0, 10)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_hplah"]
+[sub_resource type="Resource" id="Resource_fe2ir"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(13, 0, 10)
 cell_b = Vector3i(13, 0, 11)
@@ -3467,7 +3468,7 @@ source_cell = Vector3i(13, 0, 10)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_xalkb"]
+[sub_resource type="Resource" id="Resource_0lbkm"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 10)
 cell_b = Vector3i(15, 0, 10)
@@ -3485,7 +3486,7 @@ source_cell = Vector3i(15, 0, 10)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_76g75"]
+[sub_resource type="Resource" id="Resource_1ca56"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 11)
 cell_b = Vector3i(1, 0, 11)
@@ -3503,7 +3504,7 @@ source_cell = Vector3i(0, 0, 11)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_uljwb"]
+[sub_resource type="Resource" id="Resource_qhyyq"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(1, 0, 11)
 cell_b = Vector3i(2, 0, 11)
@@ -3518,7 +3519,7 @@ source_cell = Vector3i(2, 0, 11)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_52w58"]
+[sub_resource type="Resource" id="Resource_ujkxw"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(2, 0, 11)
 cell_b = Vector3i(2, 0, 12)
@@ -3533,7 +3534,7 @@ source_cell = Vector3i(2, 0, 11)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_ahx73"]
+[sub_resource type="Resource" id="Resource_ai7bx"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 11)
 cell_b = Vector3i(4, 0, 11)
@@ -3548,7 +3549,7 @@ source_cell = Vector3i(3, 0, 11)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_ibfov"]
+[sub_resource type="Resource" id="Resource_tdewo"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 11)
 cell_b = Vector3i(3, 0, 12)
@@ -3563,7 +3564,7 @@ source_cell = Vector3i(3, 0, 11)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_57y6h"]
+[sub_resource type="Resource" id="Resource_1woet"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(7, 0, 11)
 cell_b = Vector3i(7, 0, 12)
@@ -3578,7 +3579,7 @@ source_cell = Vector3i(7, 0, 12)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_fga0n"]
+[sub_resource type="Resource" id="Resource_p0k2r"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(8, 0, 11)
 cell_b = Vector3i(9, 0, 11)
@@ -3596,7 +3597,7 @@ source_cell = Vector3i(9, 0, 11)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_drwol"]
+[sub_resource type="Resource" id="Resource_qt65j"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(9, 0, 11)
 cell_b = Vector3i(9, 0, 12)
@@ -3614,7 +3615,7 @@ source_cell = Vector3i(9, 0, 11)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_2rmx2"]
+[sub_resource type="Resource" id="Resource_nsgcu"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(10, 0, 11)
 cell_b = Vector3i(11, 0, 11)
@@ -3632,7 +3633,7 @@ source_cell = Vector3i(10, 0, 11)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_or4ai"]
+[sub_resource type="Resource" id="Resource_p1rvh"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(10, 0, 11)
 cell_b = Vector3i(10, 0, 12)
@@ -3650,7 +3651,7 @@ source_cell = Vector3i(10, 0, 11)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_l0adp"]
+[sub_resource type="Resource" id="Resource_34bj4"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 11)
 cell_b = Vector3i(12, 0, 11)
@@ -3668,7 +3669,7 @@ source_cell = Vector3i(12, 0, 11)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_neygm"]
+[sub_resource type="Resource" id="Resource_w813l"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(12, 0, 11)
 cell_b = Vector3i(13, 0, 11)
@@ -3686,7 +3687,7 @@ source_cell = Vector3i(12, 0, 11)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_sxucg"]
+[sub_resource type="Resource" id="Resource_cuqmp"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 11)
 cell_b = Vector3i(15, 0, 11)
@@ -3704,7 +3705,7 @@ source_cell = Vector3i(15, 0, 11)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_lu7o1"]
+[sub_resource type="Resource" id="Resource_8r54m"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 12)
 cell_b = Vector3i(1, 0, 12)
@@ -3722,7 +3723,7 @@ source_cell = Vector3i(0, 0, 12)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_v5or7"]
+[sub_resource type="Resource" id="Resource_fuub6"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(6, 0, 12)
 cell_b = Vector3i(7, 0, 12)
@@ -3737,7 +3738,7 @@ source_cell = Vector3i(7, 0, 12)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_beb2l"]
+[sub_resource type="Resource" id="Resource_hplah"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(7, 0, 12)
 cell_b = Vector3i(8, 0, 12)
@@ -3752,7 +3753,7 @@ source_cell = Vector3i(7, 0, 12)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_2f77g"]
+[sub_resource type="Resource" id="Resource_xalkb"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(7, 0, 12)
 cell_b = Vector3i(7, 0, 13)
@@ -3767,7 +3768,7 @@ source_cell = Vector3i(7, 0, 12)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_irdut"]
+[sub_resource type="Resource" id="Resource_76g75"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 12)
 cell_b = Vector3i(12, 0, 12)
@@ -3785,7 +3786,7 @@ source_cell = Vector3i(12, 0, 12)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_qi8qp"]
+[sub_resource type="Resource" id="Resource_uljwb"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(12, 0, 12)
 cell_b = Vector3i(13, 0, 12)
@@ -3803,7 +3804,7 @@ source_cell = Vector3i(12, 0, 12)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_5f7g6"]
+[sub_resource type="Resource" id="Resource_52w58"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 12)
 cell_b = Vector3i(15, 0, 12)
@@ -3821,7 +3822,7 @@ source_cell = Vector3i(15, 0, 12)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_6uw2o"]
+[sub_resource type="Resource" id="Resource_ahx73"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 13)
 cell_b = Vector3i(1, 0, 13)
@@ -3839,7 +3840,7 @@ source_cell = Vector3i(0, 0, 13)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_qgakg"]
+[sub_resource type="Resource" id="Resource_ibfov"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(1, 0, 13)
 cell_b = Vector3i(1, 0, 14)
@@ -3857,7 +3858,7 @@ source_cell = Vector3i(1, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_3rls0"]
+[sub_resource type="Resource" id="Resource_57y6h"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(2, 0, 13)
 cell_b = Vector3i(2, 0, 14)
@@ -3875,7 +3876,7 @@ source_cell = Vector3i(2, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_0enhj"]
+[sub_resource type="Resource" id="Resource_fga0n"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 13)
 cell_b = Vector3i(3, 0, 14)
@@ -3893,7 +3894,7 @@ source_cell = Vector3i(3, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_jvbcw"]
+[sub_resource type="Resource" id="Resource_drwol"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(4, 0, 13)
 cell_b = Vector3i(4, 0, 14)
@@ -3911,7 +3912,7 @@ source_cell = Vector3i(4, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_pw5ra"]
+[sub_resource type="Resource" id="Resource_2rmx2"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(5, 0, 13)
 cell_b = Vector3i(5, 0, 14)
@@ -3929,7 +3930,7 @@ source_cell = Vector3i(5, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_aajbp"]
+[sub_resource type="Resource" id="Resource_or4ai"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(10, 0, 13)
 cell_b = Vector3i(10, 0, 14)
@@ -3947,7 +3948,7 @@ source_cell = Vector3i(10, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_asvto"]
+[sub_resource type="Resource" id="Resource_l0adp"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 13)
 cell_b = Vector3i(12, 0, 13)
@@ -3965,7 +3966,7 @@ source_cell = Vector3i(12, 0, 13)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_qv3jt"]
+[sub_resource type="Resource" id="Resource_neygm"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 13)
 cell_b = Vector3i(11, 0, 14)
@@ -3983,7 +3984,7 @@ source_cell = Vector3i(11, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_otpyg"]
+[sub_resource type="Resource" id="Resource_sxucg"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(12, 0, 13)
 cell_b = Vector3i(13, 0, 13)
@@ -4001,7 +4002,7 @@ source_cell = Vector3i(12, 0, 13)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_6gdy5"]
+[sub_resource type="Resource" id="Resource_lu7o1"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 13)
 cell_b = Vector3i(15, 0, 13)
@@ -4019,7 +4020,7 @@ source_cell = Vector3i(15, 0, 13)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_fk7xi"]
+[sub_resource type="Resource" id="Resource_v5or7"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(1, 0, 14)
 cell_b = Vector3i(1, 0, 15)
@@ -4037,7 +4038,7 @@ source_cell = Vector3i(1, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_ho83a"]
+[sub_resource type="Resource" id="Resource_beb2l"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(2, 0, 14)
 cell_b = Vector3i(2, 0, 15)
@@ -4055,7 +4056,7 @@ source_cell = Vector3i(2, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_4vxu1"]
+[sub_resource type="Resource" id="Resource_2f77g"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 14)
 cell_b = Vector3i(3, 0, 15)
@@ -4073,7 +4074,7 @@ source_cell = Vector3i(3, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_6mpiu"]
+[sub_resource type="Resource" id="Resource_irdut"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(4, 0, 14)
 cell_b = Vector3i(4, 0, 15)
@@ -4091,7 +4092,7 @@ source_cell = Vector3i(4, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_8sfse"]
+[sub_resource type="Resource" id="Resource_qi8qp"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(5, 0, 14)
 cell_b = Vector3i(6, 0, 14)
@@ -4109,7 +4110,7 @@ source_cell = Vector3i(5, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_0wv82"]
+[sub_resource type="Resource" id="Resource_5f7g6"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(5, 0, 14)
 cell_b = Vector3i(5, 0, 15)
@@ -4127,7 +4128,7 @@ source_cell = Vector3i(5, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_10408"]
+[sub_resource type="Resource" id="Resource_6uw2o"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(9, 0, 14)
 cell_b = Vector3i(10, 0, 14)
@@ -4145,7 +4146,7 @@ source_cell = Vector3i(10, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_pckje"]
+[sub_resource type="Resource" id="Resource_qgakg"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(10, 0, 14)
 cell_b = Vector3i(10, 0, 15)
@@ -4163,7 +4164,7 @@ source_cell = Vector3i(10, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_r8ht2"]
+[sub_resource type="Resource" id="Resource_3rls0"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 14)
 cell_b = Vector3i(11, 0, 15)
@@ -4181,7 +4182,7 @@ source_cell = Vector3i(11, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_7p6m4"]
+[sub_resource type="Resource" id="Resource_0enhj"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(12, 0, 14)
 cell_b = Vector3i(13, 0, 14)
@@ -4199,7 +4200,7 @@ source_cell = Vector3i(12, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_47t72"]
+[sub_resource type="Resource" id="Resource_jvbcw"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(12, 0, 14)
 cell_b = Vector3i(12, 0, 15)
@@ -4217,7 +4218,7 @@ source_cell = Vector3i(12, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_7dx31"]
+[sub_resource type="Resource" id="Resource_pw5ra"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 14)
 cell_b = Vector3i(15, 0, 14)
@@ -4235,7 +4236,7 @@ source_cell = Vector3i(15, 0, 14)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_hew5a"]
+[sub_resource type="Resource" id="Resource_aajbp"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 15)
 cell_b = Vector3i(1, 0, 15)
@@ -4253,7 +4254,7 @@ source_cell = Vector3i(0, 0, 15)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_knuvo"]
+[sub_resource type="Resource" id="Resource_asvto"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(5, 0, 15)
 cell_b = Vector3i(5, 0, 16)
@@ -4268,7 +4269,7 @@ source_cell = Vector3i(5, 0, 16)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_3bt6c"]
+[sub_resource type="Resource" id="Resource_qv3jt"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(6, 0, 15)
 cell_b = Vector3i(6, 0, 16)
@@ -4283,7 +4284,7 @@ source_cell = Vector3i(6, 0, 16)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_vjbco"]
+[sub_resource type="Resource" id="Resource_otpyg"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(10, 0, 15)
 cell_b = Vector3i(10, 0, 16)
@@ -4298,7 +4299,7 @@ source_cell = Vector3i(10, 0, 16)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_3w3m3"]
+[sub_resource type="Resource" id="Resource_6gdy5"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 15)
 cell_b = Vector3i(15, 0, 15)
@@ -4316,7 +4317,7 @@ source_cell = Vector3i(15, 0, 15)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_3jysp"]
+[sub_resource type="Resource" id="Resource_fk7xi"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 16)
 cell_b = Vector3i(1, 0, 16)
@@ -4334,7 +4335,7 @@ source_cell = Vector3i(0, 0, 16)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_yr2io"]
+[sub_resource type="Resource" id="Resource_ho83a"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(4, 0, 16)
 cell_b = Vector3i(5, 0, 16)
@@ -4349,7 +4350,7 @@ source_cell = Vector3i(5, 0, 16)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_rgc5o"]
+[sub_resource type="Resource" id="Resource_4vxu1"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(5, 0, 16)
 cell_b = Vector3i(5, 0, 17)
@@ -4364,7 +4365,7 @@ source_cell = Vector3i(5, 0, 16)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_6gmfn"]
+[sub_resource type="Resource" id="Resource_6mpiu"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(6, 0, 16)
 cell_b = Vector3i(7, 0, 16)
@@ -4379,7 +4380,7 @@ source_cell = Vector3i(6, 0, 16)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_1oodl"]
+[sub_resource type="Resource" id="Resource_8sfse"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(6, 0, 16)
 cell_b = Vector3i(6, 0, 17)
@@ -4394,7 +4395,7 @@ source_cell = Vector3i(6, 0, 16)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_5g318"]
+[sub_resource type="Resource" id="Resource_0wv82"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(9, 0, 16)
 cell_b = Vector3i(10, 0, 16)
@@ -4409,7 +4410,7 @@ source_cell = Vector3i(10, 0, 16)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_85fve"]
+[sub_resource type="Resource" id="Resource_10408"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(10, 0, 16)
 cell_b = Vector3i(11, 0, 16)
@@ -4424,7 +4425,7 @@ source_cell = Vector3i(10, 0, 16)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_xissp"]
+[sub_resource type="Resource" id="Resource_pckje"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(10, 0, 16)
 cell_b = Vector3i(10, 0, 17)
@@ -4439,7 +4440,7 @@ source_cell = Vector3i(10, 0, 16)
 source_placeable_id = &"tile.structure.low_cover"
 source_mesh_item_id = 3
 
-[sub_resource type="Resource" id="Resource_rejto"]
+[sub_resource type="Resource" id="Resource_r8ht2"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 16)
 cell_b = Vector3i(15, 0, 16)
@@ -4457,7 +4458,7 @@ source_cell = Vector3i(15, 0, 16)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_hfo76"]
+[sub_resource type="Resource" id="Resource_7p6m4"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 17)
 cell_b = Vector3i(1, 0, 17)
@@ -4475,7 +4476,7 @@ source_cell = Vector3i(0, 0, 17)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_2aiit"]
+[sub_resource type="Resource" id="Resource_47t72"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 17)
 cell_b = Vector3i(15, 0, 17)
@@ -4493,7 +4494,7 @@ source_cell = Vector3i(15, 0, 17)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_fap15"]
+[sub_resource type="Resource" id="Resource_7dx31"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(0, 0, 18)
 cell_b = Vector3i(1, 0, 18)
@@ -4511,7 +4512,7 @@ source_cell = Vector3i(0, 0, 18)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_n2e6n"]
+[sub_resource type="Resource" id="Resource_hew5a"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(1, 0, 18)
 cell_b = Vector3i(1, 0, 19)
@@ -4529,7 +4530,7 @@ source_cell = Vector3i(1, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_b81vq"]
+[sub_resource type="Resource" id="Resource_knuvo"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(2, 0, 18)
 cell_b = Vector3i(2, 0, 19)
@@ -4547,7 +4548,7 @@ source_cell = Vector3i(2, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_5khfm"]
+[sub_resource type="Resource" id="Resource_3bt6c"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(3, 0, 18)
 cell_b = Vector3i(3, 0, 19)
@@ -4565,7 +4566,7 @@ source_cell = Vector3i(3, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_yhiak"]
+[sub_resource type="Resource" id="Resource_vjbco"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(4, 0, 18)
 cell_b = Vector3i(4, 0, 19)
@@ -4583,7 +4584,7 @@ source_cell = Vector3i(4, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_epjdb"]
+[sub_resource type="Resource" id="Resource_3w3m3"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(5, 0, 18)
 cell_b = Vector3i(5, 0, 19)
@@ -4601,7 +4602,7 @@ source_cell = Vector3i(5, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_mthcc"]
+[sub_resource type="Resource" id="Resource_3jysp"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(6, 0, 18)
 cell_b = Vector3i(6, 0, 19)
@@ -4619,7 +4620,7 @@ source_cell = Vector3i(6, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_w7jbe"]
+[sub_resource type="Resource" id="Resource_yr2io"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(7, 0, 18)
 cell_b = Vector3i(7, 0, 19)
@@ -4637,7 +4638,7 @@ source_cell = Vector3i(7, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_c4824"]
+[sub_resource type="Resource" id="Resource_rgc5o"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(8, 0, 18)
 cell_b = Vector3i(8, 0, 19)
@@ -4655,7 +4656,7 @@ source_cell = Vector3i(8, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_mmbqn"]
+[sub_resource type="Resource" id="Resource_6gmfn"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(9, 0, 18)
 cell_b = Vector3i(9, 0, 19)
@@ -4673,7 +4674,7 @@ source_cell = Vector3i(9, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_tjhqt"]
+[sub_resource type="Resource" id="Resource_1oodl"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(10, 0, 18)
 cell_b = Vector3i(10, 0, 19)
@@ -4691,7 +4692,7 @@ source_cell = Vector3i(10, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_at7y7"]
+[sub_resource type="Resource" id="Resource_5g318"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(11, 0, 18)
 cell_b = Vector3i(11, 0, 19)
@@ -4709,7 +4710,7 @@ source_cell = Vector3i(11, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_5866l"]
+[sub_resource type="Resource" id="Resource_85fve"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(12, 0, 18)
 cell_b = Vector3i(12, 0, 19)
@@ -4727,7 +4728,7 @@ source_cell = Vector3i(12, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_lr7rs"]
+[sub_resource type="Resource" id="Resource_xissp"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(13, 0, 18)
 cell_b = Vector3i(13, 0, 19)
@@ -4745,7 +4746,7 @@ source_cell = Vector3i(13, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_qminf"]
+[sub_resource type="Resource" id="Resource_rejto"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 18)
 cell_b = Vector3i(15, 0, 18)
@@ -4763,7 +4764,7 @@ source_cell = Vector3i(15, 0, 18)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_v21s0"]
+[sub_resource type="Resource" id="Resource_hfo76"]
 script = ExtResource("2_5m2d4")
 cell_a = Vector3i(14, 0, 18)
 cell_b = Vector3i(14, 0, 19)
@@ -4781,7 +4782,23 @@ source_cell = Vector3i(14, 0, 19)
 source_placeable_id = &"tile.structure.wall"
 source_mesh_item_id = 2
 
-[sub_resource type="Resource" id="Resource_g4ydc"]
+[sub_resource type="Resource" id="Resource_2aiit"]
+script = ExtResource("7_t132w")
+object_id = &"breakable_cover_10"
+definition_id = &"portable_cover"
+cell = Vector3i(10, 0, 8)
+scene = ExtResource("8_5m2d4")
+blocks_movement = true
+
+[sub_resource type="Resource" id="Resource_fap15"]
+script = ExtResource("7_t132w")
+object_id = &"breakable_cover_2"
+definition_id = &"portable_cover"
+cell = Vector3i(2, 0, 12)
+scene = ExtResource("8_5m2d4")
+blocks_movement = true
+
+[sub_resource type="Resource" id="Resource_n2e6n"]
 script = ExtResource("7_t132w")
 object_id = &"gym_barrel"
 definition_id = &"prototype_explosive_barrel"
@@ -4790,7 +4807,7 @@ cell = Vector3i(2, 0, 9)
 scene = ExtResource("8_l3701")
 blocks_movement = true
 
-[sub_resource type="Resource" id="Resource_7frgy"]
+[sub_resource type="Resource" id="Resource_b81vq"]
 script = ExtResource("7_t132w")
 object_id = &"gym_exit"
 definition_id = &"prototype_extraction_marker"
@@ -4798,7 +4815,7 @@ kind = 1
 cell = Vector3i(13, 0, 17)
 scene = ExtResource("9_2128q")
 
-[sub_resource type="Resource" id="Resource_wmg7x"]
+[sub_resource type="Resource" id="Resource_5khfm"]
 script = ExtResource("7_t132w")
 object_id = &"gym_terminal"
 definition_id = &"prototype_objective_terminal"
@@ -4807,7 +4824,7 @@ cell = Vector3i(8, 0, 17)
 scene = ExtResource("10_nay45")
 blocks_movement = true
 
-[sub_resource type="Resource" id="Resource_cnpyj"]
+[sub_resource type="Resource" id="Resource_yhiak"]
 script = ExtResource("13_27mvw")
 spawn_id = &"gym_guard_b"
 unit_name = &"入口守卫乙"
@@ -4818,7 +4835,7 @@ archetype = ExtResource("14_ju5u8")
 weapon = ExtResource("15_cc1rh")
 encounter_id = &"entry"
 
-[sub_resource type="Resource" id="Resource_omlhp"]
+[sub_resource type="Resource" id="Resource_epjdb"]
 script = ExtResource("13_27mvw")
 spawn_id = &"gym_guard_a"
 unit_name = &"入口守卫甲"
@@ -4829,7 +4846,7 @@ archetype = ExtResource("14_ju5u8")
 weapon = ExtResource("15_cc1rh")
 encounter_id = &"entry"
 
-[sub_resource type="Resource" id="Resource_num8u"]
+[sub_resource type="Resource" id="Resource_mthcc"]
 script = ExtResource("13_27mvw")
 spawn_id = &"gym_charlie"
 unit_name = &"支援手·查理"
@@ -4837,7 +4854,7 @@ cell = Vector3i(9, 0, 2)
 visual_color = Color(0.32941177, 0.70980394, 0.8627451, 1)
 archetype = ExtResource("16_v1vf1")
 
-[sub_resource type="Resource" id="Resource_gnir3"]
+[sub_resource type="Resource" id="Resource_w7jbe"]
 script = ExtResource("13_27mvw")
 spawn_id = &"gym_yard_b"
 unit_name = &"检修道守卫"
@@ -4847,7 +4864,7 @@ visual_color = Color(0.84705883, 0.45882353, 0.32156864, 1)
 archetype = ExtResource("17_m72bv")
 encounter_id = &"yard"
 
-[sub_resource type="Resource" id="Resource_38ygu"]
+[sub_resource type="Resource" id="Resource_c4824"]
 script = ExtResource("13_27mvw")
 spawn_id = &"gym_bravo"
 unit_name = &"破门手·布拉沃"
@@ -4855,7 +4872,7 @@ cell = Vector3i(7, 0, 2)
 visual_color = Color(0.32941177, 0.70980394, 0.8627451, 1)
 archetype = ExtResource("18_nnd8o")
 
-[sub_resource type="Resource" id="Resource_janam"]
+[sub_resource type="Resource" id="Resource_mmbqn"]
 script = ExtResource("13_27mvw")
 spawn_id = &"gym_alpha"
 unit_name = &"突击手·阿尔法"
@@ -4863,7 +4880,7 @@ cell = Vector3i(5, 0, 2)
 visual_color = Color(0.32941177, 0.70980394, 0.8627451, 1)
 archetype = ExtResource("16_v1vf1")
 
-[sub_resource type="Resource" id="Resource_um278"]
+[sub_resource type="Resource" id="Resource_tjhqt"]
 script = ExtResource("13_27mvw")
 spawn_id = &"gym_command_a"
 unit_name = &"终端守卫"
@@ -4874,7 +4891,7 @@ archetype = ExtResource("14_ju5u8")
 weapon = ExtResource("15_cc1rh")
 encounter_id = &"command"
 
-[sub_resource type="Resource" id="Resource_e7inm"]
+[sub_resource type="Resource" id="Resource_at7y7"]
 script = ExtResource("13_27mvw")
 spawn_id = &"gym_command_b"
 unit_name = &"终端突击兵"
@@ -4884,7 +4901,7 @@ visual_color = Color(0.84705883, 0.45882353, 0.32156864, 1)
 archetype = ExtResource("17_m72bv")
 encounter_id = &"command"
 
-[sub_resource type="Resource" id="Resource_im4gg"]
+[sub_resource type="Resource" id="Resource_5866l"]
 script = ExtResource("13_27mvw")
 spawn_id = &"gym_yard_a"
 unit_name = &"货场守卫"
@@ -4900,9 +4917,10 @@ script = ExtResource("12_nlrna")
 schema_version = 3
 map_id = &"gym"
 mission_definition = ExtResource("6_08m7v")
+starting_cover_devices = 2
 footprint_size = Vector2i(16, 20)
 authoring_scene_path = "res://scenes/maps/gym.tscn"
-cells = Array[ExtResource("1_0kyig")]([SubResource("Resource_uyqfx"), SubResource("Resource_cipdy"), SubResource("Resource_jva8x"), SubResource("Resource_pmaco"), SubResource("Resource_d3quh"), SubResource("Resource_oipi7"), SubResource("Resource_p63qb"), SubResource("Resource_ygqx6"), SubResource("Resource_7dhs0"), SubResource("Resource_v37g2"), SubResource("Resource_04yjf"), SubResource("Resource_ghu8e"), SubResource("Resource_55qcy"), SubResource("Resource_np1wp"), SubResource("Resource_s2u7d"), SubResource("Resource_obmlt"), SubResource("Resource_wu8jk"), SubResource("Resource_lfaib"), SubResource("Resource_83124"), SubResource("Resource_ufjqv"), SubResource("Resource_hyafd"), SubResource("Resource_qxsg4"), SubResource("Resource_kajxh"), SubResource("Resource_vf0gv"), SubResource("Resource_j3a1v"), SubResource("Resource_xrhhr"), SubResource("Resource_as41m"), SubResource("Resource_oo5nr"), SubResource("Resource_ym5wd"), SubResource("Resource_cch6c"), SubResource("Resource_75hhd"), SubResource("Resource_ps14x"), SubResource("Resource_mjuoi"), SubResource("Resource_ik6ul"), SubResource("Resource_enhr5"), SubResource("Resource_b745g"), SubResource("Resource_wyem3"), SubResource("Resource_g0k25"), SubResource("Resource_tffbb"), SubResource("Resource_cpxuk"), SubResource("Resource_x8bj2"), SubResource("Resource_acixl"), SubResource("Resource_8urs7"), SubResource("Resource_xfv4r"), SubResource("Resource_upofo"), SubResource("Resource_3he7m"), SubResource("Resource_7o1ik"), SubResource("Resource_aw3qk"), SubResource("Resource_qw0j8"), SubResource("Resource_3ccip"), SubResource("Resource_yc45s"), SubResource("Resource_oxs7d"), SubResource("Resource_yy6ts"), SubResource("Resource_hk5pq"), SubResource("Resource_st8l8"), SubResource("Resource_6hshu"), SubResource("Resource_uxh1h"), SubResource("Resource_prjtx"), SubResource("Resource_8xxf6"), SubResource("Resource_63stl"), SubResource("Resource_r2tib"), SubResource("Resource_njxdh"), SubResource("Resource_gdm28"), SubResource("Resource_eperb"), SubResource("Resource_fi42a"), SubResource("Resource_vhy1t"), SubResource("Resource_lskbe"), SubResource("Resource_1nes8"), SubResource("Resource_wuqpx"), SubResource("Resource_1opi4"), SubResource("Resource_k2vaf"), SubResource("Resource_2ui2i"), SubResource("Resource_c0u1q"), SubResource("Resource_gw2xj"), SubResource("Resource_yoeby"), SubResource("Resource_dhwmh"), SubResource("Resource_05p8n"), SubResource("Resource_fpxmt"), SubResource("Resource_60yle"), SubResource("Resource_vglax"), SubResource("Resource_fvj15"), SubResource("Resource_fxlf3"), SubResource("Resource_6rq0s"), SubResource("Resource_i3ws8"), SubResource("Resource_4v8qn"), SubResource("Resource_jmtya"), SubResource("Resource_24ok5"), SubResource("Resource_voco8"), SubResource("Resource_gb7px"), SubResource("Resource_ugspm"), SubResource("Resource_2wfb2"), SubResource("Resource_i6gf4"), SubResource("Resource_u1fff"), SubResource("Resource_te17o"), SubResource("Resource_7v7my"), SubResource("Resource_qvr7r"), SubResource("Resource_cc02e"), SubResource("Resource_bk52h"), SubResource("Resource_f1kta"), SubResource("Resource_qtjn1"), SubResource("Resource_of6hi"), SubResource("Resource_tn23s"), SubResource("Resource_is2fn"), SubResource("Resource_1qv4b"), SubResource("Resource_yi0w6"), SubResource("Resource_b7qbu"), SubResource("Resource_c2hoc"), SubResource("Resource_1o1em"), SubResource("Resource_mw1rn"), SubResource("Resource_wtwdt"), SubResource("Resource_iavfb"), SubResource("Resource_2ah2p"), SubResource("Resource_dlqqu"), SubResource("Resource_tfw36"), SubResource("Resource_rtqw2"), SubResource("Resource_yxy18"), SubResource("Resource_4hejj"), SubResource("Resource_rmjvo"), SubResource("Resource_7txd8"), SubResource("Resource_7f1ch"), SubResource("Resource_pnwco"), SubResource("Resource_v3nlb"), SubResource("Resource_0o42j"), SubResource("Resource_vrnv8"), SubResource("Resource_k2fcj"), SubResource("Resource_rkrui"), SubResource("Resource_0qh16"), SubResource("Resource_5f46v"), SubResource("Resource_85vrn"), SubResource("Resource_1wph0"), SubResource("Resource_520ar"), SubResource("Resource_1nl2h"), SubResource("Resource_7sttl"), SubResource("Resource_gqgj0"), SubResource("Resource_b5opw"), SubResource("Resource_3xwvt"), SubResource("Resource_bymcb"), SubResource("Resource_sd3nh"), SubResource("Resource_txdi0"), SubResource("Resource_34447"), SubResource("Resource_rmuvm"), SubResource("Resource_msvxg"), SubResource("Resource_1mfst"), SubResource("Resource_tnecv"), SubResource("Resource_ilv6w"), SubResource("Resource_xn7cm"), SubResource("Resource_lw0ee"), SubResource("Resource_44evg"), SubResource("Resource_o2h4y"), SubResource("Resource_wdj4d"), SubResource("Resource_lndn1"), SubResource("Resource_x5aro"), SubResource("Resource_iujh6"), SubResource("Resource_y7gm6"), SubResource("Resource_bvfla"), SubResource("Resource_eakpb"), SubResource("Resource_bhs5n"), SubResource("Resource_g03fp"), SubResource("Resource_fmyqy"), SubResource("Resource_5p7gk"), SubResource("Resource_rpoqk"), SubResource("Resource_x126b"), SubResource("Resource_7a4qf"), SubResource("Resource_jm5y3"), SubResource("Resource_bqd0i"), SubResource("Resource_cgv1m"), SubResource("Resource_ws6kv"), SubResource("Resource_llhlb"), SubResource("Resource_eq7lw"), SubResource("Resource_j2cup"), SubResource("Resource_xbi3n"), SubResource("Resource_mcl4e"), SubResource("Resource_fqlp7"), SubResource("Resource_dll2g"), SubResource("Resource_s7i5c"), SubResource("Resource_qulcg"), SubResource("Resource_lmi8l"), SubResource("Resource_bdl5c"), SubResource("Resource_l4weo"), SubResource("Resource_quqap"), SubResource("Resource_3mtdl"), SubResource("Resource_bnprv"), SubResource("Resource_sjjby"), SubResource("Resource_xchte"), SubResource("Resource_gfkad"), SubResource("Resource_b2s0i"), SubResource("Resource_q5r3k"), SubResource("Resource_14h1s"), SubResource("Resource_ppew0"), SubResource("Resource_dvbfy"), SubResource("Resource_gds5o"), SubResource("Resource_5wpk0"), SubResource("Resource_tg56g"), SubResource("Resource_pg2co"), SubResource("Resource_gkjdv"), SubResource("Resource_gj1ls"), SubResource("Resource_xiu68"), SubResource("Resource_mvhm8"), SubResource("Resource_mefud"), SubResource("Resource_241s1"), SubResource("Resource_fbo1a"), SubResource("Resource_3dp84"), SubResource("Resource_pypbs"), SubResource("Resource_fwjlr"), SubResource("Resource_hufn6"), SubResource("Resource_i7a3i"), SubResource("Resource_v6cr4"), SubResource("Resource_jj1wi"), SubResource("Resource_36kuj"), SubResource("Resource_tpwic"), SubResource("Resource_lv6t6"), SubResource("Resource_jlg84"), SubResource("Resource_pj0nw"), SubResource("Resource_cbmfc"), SubResource("Resource_i5wrw"), SubResource("Resource_uvm0s"), SubResource("Resource_sycsp"), SubResource("Resource_o7b0i"), SubResource("Resource_4s4p1"), SubResource("Resource_6omp6"), SubResource("Resource_0vkof"), SubResource("Resource_qta16"), SubResource("Resource_hjh7m"), SubResource("Resource_p26to"), SubResource("Resource_b8ipk"), SubResource("Resource_6vue5"), SubResource("Resource_4vx08"), SubResource("Resource_2kham"), SubResource("Resource_qpw74"), SubResource("Resource_tw2cc"), SubResource("Resource_fcm1u"), SubResource("Resource_3t1xu"), SubResource("Resource_qtrvn"), SubResource("Resource_itsor"), SubResource("Resource_u1302"), SubResource("Resource_dnx26"), SubResource("Resource_wqnm4"), SubResource("Resource_iyqw7"), SubResource("Resource_ybn8a"), SubResource("Resource_acbgp"), SubResource("Resource_70c3j"), SubResource("Resource_4j0ku"), SubResource("Resource_bw7gd"), SubResource("Resource_kss4m"), SubResource("Resource_sgqxp"), SubResource("Resource_jkdai"), SubResource("Resource_34f0a"), SubResource("Resource_kvsex"), SubResource("Resource_urp05"), SubResource("Resource_dgc5i"), SubResource("Resource_7ll01"), SubResource("Resource_opbng"), SubResource("Resource_xk632"), SubResource("Resource_1f5dc"), SubResource("Resource_wvsvh"), SubResource("Resource_k8s6s"), SubResource("Resource_owroa"), SubResource("Resource_owfoh"), SubResource("Resource_i3dwj"), SubResource("Resource_hmlk4"), SubResource("Resource_t4d4g"), SubResource("Resource_2501f"), SubResource("Resource_rpq7n"), SubResource("Resource_v5xtq"), SubResource("Resource_b11yy"), SubResource("Resource_prq37"), SubResource("Resource_2i3tl"), SubResource("Resource_kbb56"), SubResource("Resource_5ln62"), SubResource("Resource_c1ng4"), SubResource("Resource_cx8wt"), SubResource("Resource_y5joo"), SubResource("Resource_3csfl"), SubResource("Resource_1wsvg"), SubResource("Resource_mtrs4"), SubResource("Resource_4r1jj"), SubResource("Resource_chbd6"), SubResource("Resource_1wlj1"), SubResource("Resource_2gaye"), SubResource("Resource_tk1io"), SubResource("Resource_05b44"), SubResource("Resource_5xlej"), SubResource("Resource_7wnyg"), SubResource("Resource_8vs0i"), SubResource("Resource_v2h5i"), SubResource("Resource_o6klm"), SubResource("Resource_0ja2i"), SubResource("Resource_32bqu"), SubResource("Resource_2o57t"), SubResource("Resource_i60sj"), SubResource("Resource_0040l"), SubResource("Resource_8e4dd"), SubResource("Resource_oh3sb"), SubResource("Resource_8yrq5"), SubResource("Resource_b8t1w"), SubResource("Resource_pellu"), SubResource("Resource_v2f5f"), SubResource("Resource_c3gwo"), SubResource("Resource_4ejym"), SubResource("Resource_5u6uq"), SubResource("Resource_kx5qu"), SubResource("Resource_5fkba"), SubResource("Resource_ueu13"), SubResource("Resource_q0orf"), SubResource("Resource_26fqs"), SubResource("Resource_4rewk"), SubResource("Resource_hau0e"), SubResource("Resource_7d3ai"), SubResource("Resource_xfb4q"), SubResource("Resource_0adtm"), SubResource("Resource_6fxej"), SubResource("Resource_1dvpr"), SubResource("Resource_nxw83"), SubResource("Resource_lk8pg"), SubResource("Resource_1pg8k"), SubResource("Resource_ykfv8"), SubResource("Resource_qy604"), SubResource("Resource_f0vc5"), SubResource("Resource_8uguf"), SubResource("Resource_wrbcq")])
-spawns = Array[ExtResource("13_27mvw")]([SubResource("Resource_cnpyj"), SubResource("Resource_omlhp"), SubResource("Resource_num8u"), SubResource("Resource_gnir3"), SubResource("Resource_38ygu"), SubResource("Resource_janam"), SubResource("Resource_um278"), SubResource("Resource_e7inm"), SubResource("Resource_im4gg")])
-objects = Array[ExtResource("7_t132w")]([SubResource("Resource_g4ydc"), SubResource("Resource_7frgy"), SubResource("Resource_wmg7x")])
-edges = Array[ExtResource("2_5m2d4")]([SubResource("Resource_emd8x"), SubResource("Resource_b16x5"), SubResource("Resource_mdrgg"), SubResource("Resource_k0xot"), SubResource("Resource_deccj"), SubResource("Resource_02h6r"), SubResource("Resource_eakda"), SubResource("Resource_hlp7n"), SubResource("Resource_xegq2"), SubResource("Resource_rnlvr"), SubResource("Resource_yqvuu"), SubResource("Resource_0ouw5"), SubResource("Resource_b5nox"), SubResource("Resource_ac2tr"), SubResource("Resource_6u4re"), SubResource("Resource_x8xc7"), SubResource("Resource_nhwin"), SubResource("Resource_brw0k"), SubResource("Resource_qcl60"), SubResource("Resource_hqqw3"), SubResource("Resource_xrbey"), SubResource("Resource_vweoc"), SubResource("Resource_7k7xc"), SubResource("Resource_o2gnu"), SubResource("Resource_xpbxv"), SubResource("Resource_3622d"), SubResource("Resource_hfj0j"), SubResource("Resource_rjk4a"), SubResource("Resource_swwyj"), SubResource("Resource_el3ml"), SubResource("Resource_a1rg3"), SubResource("Resource_4aoe4"), SubResource("Resource_jrtbw"), SubResource("Resource_an1aj"), SubResource("Resource_3k4ux"), SubResource("Resource_qtugn"), SubResource("Resource_vrk8k"), SubResource("Resource_xjaq6"), SubResource("Resource_fasu2"), SubResource("Resource_82m4w"), SubResource("Resource_xexxu"), SubResource("Resource_o3dq1"), SubResource("Resource_dbfmx"), SubResource("Resource_1ehgi"), SubResource("Resource_oarf3"), SubResource("Resource_wya55"), SubResource("Resource_brt5n"), SubResource("Resource_7oq0d"), SubResource("Resource_v778b"), SubResource("Resource_b3no7"), SubResource("Resource_ru5b2"), SubResource("Resource_u7svs"), SubResource("Resource_phxly"), SubResource("Resource_tvyoc"), SubResource("Resource_utnnp"), SubResource("Resource_ebqad"), SubResource("Resource_fe2ir"), SubResource("Resource_0lbkm"), SubResource("Resource_1ca56"), SubResource("Resource_qhyyq"), SubResource("Resource_ujkxw"), SubResource("Resource_ai7bx"), SubResource("Resource_tdewo"), SubResource("Resource_1woet"), SubResource("Resource_p0k2r"), SubResource("Resource_qt65j"), SubResource("Resource_nsgcu"), SubResource("Resource_p1rvh"), SubResource("Resource_34bj4"), SubResource("Resource_w813l"), SubResource("Resource_cuqmp"), SubResource("Resource_8r54m"), SubResource("Resource_fuub6"), SubResource("Resource_hplah"), SubResource("Resource_xalkb"), SubResource("Resource_76g75"), SubResource("Resource_uljwb"), SubResource("Resource_52w58"), SubResource("Resource_ahx73"), SubResource("Resource_ibfov"), SubResource("Resource_57y6h"), SubResource("Resource_fga0n"), SubResource("Resource_drwol"), SubResource("Resource_2rmx2"), SubResource("Resource_or4ai"), SubResource("Resource_l0adp"), SubResource("Resource_neygm"), SubResource("Resource_sxucg"), SubResource("Resource_lu7o1"), SubResource("Resource_v5or7"), SubResource("Resource_beb2l"), SubResource("Resource_2f77g"), SubResource("Resource_irdut"), SubResource("Resource_qi8qp"), SubResource("Resource_5f7g6"), SubResource("Resource_6uw2o"), SubResource("Resource_qgakg"), SubResource("Resource_3rls0"), SubResource("Resource_0enhj"), SubResource("Resource_jvbcw"), SubResource("Resource_pw5ra"), SubResource("Resource_aajbp"), SubResource("Resource_asvto"), SubResource("Resource_qv3jt"), SubResource("Resource_otpyg"), SubResource("Resource_6gdy5"), SubResource("Resource_fk7xi"), SubResource("Resource_ho83a"), SubResource("Resource_4vxu1"), SubResource("Resource_6mpiu"), SubResource("Resource_8sfse"), SubResource("Resource_0wv82"), SubResource("Resource_10408"), SubResource("Resource_pckje"), SubResource("Resource_r8ht2"), SubResource("Resource_7p6m4"), SubResource("Resource_47t72"), SubResource("Resource_7dx31"), SubResource("Resource_hew5a"), SubResource("Resource_knuvo"), SubResource("Resource_3bt6c"), SubResource("Resource_vjbco"), SubResource("Resource_3w3m3"), SubResource("Resource_3jysp"), SubResource("Resource_yr2io"), SubResource("Resource_rgc5o"), SubResource("Resource_6gmfn"), SubResource("Resource_1oodl"), SubResource("Resource_5g318"), SubResource("Resource_85fve"), SubResource("Resource_xissp"), SubResource("Resource_rejto"), SubResource("Resource_hfo76"), SubResource("Resource_2aiit"), SubResource("Resource_fap15"), SubResource("Resource_n2e6n"), SubResource("Resource_b81vq"), SubResource("Resource_5khfm"), SubResource("Resource_yhiak"), SubResource("Resource_epjdb"), SubResource("Resource_mthcc"), SubResource("Resource_w7jbe"), SubResource("Resource_c4824"), SubResource("Resource_mmbqn"), SubResource("Resource_tjhqt"), SubResource("Resource_at7y7"), SubResource("Resource_5866l"), SubResource("Resource_lr7rs"), SubResource("Resource_qminf"), SubResource("Resource_v21s0")])
+cells = Array[ExtResource("1_0kyig")]([SubResource("Resource_tbtth"), SubResource("Resource_jitfk"), SubResource("Resource_geo0k"), SubResource("Resource_08m7v"), SubResource("Resource_t132w"), SubResource("Resource_l3701"), SubResource("Resource_2128q"), SubResource("Resource_nay45"), SubResource("Resource_4ni0w"), SubResource("Resource_nlrna"), SubResource("Resource_27mvw"), SubResource("Resource_ju5u8"), SubResource("Resource_cc1rh"), SubResource("Resource_v1vf1"), SubResource("Resource_m72bv"), SubResource("Resource_nnd8o"), SubResource("Resource_l5b50"), SubResource("Resource_uyqfx"), SubResource("Resource_cipdy"), SubResource("Resource_jva8x"), SubResource("Resource_pmaco"), SubResource("Resource_d3quh"), SubResource("Resource_oipi7"), SubResource("Resource_p63qb"), SubResource("Resource_ygqx6"), SubResource("Resource_7dhs0"), SubResource("Resource_v37g2"), SubResource("Resource_04yjf"), SubResource("Resource_ghu8e"), SubResource("Resource_55qcy"), SubResource("Resource_np1wp"), SubResource("Resource_s2u7d"), SubResource("Resource_obmlt"), SubResource("Resource_wu8jk"), SubResource("Resource_lfaib"), SubResource("Resource_83124"), SubResource("Resource_ufjqv"), SubResource("Resource_hyafd"), SubResource("Resource_qxsg4"), SubResource("Resource_kajxh"), SubResource("Resource_vf0gv"), SubResource("Resource_j3a1v"), SubResource("Resource_xrhhr"), SubResource("Resource_as41m"), SubResource("Resource_oo5nr"), SubResource("Resource_ym5wd"), SubResource("Resource_cch6c"), SubResource("Resource_75hhd"), SubResource("Resource_ps14x"), SubResource("Resource_mjuoi"), SubResource("Resource_ik6ul"), SubResource("Resource_enhr5"), SubResource("Resource_b745g"), SubResource("Resource_wyem3"), SubResource("Resource_g0k25"), SubResource("Resource_tffbb"), SubResource("Resource_cpxuk"), SubResource("Resource_x8bj2"), SubResource("Resource_acixl"), SubResource("Resource_8urs7"), SubResource("Resource_xfv4r"), SubResource("Resource_upofo"), SubResource("Resource_3he7m"), SubResource("Resource_7o1ik"), SubResource("Resource_aw3qk"), SubResource("Resource_qw0j8"), SubResource("Resource_3ccip"), SubResource("Resource_yc45s"), SubResource("Resource_oxs7d"), SubResource("Resource_yy6ts"), SubResource("Resource_hk5pq"), SubResource("Resource_st8l8"), SubResource("Resource_6hshu"), SubResource("Resource_uxh1h"), SubResource("Resource_prjtx"), SubResource("Resource_8xxf6"), SubResource("Resource_63stl"), SubResource("Resource_r2tib"), SubResource("Resource_njxdh"), SubResource("Resource_gdm28"), SubResource("Resource_eperb"), SubResource("Resource_fi42a"), SubResource("Resource_vhy1t"), SubResource("Resource_lskbe"), SubResource("Resource_1nes8"), SubResource("Resource_wuqpx"), SubResource("Resource_1opi4"), SubResource("Resource_k2vaf"), SubResource("Resource_2ui2i"), SubResource("Resource_c0u1q"), SubResource("Resource_gw2xj"), SubResource("Resource_yoeby"), SubResource("Resource_dhwmh"), SubResource("Resource_05p8n"), SubResource("Resource_fpxmt"), SubResource("Resource_60yle"), SubResource("Resource_vglax"), SubResource("Resource_fvj15"), SubResource("Resource_fxlf3"), SubResource("Resource_6rq0s"), SubResource("Resource_i3ws8"), SubResource("Resource_4v8qn"), SubResource("Resource_jmtya"), SubResource("Resource_24ok5"), SubResource("Resource_voco8"), SubResource("Resource_gb7px"), SubResource("Resource_ugspm"), SubResource("Resource_2wfb2"), SubResource("Resource_i6gf4"), SubResource("Resource_u1fff"), SubResource("Resource_te17o"), SubResource("Resource_7v7my"), SubResource("Resource_qvr7r"), SubResource("Resource_cc02e"), SubResource("Resource_bk52h"), SubResource("Resource_f1kta"), SubResource("Resource_qtjn1"), SubResource("Resource_of6hi"), SubResource("Resource_tn23s"), SubResource("Resource_is2fn"), SubResource("Resource_1qv4b"), SubResource("Resource_yi0w6"), SubResource("Resource_b7qbu"), SubResource("Resource_c2hoc"), SubResource("Resource_1o1em"), SubResource("Resource_mw1rn"), SubResource("Resource_wtwdt"), SubResource("Resource_iavfb"), SubResource("Resource_2ah2p"), SubResource("Resource_dlqqu"), SubResource("Resource_tfw36"), SubResource("Resource_rtqw2"), SubResource("Resource_yxy18"), SubResource("Resource_4hejj"), SubResource("Resource_rmjvo"), SubResource("Resource_7txd8"), SubResource("Resource_7f1ch"), SubResource("Resource_pnwco"), SubResource("Resource_v3nlb"), SubResource("Resource_0o42j"), SubResource("Resource_vrnv8"), SubResource("Resource_k2fcj"), SubResource("Resource_rkrui"), SubResource("Resource_0qh16"), SubResource("Resource_5f46v"), SubResource("Resource_85vrn"), SubResource("Resource_1wph0"), SubResource("Resource_520ar"), SubResource("Resource_1nl2h"), SubResource("Resource_7sttl"), SubResource("Resource_gqgj0"), SubResource("Resource_b5opw"), SubResource("Resource_3xwvt"), SubResource("Resource_bymcb"), SubResource("Resource_sd3nh"), SubResource("Resource_txdi0"), SubResource("Resource_34447"), SubResource("Resource_rmuvm"), SubResource("Resource_msvxg"), SubResource("Resource_1mfst"), SubResource("Resource_tnecv"), SubResource("Resource_ilv6w"), SubResource("Resource_xn7cm"), SubResource("Resource_lw0ee"), SubResource("Resource_44evg"), SubResource("Resource_o2h4y"), SubResource("Resource_wdj4d"), SubResource("Resource_lndn1"), SubResource("Resource_x5aro"), SubResource("Resource_iujh6"), SubResource("Resource_y7gm6"), SubResource("Resource_bvfla"), SubResource("Resource_eakpb"), SubResource("Resource_bhs5n"), SubResource("Resource_g03fp"), SubResource("Resource_fmyqy"), SubResource("Resource_5p7gk"), SubResource("Resource_rpoqk"), SubResource("Resource_x126b"), SubResource("Resource_7a4qf"), SubResource("Resource_jm5y3"), SubResource("Resource_bqd0i"), SubResource("Resource_cgv1m"), SubResource("Resource_ws6kv"), SubResource("Resource_llhlb"), SubResource("Resource_eq7lw"), SubResource("Resource_j2cup"), SubResource("Resource_xbi3n"), SubResource("Resource_mcl4e"), SubResource("Resource_fqlp7"), SubResource("Resource_dll2g"), SubResource("Resource_s7i5c"), SubResource("Resource_qulcg"), SubResource("Resource_lmi8l"), SubResource("Resource_bdl5c"), SubResource("Resource_l4weo"), SubResource("Resource_quqap"), SubResource("Resource_3mtdl"), SubResource("Resource_bnprv"), SubResource("Resource_sjjby"), SubResource("Resource_xchte"), SubResource("Resource_gfkad"), SubResource("Resource_b2s0i"), SubResource("Resource_q5r3k"), SubResource("Resource_14h1s"), SubResource("Resource_ppew0"), SubResource("Resource_dvbfy"), SubResource("Resource_gds5o"), SubResource("Resource_5wpk0"), SubResource("Resource_tg56g"), SubResource("Resource_pg2co"), SubResource("Resource_gkjdv"), SubResource("Resource_gj1ls"), SubResource("Resource_xiu68"), SubResource("Resource_mvhm8"), SubResource("Resource_mefud"), SubResource("Resource_241s1"), SubResource("Resource_fbo1a"), SubResource("Resource_3dp84"), SubResource("Resource_pypbs"), SubResource("Resource_fwjlr"), SubResource("Resource_hufn6"), SubResource("Resource_i7a3i"), SubResource("Resource_v6cr4"), SubResource("Resource_jj1wi"), SubResource("Resource_36kuj"), SubResource("Resource_tpwic"), SubResource("Resource_lv6t6"), SubResource("Resource_jlg84"), SubResource("Resource_pj0nw"), SubResource("Resource_cbmfc"), SubResource("Resource_i5wrw"), SubResource("Resource_uvm0s"), SubResource("Resource_sycsp"), SubResource("Resource_o7b0i"), SubResource("Resource_4s4p1"), SubResource("Resource_6omp6"), SubResource("Resource_0vkof"), SubResource("Resource_qta16"), SubResource("Resource_hjh7m"), SubResource("Resource_p26to"), SubResource("Resource_b8ipk"), SubResource("Resource_6vue5"), SubResource("Resource_4vx08"), SubResource("Resource_2kham"), SubResource("Resource_qpw74"), SubResource("Resource_tw2cc"), SubResource("Resource_fcm1u"), SubResource("Resource_3t1xu"), SubResource("Resource_qtrvn"), SubResource("Resource_itsor"), SubResource("Resource_u1302"), SubResource("Resource_dnx26"), SubResource("Resource_wqnm4"), SubResource("Resource_iyqw7"), SubResource("Resource_ybn8a"), SubResource("Resource_acbgp"), SubResource("Resource_70c3j"), SubResource("Resource_4j0ku"), SubResource("Resource_bw7gd"), SubResource("Resource_kss4m"), SubResource("Resource_sgqxp"), SubResource("Resource_jkdai"), SubResource("Resource_34f0a"), SubResource("Resource_kvsex"), SubResource("Resource_urp05"), SubResource("Resource_dgc5i"), SubResource("Resource_7ll01"), SubResource("Resource_opbng"), SubResource("Resource_xk632"), SubResource("Resource_1f5dc"), SubResource("Resource_wvsvh"), SubResource("Resource_k8s6s"), SubResource("Resource_owroa"), SubResource("Resource_owfoh"), SubResource("Resource_i3dwj"), SubResource("Resource_hmlk4"), SubResource("Resource_t4d4g"), SubResource("Resource_2501f"), SubResource("Resource_rpq7n"), SubResource("Resource_v5xtq"), SubResource("Resource_b11yy"), SubResource("Resource_prq37"), SubResource("Resource_2i3tl"), SubResource("Resource_kbb56"), SubResource("Resource_5ln62"), SubResource("Resource_c1ng4"), SubResource("Resource_cx8wt"), SubResource("Resource_y5joo"), SubResource("Resource_3csfl"), SubResource("Resource_1wsvg"), SubResource("Resource_mtrs4"), SubResource("Resource_4r1jj"), SubResource("Resource_chbd6"), SubResource("Resource_1wlj1"), SubResource("Resource_2gaye"), SubResource("Resource_tk1io"), SubResource("Resource_05b44"), SubResource("Resource_5xlej"), SubResource("Resource_7wnyg"), SubResource("Resource_8vs0i"), SubResource("Resource_v2h5i"), SubResource("Resource_o6klm"), SubResource("Resource_0ja2i"), SubResource("Resource_32bqu"), SubResource("Resource_2o57t"), SubResource("Resource_i60sj"), SubResource("Resource_0040l"), SubResource("Resource_8e4dd"), SubResource("Resource_oh3sb"), SubResource("Resource_8yrq5"), SubResource("Resource_b8t1w"), SubResource("Resource_pellu"), SubResource("Resource_v2f5f"), SubResource("Resource_c3gwo"), SubResource("Resource_4ejym"), SubResource("Resource_5u6uq"), SubResource("Resource_kx5qu"), SubResource("Resource_5fkba"), SubResource("Resource_ueu13")])
+spawns = Array[ExtResource("13_27mvw")]([SubResource("Resource_yhiak"), SubResource("Resource_epjdb"), SubResource("Resource_mthcc"), SubResource("Resource_w7jbe"), SubResource("Resource_c4824"), SubResource("Resource_mmbqn"), SubResource("Resource_tjhqt"), SubResource("Resource_at7y7"), SubResource("Resource_5866l")])
+objects = Array[ExtResource("7_t132w")]([SubResource("Resource_2aiit"), SubResource("Resource_fap15"), SubResource("Resource_n2e6n"), SubResource("Resource_b81vq"), SubResource("Resource_5khfm")])
+edges = Array[ExtResource("2_5m2d4")]([SubResource("Resource_q0orf"), SubResource("Resource_26fqs"), SubResource("Resource_4rewk"), SubResource("Resource_hau0e"), SubResource("Resource_7d3ai"), SubResource("Resource_xfb4q"), SubResource("Resource_0adtm"), SubResource("Resource_6fxej"), SubResource("Resource_1dvpr"), SubResource("Resource_nxw83"), SubResource("Resource_lk8pg"), SubResource("Resource_1pg8k"), SubResource("Resource_ykfv8"), SubResource("Resource_qy604"), SubResource("Resource_f0vc5"), SubResource("Resource_8uguf"), SubResource("Resource_wrbcq"), SubResource("Resource_emd8x"), SubResource("Resource_b16x5"), SubResource("Resource_mdrgg"), SubResource("Resource_k0xot"), SubResource("Resource_deccj"), SubResource("Resource_02h6r"), SubResource("Resource_eakda"), SubResource("Resource_hlp7n"), SubResource("Resource_xegq2"), SubResource("Resource_rnlvr"), SubResource("Resource_yqvuu"), SubResource("Resource_0ouw5"), SubResource("Resource_b5nox"), SubResource("Resource_ac2tr"), SubResource("Resource_6u4re"), SubResource("Resource_x8xc7"), SubResource("Resource_nhwin"), SubResource("Resource_brw0k"), SubResource("Resource_qcl60"), SubResource("Resource_hqqw3"), SubResource("Resource_xrbey"), SubResource("Resource_vweoc"), SubResource("Resource_7k7xc"), SubResource("Resource_o2gnu"), SubResource("Resource_xpbxv"), SubResource("Resource_3622d"), SubResource("Resource_hfj0j"), SubResource("Resource_rjk4a"), SubResource("Resource_swwyj"), SubResource("Resource_el3ml"), SubResource("Resource_a1rg3"), SubResource("Resource_4aoe4"), SubResource("Resource_jrtbw"), SubResource("Resource_an1aj"), SubResource("Resource_3k4ux"), SubResource("Resource_qtugn"), SubResource("Resource_vrk8k"), SubResource("Resource_xjaq6"), SubResource("Resource_fasu2"), SubResource("Resource_82m4w"), SubResource("Resource_xexxu"), SubResource("Resource_o3dq1"), SubResource("Resource_dbfmx"), SubResource("Resource_1ehgi"), SubResource("Resource_oarf3"), SubResource("Resource_wya55"), SubResource("Resource_brt5n"), SubResource("Resource_7oq0d"), SubResource("Resource_v778b"), SubResource("Resource_b3no7"), SubResource("Resource_ru5b2"), SubResource("Resource_u7svs"), SubResource("Resource_phxly"), SubResource("Resource_tvyoc"), SubResource("Resource_utnnp"), SubResource("Resource_ebqad"), SubResource("Resource_fe2ir"), SubResource("Resource_0lbkm"), SubResource("Resource_1ca56"), SubResource("Resource_qhyyq"), SubResource("Resource_ujkxw"), SubResource("Resource_ai7bx"), SubResource("Resource_tdewo"), SubResource("Resource_1woet"), SubResource("Resource_p0k2r"), SubResource("Resource_qt65j"), SubResource("Resource_nsgcu"), SubResource("Resource_p1rvh"), SubResource("Resource_34bj4"), SubResource("Resource_w813l"), SubResource("Resource_cuqmp"), SubResource("Resource_8r54m"), SubResource("Resource_fuub6"), SubResource("Resource_hplah"), SubResource("Resource_xalkb"), SubResource("Resource_76g75"), SubResource("Resource_uljwb"), SubResource("Resource_52w58"), SubResource("Resource_ahx73"), SubResource("Resource_ibfov"), SubResource("Resource_57y6h"), SubResource("Resource_fga0n"), SubResource("Resource_drwol"), SubResource("Resource_2rmx2"), SubResource("Resource_or4ai"), SubResource("Resource_l0adp"), SubResource("Resource_neygm"), SubResource("Resource_sxucg"), SubResource("Resource_lu7o1"), SubResource("Resource_v5or7"), SubResource("Resource_beb2l"), SubResource("Resource_2f77g"), SubResource("Resource_irdut"), SubResource("Resource_qi8qp"), SubResource("Resource_5f7g6"), SubResource("Resource_6uw2o"), SubResource("Resource_qgakg"), SubResource("Resource_3rls0"), SubResource("Resource_0enhj"), SubResource("Resource_jvbcw"), SubResource("Resource_pw5ra"), SubResource("Resource_aajbp"), SubResource("Resource_asvto"), SubResource("Resource_qv3jt"), SubResource("Resource_otpyg"), SubResource("Resource_6gdy5"), SubResource("Resource_fk7xi"), SubResource("Resource_ho83a"), SubResource("Resource_4vxu1"), SubResource("Resource_6mpiu"), SubResource("Resource_8sfse"), SubResource("Resource_0wv82"), SubResource("Resource_10408"), SubResource("Resource_pckje"), SubResource("Resource_r8ht2"), SubResource("Resource_7p6m4"), SubResource("Resource_47t72"), SubResource("Resource_7dx31"), SubResource("Resource_hew5a"), SubResource("Resource_knuvo"), SubResource("Resource_3bt6c"), SubResource("Resource_vjbco"), SubResource("Resource_3w3m3"), SubResource("Resource_3jysp"), SubResource("Resource_yr2io"), SubResource("Resource_rgc5o"), SubResource("Resource_6gmfn"), SubResource("Resource_1oodl"), SubResource("Resource_5g318"), SubResource("Resource_85fve"), SubResource("Resource_xissp"), SubResource("Resource_rejto"), SubResource("Resource_hfo76")])

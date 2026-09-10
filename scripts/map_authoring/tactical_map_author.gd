@@ -6,6 +6,7 @@ extends Node3D
 ## Empty means eliminate all authored enemies; otherwise list enemy spawn IDs.
 @export var objective_spawn_ids: Array[StringName] = []
 @export var mission_definition: MissionDefinition = null
+@export_range(0, 20, 1) var starting_cover_devices: int = 0
 @export var footprint_size: Vector2i = Vector2i(12, 10)
 @export_range(1, 32, 1) var level_count: int = 2
 @export var cell_dimensions: Vector3 = Vector3(2.0, 2.0, 2.0):
