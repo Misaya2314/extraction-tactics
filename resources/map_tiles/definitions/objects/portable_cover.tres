@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="TacticalObjectDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/map/tactical_object_definition.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/prototype/environment/portable_cover.tscn" id="2"]
+[ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_half.tres" id="3"]
+
+[resource]
+script = ExtResource("1")
+placeable_id = &"portable_cover"
+display_name = "可破坏便携掩体"
+object_kind = &"generic"
+category = "对象 / 可破坏掩体"
+description = "耐久8，前后提供低掩体保护；侧面无保护。摧毁后移除阻挡与掩体效果。"
+scene = ExtResource("2")
+blocks_movement = true
+targetable = true
+damageable = true
+max_hp = 8
+cover_profile = ExtResource("3")

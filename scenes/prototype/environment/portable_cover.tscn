@@ -1,0 +1,61 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/environment/environment_object_view.gd" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="Steel"]
+albedo_color = Color(0.22, 0.34, 0.4, 1)
+metallic = 0.5
+roughness = 0.65
+
+[sub_resource type="StandardMaterial3D" id="Yellow"]
+albedo_color = Color(0.92, 0.65, 0.2, 1)
+
+[sub_resource type="BoxMesh" id="Panel"]
+size = Vector3(1.8, 0.8, 0.35)
+
+[sub_resource type="BoxMesh" id="Stripe"]
+size = Vector3(1.85, 0.12, 0.4)
+
+[sub_resource type="BoxMesh" id="Foot"]
+size = Vector3(0.25, 0.16, 1.3)
+
+[sub_resource type="BoxShape3D" id="Shape"]
+size = Vector3(1.8, 0.8, 0.35)
+
+[node name="PortableCover" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Panel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.4, 0)
+mesh = SubResource("Panel")
+material_override = SubResource("Steel")
+
+[node name="Stripe" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.69, 0)
+mesh = SubResource("Stripe")
+material_override = SubResource("Yellow")
+
+[node name="LeftFoot" type="MeshInstance3D" parent="."]
+position = Vector3(-0.65, 0.08, 0)
+mesh = SubResource("Foot")
+material_override = SubResource("Steel")
+
+[node name="RightFoot" type="MeshInstance3D" parent="."]
+position = Vector3(0.65, 0.08, 0)
+mesh = SubResource("Foot")
+material_override = SubResource("Steel")
+
+[node name="Body" type="StaticBody3D" parent="."]
+collision_layer = 2
+collision_mask = 0
+
+[node name="Shape" type="CollisionShape3D" parent="Body"]
+position = Vector3(0, 0.4, 0)
+shape = SubResource("Shape")
+
+[node name="Durability" type="Label3D" parent="."]
+position = Vector3(0, 1.2, 0)
+billboard = 1
+text = "掩体 8/8"
+font_size = 32
+pixel_size = 0.007

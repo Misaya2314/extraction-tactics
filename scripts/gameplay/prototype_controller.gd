@@ -125,6 +125,12 @@ var _is_running_exploration_tick: bool = false
 var suspicious_investigations: Dictionary = {}
 var opaque_cells: Dictionary = {}
 var object_placements: Dictionary = {}
+var deployed_cover_ids: Dictionary = {}
+var deploy_cover_button: Button
+var deploy_facing := Vector2i.DOWN
+const DEPLOY_MODE := 3
+const COVER_DEVICE = preload("res://resources/items/portable_cover_device.tres")
+const COVER_DEFINITION = preload("res://resources/map_tiles/definitions/objects/portable_cover.tres")
 var environment_objects_by_placement_id: Dictionary = {}
 var environment_objects_by_instance_id: Dictionary = {}
 var environment_views_by_placement_id: Dictionary = {}
@@ -273,6 +279,7 @@ func _ready() -> void:
 	mission_tracker.configure(mission_def)
 	_refresh_mission_panel()
 	_configure_inventory_ui()
+	_configure_cover_devices()
 	session_manager.start_exploration()
 	_configure_undo_manager()
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
@@ -325,8 +332,95 @@ func _configure_action_executor() -> void:
 	action_executor.register_handler(ACTION_SKILL, Callable(self, "_handle_skill_action"))
 
 
+func _configure_cover_devices() -> void:
+	for index in map_definition.starting_cover_devices:
+		var item = item_instance_factory.create(COVER_DEVICE)
+		if item == null or not squad_inventory.add(item):
+			push_error("Cannot provision portable cover device.")
+	deploy_cover_button = Button.new()
+	deploy_cover_button.name = "DeployCoverButton"
+	move_action_button.get_parent().add_child(deploy_cover_button)
+	deploy_cover_button.pressed.connect(func() -> void:
+		_set_action_mode(DEPLOY_MODE)
+		_update_hud("部署掩体：选择相邻空地，R 旋转；消耗 1 AP 和 1 个装置。")
+	)
+
+
+func preview_cover_deployment(actor: PrototypeUnit, cell: Vector3i, facing: Vector2i) -> bool:
+	if not is_instance_valid(actor) or not actor.is_alive() or actor.faction != &"player":
+		return false
+	var delta := cell - actor.grid_cell
+	if delta.y != 0 or absi(delta.x) + absi(delta.z) != 1 or absi(facing.x) + absi(facing.y) != 1:
+		return false
+	if not grid.is_walkable(cell) or grid.is_occupied(cell) or grid.is_movement_blocked(actor.grid_cell, cell):
+		return false
+	for placement in object_placements.values():
+		if placement.cell == cell:
+			var state = environment_objects_by_placement_id.get(placement.object_id)
+			if state == null or state.active:
+				return false
+	return true
+
+
+func deploy_cover(cell: Vector3i) -> ActionResult:
+	if not _can_use_loot_action():
+		return ActionResultScript.rejected(&"wrong_phase")
+	var request = ActionRequestScript.new(ACTION_SKILL,selected_unit.unit_id,&"",1,{&"operation":&"deploy_cover",&"cell":cell,&"facing":deploy_facing})
+	var result := _execute_runtime_action(request,selected_unit)
+	if result.success:
+		_set_action_mode(ACTION_MODE_MOVE)
+		_update_hud("已部署掩体：耐久 8；剩余装置 %d。" % squad_inventory.get_item_count(&"portable_cover_device"))
+	else:
+		_update_hud("无法部署：需要相邻空地、1 AP 和剩余装置。")
+	_refresh_highlights()
+	_refresh_action_bar()
+	if is_instance_valid(inventory_grid):
+		inventory_grid.refresh()
+	return result
+
+
+func _handle_deploy_cover(request: Variant, _context: Variant) -> ActionResult:
+	var actor := _unit_by_id(request.actor_id)
+	var cell: Vector3i = request.payload.get(&"cell",grid.invalid_cell())
+	var facing: Vector2i = request.payload.get(&"facing",Vector2i.ZERO)
+	if request.ap_cost != 1 or not preview_cover_deployment(actor,cell,facing) or not squad_inventory.has_item(&"portable_cover_device"):
+		return ActionResultScript.rejected(&"invalid_deployment",request.actor_id)
+	var placement := MapObjectPlacement.new()
+	var deployment_index := 0
+	while object_placements.has(StringName("deployed_cover_%d" % deployment_index)):
+		deployment_index += 1
+	placement.object_id = StringName("deployed_cover_%d" % deployment_index)
+	placement.definition_id = COVER_DEFINITION.placeable_id
+	placement.kind = MapObjectPlacement.Kind.GENERIC
+	placement.cell = cell
+	placement.facing = facing
+	placement.scene = COVER_DEFINITION.scene
+	placement.blocks_movement = true
+	var state := environment_object_factory.create_from_placement(placement,_runtime_map_id())
+	if state == null:
+		return ActionResultScript.rejected(&"creation_failed",request.actor_id)
+	if not squad_inventory.remove(&"portable_cover_device",1):
+		runtime_instance_registry.unregister(state.instance_id)
+		return ActionResultScript.rejected(&"missing_item",request.actor_id)
+	object_placements[placement.object_id] = placement
+	deployed_cover_ids[placement.object_id] = true
+	environment_objects_by_placement_id[placement.object_id] = state
+	environment_objects_by_instance_id[state.instance_id] = state
+	var visual := placement.scene.instantiate() as EnvironmentObjectView
+	add_child(visual)
+	visual.position = grid.cell_to_world(cell)
+	visual.rotation.y = atan2(float(facing.x),float(facing.y))
+	environment_visuals_by_placement_id[placement.object_id] = visual
+	environment_views_by_placement_id[placement.object_id] = visual
+	_sync_environment_object_views()
+	_rebuild_dynamic_environment_rules()
+	return ActionResultScript.accepted(actor.unit_id,placement.object_id,1,&"deploy_cover")
+
+
 func _handle_skill_action(request: Variant, context: Variant) -> ActionResult:
 	var payload: Dictionary = request.payload if request != null and request.payload is Dictionary else {}
+	if payload.get(&"operation") == &"deploy_cover":
+		return _handle_deploy_cover(request, context)
 	var slot_index: int = payload.get(&"slot_index", -1)
 	var actor := _unit_by_id(request.actor_id)
 	if not is_instance_valid(actor) or actor.runtime_state == null:
@@ -1048,7 +1142,21 @@ func _restore_undo_environment_objects(raw_objects: Variant) -> bool:
 		var captured_state := entry.get(&"state") as EnvironmentObjectRuntimeState
 		if captured_state != null and captured_state != state:
 			return false
-		_sync_environment_object_views()
+	for placement_id in deployed_cover_ids.keys():
+		if seen.has(placement_id):
+			continue
+		var state: EnvironmentObjectRuntimeState = environment_objects_by_placement_id[placement_id]
+		runtime_instance_registry.unregister(state.instance_id)
+		environment_objects_by_instance_id.erase(state.instance_id)
+		environment_objects_by_placement_id.erase(placement_id)
+		var visual = environment_visuals_by_placement_id.get(placement_id)
+		if is_instance_valid(visual):
+			visual.free()
+		environment_visuals_by_placement_id.erase(placement_id)
+		environment_views_by_placement_id.erase(placement_id)
+		object_placements.erase(placement_id)
+		deployed_cover_ids.erase(placement_id)
+	_sync_environment_object_views()
 	return true
 
 
@@ -1451,6 +1559,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		var key_event := event as InputEventKey
 		if key_event.pressed and not key_event.echo:
+			if key_event.keycode == KEY_R and action_mode == DEPLOY_MODE:
+				deploy_facing = Vector2i(-deploy_facing.y,deploy_facing.x)
+				_update_cursor_highlights(_hovered_cell)
+				return
 			if key_event.keycode == KEY_X:
 				_set_debug_reveal_all(not debug_reveal_all)
 				return
@@ -1526,7 +1638,7 @@ func _toggle_skill_action(slot_index: int) -> void:
 
 
 func _set_action_mode(mode: int, slot_index: int = -1) -> void:
-	if mode != ACTION_MODE_MOVE and mode != ACTION_MODE_ATTACK and mode != ACTION_MODE_SKILL:
+	if mode != ACTION_MODE_MOVE and mode != ACTION_MODE_ATTACK and mode != ACTION_MODE_SKILL and mode != DEPLOY_MODE:
 		return
 	action_mode = mode
 	_active_skill_slot = slot_index if mode == ACTION_MODE_SKILL else -1
@@ -1746,6 +1858,8 @@ func _sync_environment_object_views() -> void:
 		var typed_view := _get_environment_view(placement_id)
 		if typed_view != null:
 			typed_view.sync_from_runtime_state(state)
+			if state.definition.cover_profile != null:
+				typed_view.rotation.y = atan2(float(state.facing.x),float(state.facing.y))
 		else:
 			var visual := _get_environment_visual(placement_id)
 			if visual != null:
@@ -1845,6 +1959,35 @@ func _rebuild_dynamic_environment_rules() -> void:
 	# not become opaque to perception.
 	for cell in base_los.keys():
 		grid.set_cell_blockers(cell, bool(base_los[cell]), bool(base_projectile.get(cell, false)))
+	var edges: Array[MapEdgeData] = map_definition.edges.duplicate()
+	for state: EnvironmentObjectRuntimeState in environment_objects_by_instance_id.values():
+		if not state.active or state.destroyed or state.definition.cover_profile == null:
+			continue
+		for sign_value in [-1,1]:
+			var neighbor: Vector3i = state.cell + Vector3i(state.facing.x,0,state.facing.y) * sign_value
+			if not grid.has_cell(neighbor):
+				continue
+			var existing := false
+			for edge in edges:
+				if (edge.cell_a == neighbor and edge.cell_b == state.cell) or (edge.cell_b == neighbor and edge.cell_a == state.cell):
+					existing = true
+					break
+			if existing:
+				continue
+			var edge := MapEdgeData.new()
+			var key := TacticalEdgeKey.from_cells(state.cell,neighbor).canonicalized()
+			edge.cell_a = key.cell_a
+			edge.cell_b = key.cell_b
+			# Protect the adjacent soldier, not the barricade itself.
+			if edge.cell_a == neighbor:
+				edge.cover_profile_a = state.definition.cover_profile
+			else:
+				edge.cover_profile_b = state.definition.cover_profile
+			edge.height = 0.8
+			edge.destructible = true
+			edge.runtime_state_id = state.instance_id
+			edges.append(edge)
+	grid.edge_index.configure(edges)
 	_apply_camera_bounds()
 
 
@@ -2077,6 +2220,9 @@ func _cast_skill_at_cell(unit: PrototypeUnit, skill_inst: Variant, slot_index: i
 ## cell can be approached and confirmed through the same click path.
 func _handle_cell_click(clicked_cell: Vector3i) -> void:
 	if input_locked or not grid.in_bounds(clicked_cell) or not _player_can_act():
+		return
+	if action_mode == DEPLOY_MODE:
+		deploy_cover(clicked_cell)
 		return
 	if action_mode == ACTION_MODE_SKILL:
 		if is_instance_valid(selected_unit) and selected_unit.runtime_state != null and _active_skill_slot >= 0:
@@ -3456,6 +3602,11 @@ func _refresh_move_highlights() -> void:
 
 
 func _refresh_action_bar() -> void:
+	if is_instance_valid(deploy_cover_button):
+		var count: int = squad_inventory.get_item_count(&"portable_cover_device")
+		deploy_cover_button.text = "部署掩体 ×%d · 1 AP" % count
+		deploy_cover_button.disabled = count <= 0 or not _can_use_loot_action() or not selected_unit.can_spend_action_points(1)
+		deploy_cover_button.tooltip_text = "消耗有限装置；R旋转朝向；耐久8，前后低掩体。"
 	if not is_instance_valid(move_action_button) or not is_instance_valid(attack_action_button):
 		return
 	var has_player_selection := is_instance_valid(selected_unit) \
@@ -3574,6 +3725,30 @@ func _update_cursor_highlights(center_cell: Vector3i) -> void:
 	_hide_cursor_highlights()
 	if not is_instance_valid(grid) or not is_instance_valid(_cursor_indicators_root):
 		return
+	if action_mode == ACTION_MODE_ATTACK:
+		var target := _environment_object_at_cell(center_cell)
+		if target != null and target.definition.cover_profile != null and _is_environment_object_visible(target.placement_id):
+			if _can_attack_environment_target_for_unit(selected_unit,target):
+				var query := query_attack_cover(selected_unit.grid_cell,target.cell)
+				var damage := CoverResolverScript.resolve_damage(weapon_damage_at(selected_unit,selected_unit.grid_cell,target.cell),query.profile,cover_combat_settings,query.source_edge)
+				var expected: int = mini(target.current_hp,int(damage.get(&"effective_damage",0)))
+				_update_hud("掩体耐久 %d/%d · 预计伤害 %d%s" % [target.current_hp,target.definition.max_hp,expected," · 将摧毁并清除保护" if expected >= target.current_hp else ""])
+			else:
+				_update_hud("掩体耐久 %d/%d · 当前无法攻击" % [target.current_hp,target.definition.max_hp])
+	if action_mode == DEPLOY_MODE:
+		var valid := preview_cover_deployment(selected_unit,center_cell,deploy_facing)
+		var marker := _get_or_create_cursor_mesh(0)
+		marker.material_override = _get_cached_highlight_material(Color(0.2,0.9,0.6,0.55) if valid else Color(1,0.15,0.1,0.55))
+		marker.global_position = grid.cell_to_world(center_cell) + Vector3.UP * CURSOR_SURFACE_OFFSET
+		marker.visible = true
+		var bar := _get_or_create_cursor_mesh(1)
+		bar.material_override = _get_cached_highlight_material(Color(1,0.8,0.2,0.9))
+		bar.global_position = marker.global_position + Vector3.UP * 0.03
+		bar.scale = Vector3(1,1,0.15)
+		bar.rotation.y = atan2(float(deploy_facing.x),float(deploy_facing.y))
+		bar.visible = true
+		_update_hud("部署预览：耐久 8，保护黄线前后相邻格；R旋转。" if valid else "不可部署：请选择相邻空地，避开单位、物件与虚空。")
+		return
 
 	if action_mode == ACTION_MODE_SKILL and is_instance_valid(selected_unit) and selected_unit.runtime_state != null and _active_skill_slot >= 0:
 		var skill_inst = selected_unit.runtime_state.get_skill(_active_skill_slot)
@@ -3625,6 +3800,8 @@ func _hide_cursor_highlights() -> void:
 	for highlight in _cursor_mesh_pool:
 		if is_instance_valid(highlight):
 			highlight.visible = false
+			highlight.scale = Vector3.ONE
+			highlight.rotation = Vector3.ZERO
 
 
 func _get_or_create_cursor_mesh(index: int) -> MeshInstance3D:

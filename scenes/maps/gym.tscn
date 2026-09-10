@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_objective_terminal.tscn" id="10_fvmb6"]
 [ext_resource type="Resource" path="res://resources/units/player_alpha.tres" id="10_ic114"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_explosive_barrel.tscn" id="12_vgmpf"]
+[ext_resource type="PackedScene" path="res://scenes/prototype/environment/portable_cover.tscn" id="12_vu0sq"]
 [ext_resource type="Resource" path="res://resources/units/player_bravo.tres" id="15_2h0mu"]
 [ext_resource type="Resource" path="res://resources/units/gym_sentry.tres" id="15_oekwe"]
 [ext_resource type="Resource" path="res://resources/weapons/assault_rifle.tres" id="17_ousjm"]
@@ -522,6 +523,7 @@ ambient_light_energy = 0.7
 script = ExtResource("1_xwpqc")
 map_id = &"gym"
 mission_definition = ExtResource("2_oekwe")
+starting_cover_devices = 2
 footprint_size = Vector2i(16, 20)
 level_count = 1
 placeable_library = ExtResource("2_jlto7")
@@ -581,6 +583,24 @@ kind = 2
 scene = ExtResource("12_vgmpf")
 blocks_movement = true
 cell = Vector3i(2, 0, 9)
+
+[node name="@Node3D@2" type="Node3D" parent="Objects" unique_id=491874485]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1, 25)
+script = ExtResource("7_vic0i")
+object_id = &"breakable_cover_2"
+definition_id = &"portable_cover"
+scene = ExtResource("12_vu0sq")
+blocks_movement = true
+cell = Vector3i(2, 0, 12)
+
+[node name="@Node3D@3" type="Node3D" parent="Objects" unique_id=1714204088]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 21, 1, 17)
+script = ExtResource("7_vic0i")
+object_id = &"breakable_cover_10"
+definition_id = &"portable_cover"
+scene = ExtResource("12_vu0sq")
+blocks_movement = true
+cell = Vector3i(10, 0, 8)
 
 [node name="Spawns" type="Node3D" parent="." unique_id=764398877]
 

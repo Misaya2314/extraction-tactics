@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://scripts/core/combat/weapon_definition.gd" id="7_weapon_script"]
 [ext_resource type="Resource" path="res://resources/weapons/assault_rifle.tres" id="8_assault_rifle"]
 [ext_resource type="Resource" path="res://resources/weapons/carbine.tres" id="9_carbine"]
+[ext_resource type="Resource" path="res://resources/items/portable_cover_device.tres" id="10_ci2gv"]
 [ext_resource type="Resource" path="res://resources/weapons/shotgun.tres" id="10_shotgun"]
 [ext_resource type="Script" path="res://scripts/core/units/unit_archetype.gd" id="11_unit_script"]
 [ext_resource type="Resource" path="res://resources/units/assault.tres" id="12_assault"]
@@ -27,6 +28,7 @@
 [ext_resource type="Resource" path="res://resources/map_tiles/definitions/terrain/void.tres" id="24_of551"]
 [ext_resource type="Resource" path="res://resources/map_tiles/definitions/structure/wall.tres" id="25_wall"]
 [ext_resource type="Resource" path="res://resources/map_tiles/definitions/structure/low_cover.tres" id="26_low_cover"]
+[ext_resource type="Resource" path="res://resources/map_tiles/definitions/objects/portable_cover.tres" id="26_wr8px"]
 [ext_resource type="Resource" path="res://resources/map_tiles/definitions/objects/prototype_loot_crate.tres" id="27_loot_crate"]
 [ext_resource type="Resource" path="res://resources/map_tiles/definitions/objects/prototype_extraction_marker.tres" id="28_extraction"]
 [ext_resource type="Resource" path="res://resources/skills/tactical_knockback.tres" id="29_3h6ib"]
@@ -43,10 +45,10 @@
 
 [resource]
 script = ExtResource("1_manifest")
-item_definitions = Array[ExtResource("2_item_script")]([ExtResource("3_scrap"), ExtResource("4_medkit"), ExtResource("5_watch"), ExtResource("6_chip")])
+item_definitions = Array[ExtResource("2_item_script")]([ExtResource("3_scrap"), ExtResource("4_medkit"), ExtResource("5_watch"), ExtResource("6_chip"), ExtResource("10_ci2gv")])
 weapon_definitions = Array[ExtResource("7_weapon_script")]([ExtResource("8_assault_rifle"), ExtResource("9_carbine"), ExtResource("10_shotgun")])
 unit_archetypes = Array[ExtResource("11_unit_script")]([ExtResource("12_assault"), ExtResource("13_dummy_enemy"), ExtResource("14_player_alpha"), ExtResource("15_player_bravo"), ExtResource("16_rifleman"), ExtResource("37_gym_sentry")])
 map_definitions = Array[ExtResource("17_map_script")]([ExtResource("18_medium"), ExtResource("19_new_map"), ExtResource("20_prototype"), ExtResource("21_test_map"), ExtResource("38_gym")])
-placeable_definitions = Array[ExtResource("22_placeable_script")]([ExtResource("23_floor"), ExtResource("24_floor_alt"), ExtResource("25_wall"), ExtResource("26_low_cover"), ExtResource("27_loot_crate"), ExtResource("28_extraction"), ExtResource("29_barrel"), ExtResource("24_of551")])
+placeable_definitions = Array[ExtResource("22_placeable_script")]([ExtResource("23_floor"), ExtResource("24_floor_alt"), ExtResource("25_wall"), ExtResource("26_low_cover"), ExtResource("27_loot_crate"), ExtResource("28_extraction"), ExtResource("29_barrel"), ExtResource("24_of551"), ExtResource("26_wr8px")])
 cover_profiles = Array[ExtResource("30_cover_script")]([ExtResource("31_cover_none"), ExtResource("32_cover_half"), ExtResource("33_cover_full")])
 skill_definitions = Array[ExtResource("34_skill_script")]([ExtResource("35_grenade"), ExtResource("36_sprint"), ExtResource("29_3h6ib")])

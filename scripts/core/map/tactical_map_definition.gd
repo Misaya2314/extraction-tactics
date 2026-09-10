@@ -22,6 +22,7 @@ const MAX_LEVEL_COUNT: int = 32
 ## Empty selects all authored enemy spawns. Explicit IDs select a subset.
 @export var objective_spawn_ids: Array[StringName] = []
 @export var mission_definition: Resource = null
+@export_range(0, 20, 1) var starting_cover_devices: int = 0
 @export var footprint_size: Vector2i = Vector2i.ZERO
 @export var level_count: int = 1
 @export var cell_size: Vector3 = Vector3(2.0, 2.0, 2.0)
@@ -82,4 +83,3 @@ func get_objective_cells() -> Array[Vector3i]:
 		if placement.kind == MapObjectPlacement.Kind.OBJECTIVE:
 			result.append(placement.cell)
 	return result
-

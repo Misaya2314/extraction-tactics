@@ -11,6 +11,8 @@ extends TacticalPlaceableDefinition
 @export var footprint: Vector3i = Vector3i.ONE
 @export var blocks_movement: bool = false
 @export var blocks_los: bool = false
+## Optional directional cover on the two edges normal to placement.facing.
+@export var cover_profile: TacticalCoverProfile
 @export var loot_table: LootTableDefinition
 @export var loot_seed: int = -1
 @export var targetable: bool = false
@@ -32,6 +34,8 @@ func is_valid() -> bool:
 		return false
 	if max_hp < 0 or (damageable and max_hp <= 0):
 		return false
+	if cover_profile != null and not cover_profile.is_valid():
+		return false
 	for effect in on_destroy_effects:
 		if effect == null or not effect.has_method("is_valid") or not bool(effect.call("is_valid")):
 			return false
@@ -48,6 +52,8 @@ func get_configuration_errors() -> Array[String]:
 		errors.append("TacticalObjectDefinition footprint must be positive.")
 	if max_hp < 0 or (damageable and max_hp <= 0):
 		errors.append("Damageable objects require a positive max_hp.")
+	if cover_profile != null and not cover_profile.is_valid():
+		errors.append("Object cover_profile is invalid.")
 	for effect in on_destroy_effects:
 		if effect == null or not effect.has_method("is_valid"):
 			errors.append("on_destroy_effects contains an invalid effect reference.")

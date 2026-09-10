@@ -31,6 +31,9 @@ func sync_from_runtime_state(state: Variant) -> void:
 		return
 	var runtime_state := state as EnvironmentObjectRuntimeState
 	set_runtime_active(runtime_state.active and not runtime_state.destroyed)
+	var durability := get_node_or_null("Durability") as Label3D
+	if durability != null:
+		durability.text = "掩体 %d/%d" % [runtime_state.current_hp,runtime_state.definition.max_hp]
 
 
 func apply_runtime_state(state: Variant) -> void:
