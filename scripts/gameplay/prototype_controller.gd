@@ -52,6 +52,9 @@ const CURSOR_HIGHLIGHT_COLOR := Color(1.0, 1.0, 1.0, 0.45)
 const CURSOR_SURFACE_OFFSET := 0.035
 const LANDING_ATTACK_HIGHLIGHT_COLOR := Color(1.0, 0.35, 0.2, 0.62)
 const LANDING_ATTACK_SURFACE_OFFSET := 0.045
+const ENEMY_GUNLINE_COLOR := Color(1.0, 0.18, 0.12, 0.85)
+const ENEMY_GUNLINE_HEIGHT := 0.65
+const ENEMY_GUNLINE_WIDTH := 0.07
 const HALF_COVER_TEXTURE: Texture2D = preload("res://assets/textures/half_cover.png")
 const FULL_COVER_TEXTURE: Texture2D = preload("res://assets/textures/full_cover.png")
 const CURSOR_HIGHLIGHT_DISTANCE: int = 0
@@ -165,6 +168,8 @@ var _unit_cover_indicators_root: Node3D = null
 var _unit_cover_icon_pool: Array[Sprite3D] = []
 var _landing_attack_indicators_root: Node3D = null
 var _landing_attack_mesh_pool: Array[MeshInstance3D] = []
+var _gunline_indicators_root: Node3D = null
+var _gunline_mesh_pool: Array[MeshInstance3D] = []
 ## Shared, lazily-built highlight resources so whole-map overlay rebuilds reuse
 ## one Mesh + one Material per color instead of allocating per cell, which
 ## otherwise exhausts the D3D12 RESOURCES descriptor heap on large maps.
@@ -3527,6 +3532,8 @@ func _refresh_highlights() -> void:
 	_refresh_investigation_highlights()
 	if can_show_move_highlights and is_instance_valid(grid) and grid.has_cell(_hovered_cell) and _is_cursor_visible():
 		_update_cover_preview(_hovered_cell)
+	elif can_show_move_highlights:
+		_update_enemy_gunline_preview(selected_unit.grid_cell)
 	var enemies_to_display: Array[PrototypeUnit] = []
 	if show_enemy_vision:
 		for enemy_id in _living_enemy_ids():
@@ -3693,6 +3700,10 @@ func _init_hover_cursor() -> void:
 		_landing_attack_indicators_root = Node3D.new()
 		_landing_attack_indicators_root.name = "LandingAttackIndicators"
 		add_child(_landing_attack_indicators_root)
+	if not is_instance_valid(_gunline_indicators_root):
+		_gunline_indicators_root = Node3D.new()
+		_gunline_indicators_root.name = "EnemyGunlineIndicators"
+		add_child(_gunline_indicators_root)
 	_hover_cursor = _get_or_create_cursor_mesh(0)
 
 
@@ -3957,10 +3968,120 @@ func _get_or_create_landing_attack_mesh(index: int) -> MeshInstance3D:
 	return _landing_attack_mesh_pool[index]
 
 
+## A landing cell is a walkable, unoccupied cell other than the unit's current
+## cell that it can actually reach with its remaining move range.
+func _is_valid_landing_cell(cell: Vector3i) -> bool:
+	if not _can_show_move_highlights() or not is_instance_valid(grid):
+		return false
+	if cell == selected_unit.grid_cell or not grid.is_walkable(cell) or grid.is_occupied(cell):
+		return false
+	var path := grid.find_path(selected_unit.grid_cell, cell)
+	return path.size() >= 2 and grid.get_path_cost(path) <= selected_unit.move_range
+
+
+## Read-only enemy gun-line preview for a hypothetical landing cell. Returns the
+## living enemies the selected unit can currently see (fog of war) whose weapon
+## line can reach that landing cell, treating the selected unit's origin as
+## vacated so it never blocks its own incoming fire.
+func query_enemy_gunline_sources(cell: Vector3i) -> Array[PrototypeUnit]:
+	var sources: Array[PrototypeUnit] = []
+	if not _is_valid_landing_cell(cell):
+		return sources
+	for enemy_id in _enemy_ids_for_context():
+		var enemy := _unit_by_id(enemy_id)
+		if not is_instance_valid(enemy) or not enemy.is_alive() or not enemy.visible or enemy.faction == selected_unit.faction:
+			continue
+		if not _can_player_see_with_grid(selected_unit.grid_cell, enemy.grid_cell, selected_unit.vision_range):
+			continue
+		if can_attack_line(enemy.grid_cell, cell, enemy.attack_range, [selected_unit.grid_cell]):
+			sources.append(enemy)
+	return sources
+
+
+## Enemies that can currently hit the selected unit where it stands. Used as the
+## fallback preview when no landing cell is being hovered.
+func query_current_enemy_gunline_sources() -> Array[PrototypeUnit]:
+	var sources: Array[PrototypeUnit] = []
+	if not _can_show_move_highlights() or not is_instance_valid(grid):
+		return sources
+	var origin := selected_unit.grid_cell
+	for enemy_id in _enemy_ids_for_context():
+		var enemy := _unit_by_id(enemy_id)
+		if not is_instance_valid(enemy) or not enemy.is_alive() or not enemy.visible or enemy.faction == selected_unit.faction:
+			continue
+		if enemy.grid_cell == origin:
+			continue
+		if not _can_player_see_with_grid(origin, enemy.grid_cell, selected_unit.vision_range):
+			continue
+		if can_attack_line(enemy.grid_cell, origin, enemy.attack_range):
+			sources.append(enemy)
+	return sources
+
+
+func _update_enemy_gunline_preview(center_cell: Vector3i) -> void:
+	_hide_enemy_gunline_preview()
+	if not is_instance_valid(_gunline_indicators_root) or not is_instance_valid(grid):
+		return
+	if _is_valid_landing_cell(center_cell):
+		_draw_enemy_gunlines(query_enemy_gunline_sources(center_cell), center_cell)
+	else:
+		_draw_enemy_gunlines(query_current_enemy_gunline_sources(), selected_unit.grid_cell)
+
+
+func _draw_enemy_gunlines(sources: Array[PrototypeUnit], target_cell: Vector3i) -> void:
+	var index := 0
+	for enemy in sources:
+		var line := _get_or_create_gunline_mesh(index)
+		index += 1
+		var start := grid.cell_to_world(enemy.grid_cell) + Vector3.UP * ENEMY_GUNLINE_HEIGHT
+		var end := grid.cell_to_world(target_cell) + Vector3.UP * ENEMY_GUNLINE_HEIGHT
+		_orient_gunline(line, start, end)
+
+
+func _hide_enemy_gunline_preview() -> void:
+	for line in _gunline_mesh_pool:
+		if is_instance_valid(line):
+			line.visible = false
+
+
+func _get_or_create_gunline_mesh(index: int) -> MeshInstance3D:
+	while index >= _gunline_mesh_pool.size():
+		var line := MeshInstance3D.new()
+		line.name = "EnemyGunline_%d" % _gunline_mesh_pool.size()
+		line.mesh = _get_cached_highlight_mesh(Vector3.ONE)
+		line.material_override = _get_cached_highlight_material(ENEMY_GUNLINE_COLOR)
+		line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		line.visible = false
+		_gunline_indicators_root.add_child(line)
+		_gunline_mesh_pool.append(line)
+	return _gunline_mesh_pool[index]
+
+
+func _orient_gunline(mesh: MeshInstance3D, start: Vector3, end: Vector3) -> void:
+	var length := start.distance_to(end)
+	if length <= 0.001:
+		mesh.visible = false
+		return
+	var forward := (end - start) / length
+	var reference := Vector3.RIGHT if absf(forward.dot(Vector3.UP)) > 0.95 else Vector3.UP
+	var right := reference.cross(forward)
+	if right.length_squared() < 0.0001:
+		right = Vector3.RIGHT
+	var basis := Basis(right.normalized(), forward.cross(right).normalized(), forward).scaled(
+		Vector3(ENEMY_GUNLINE_WIDTH, ENEMY_GUNLINE_WIDTH, length))
+	var beam := Transform3D(basis, (start + end) * 0.5)
+	if mesh.is_inside_tree():
+		mesh.global_transform = beam
+	else:
+		mesh.transform = beam
+	mesh.visible = true
+
+
 func _update_cover_preview(center_cell: Vector3i) -> void:
 	_hide_cover_preview()
 	_update_landing_preview(center_cell)
 	_update_landing_attack_highlights(center_cell)
+	_update_enemy_gunline_preview(center_cell)
 	if not is_instance_valid(grid) or not is_instance_valid(_cover_indicators_root):
 		return
 	var edge_index := grid.get_edge_index()
@@ -4009,6 +4130,7 @@ func _hide_cover_preview() -> void:
 	if is_instance_valid(_landing_panel):
 		_landing_panel.hide()
 	_hide_landing_attack_highlights()
+	_hide_enemy_gunline_preview()
 	for sprite in _cover_icon_pool:
 		if is_instance_valid(sprite):
 			sprite.visible = false
