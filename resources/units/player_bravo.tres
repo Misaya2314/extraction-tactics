@@ -3,6 +3,10 @@
 [ext_resource type="Script" uid="uid://c0ltiyyay4yqs" path="res://scripts/core/units/unit_archetype.gd" id="1_archetype"]
 [ext_resource type="Resource" uid="uid://daq6ympv5kkit" path="res://resources/weapons/shotgun.tres" id="2_weapon"]
 
+[ext_resource type="Script" path="res://scripts/core/skills/skill_definition.gd" id="3_skill"]
+[ext_resource type="Resource" path="res://resources/skills/tactical_knockback.tres" id="4_push"]
+[ext_resource type="Resource" path="res://resources/skills/tactical_sprint.tres" id="5_sprint"]
+
 [resource]
 script = ExtResource("1_archetype")
 archetype_id = &"player_bravo"
@@ -11,3 +15,4 @@ move_range = 8
 inner_vision_range = 4
 vision_range = 15
 default_weapon = ExtResource("2_weapon")
+default_skills = Array[ExtResource("3_skill")]([ExtResource("4_push"), ExtResource("5_sprint")])

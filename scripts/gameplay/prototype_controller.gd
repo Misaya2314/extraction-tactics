@@ -335,6 +335,9 @@ func _handle_skill_action(request: Variant, context: Variant) -> ActionResult:
 	if skill_inst == null or skill_inst.definition == null:
 		return ActionResultScript.rejected(&"skill_not_equipped", request.actor_id, &"", ACTION_SKILL)
 
+	if not skill_inst.is_ready() or request.ap_cost != skill_inst.definition.ap_cost:
+		return ActionResultScript.rejected(&"skill_not_ready", request.actor_id, &"", ACTION_SKILL)
+	context.state[&"apply_knockback"] = Callable(self, "_apply_knockback")
 	context.state[&"actor"] = actor.runtime_state
 	context.state[&"units_query"] = Callable(self, "_query_units_in_radius")
 	context.state[&"env_query"] = Callable(self, "_query_env_objects_in_radius")
@@ -347,6 +350,82 @@ func _handle_skill_action(request: Variant, context: Variant) -> ActionResult:
 		_sync_environment_object_views()
 		_rebuild_dynamic_environment_rules()
 	return result
+
+
+func preview_knockback(actor: PrototypeUnit, target_cell: Vector3i) -> Dictionary:
+	if not is_instance_valid(actor) or not actor.is_alive():
+		return {&"valid": false, &"reason": &"invalid_actor"}
+	var target := _unit_by_id(grid.get_occupant(target_cell))
+	if not is_instance_valid(target) or not target.is_alive() or target.faction == actor.faction or not target.visible:
+		return {&"valid": false, &"reason": &"invalid_target"}
+	var void_cells: Dictionary = {}
+	for cell in map_definition.cells:
+		if cell.hazard_id == &"void":
+			void_cells[cell.coordinate] = true
+	var preview: Dictionary = preload("res://scripts/core/skills/knockback_rules.gd").preview(grid, actor.grid_cell, target_cell, void_cells)
+	preview[&"target_id"] = target.unit_id
+	return preview
+
+
+func _apply_knockback(request: Variant) -> ActionResult:
+	var actor := _unit_by_id(request.actor_id)
+	var target_cell: Vector3i = request.payload.get(&"target_cell", grid.invalid_cell())
+	var preview := preview_knockback(actor, target_cell)
+	if not preview.get(&"valid", false):
+		return ActionResultScript.rejected(preview.get(&"reason", &"invalid_target"), request.actor_id, &"", ACTION_SKILL)
+	var target := _unit_by_id(preview[&"target_id"])
+	var destination: Vector3i = preview[&"destination"]
+	actor.look_at_cell(target_cell)
+	var result := ActionResultScript.accepted(actor.unit_id, target.unit_id, request.ap_cost, ACTION_SKILL)
+	result.reason = preview[&"reason"]
+	result.metadata = preview.duplicate()
+	result.metadata[&"source_world"] = target.global_position
+	if preview[&"lethal"]:
+		# Death signal releases the source occupancy and updates encounter/mission state.
+		result.damage = target.take_damage(target.current_hp)
+		result.killed = true
+		target.grid_cell = destination
+	else:
+		grid.vacate(target_cell, target.unit_id)
+		grid.occupy(destination, target.unit_id)
+		target.grid_cell = destination
+		target.global_position = grid.cell_to_world(destination)
+	_evaluate_detection()
+	_log("%s 将 %s 推入虚空，坠落击杀！" % [actor.name, target.name] if preview[&"lethal"] else "%s 击退了 %s。" % [actor.name, target.name])
+	return result
+
+
+func _play_knockback(result: ActionResult) -> void:
+	var target := _unit_by_id(result.metadata.get(&"target_id", &""))
+	if not is_instance_valid(target):
+		combat_presentation.finish()
+		return
+	var source: Vector3 = result.metadata[&"source_world"]
+	var destination := grid.cell_to_world(result.metadata[&"destination"])
+	target.visible = true
+	target.global_position = source
+	var lethal: bool = result.metadata[&"lethal"]
+	if lethal:
+		target.play_death_sound()
+	else:
+		target.play_hit_sound()
+	var duration := 0.5 if lethal else 0.18
+	var elapsed := 0.0
+	while elapsed < duration and not combat_presentation.skipped and combat_presentation.mode != CombatPresentationDirector.Mode.OFF:
+		await get_tree().process_frame
+		if not is_instance_valid(target):
+			break
+		elapsed += get_process_delta_time()
+		if elapsed <= 0.18:
+			target.global_position = source.lerp(destination, clampf(elapsed / 0.18, 0, 1))
+		else:
+			var fall_progress := clampf((elapsed - 0.18) / 0.32, 0, 1)
+			target.global_position = destination + Vector3.DOWN * 5.0 * fall_progress * fall_progress
+	target.global_position = destination + Vector3.DOWN * 5.0 if lethal else destination
+	if not target.is_alive():
+		target.visible = false
+	combat_presentation.finish()
+	_update_enemy_visibility()
 
 
 func _query_units_in_radius(center: Vector3i, radius: int) -> Array:
@@ -1974,7 +2053,9 @@ func _cast_skill_at_cell(unit: PrototypeUnit, skill_inst: Variant, slot_index: i
 	input_locked = true
 	_begin_combat_presentation()
 	var result := _execute_runtime_action(request, unit)
-	if result.success and result.damage > 0:
+	if result.success and result.metadata.has(&"destination") and skill_def.skill_id == &"tactical_knockback":
+		await _play_knockback(result)
+	elif result.success and result.damage > 0:
 		await combat_presentation.play(unit, grid.cell_to_world(target_cell), true, _is_terminal(), false)
 	else:
 		combat_presentation.finish()
@@ -3287,6 +3368,8 @@ func _refresh_highlights() -> void:
 	if can_show_skill_highlights and active_skill_inst != null and active_skill_inst.definition != null:
 		var valid_cells: Array[Vector3i] = active_skill_inst.definition.get_valid_target_cells(selected_unit.grid_cell, grid)
 		for cell in valid_cells:
+			if active_skill_inst.definition.skill_id == &"tactical_knockback" and not preview_knockback(selected_unit, cell).get(&"valid", false):
+				continue
 			_add_highlight(attack_highlights_root, cell, SKILL_HIGHLIGHT_COLOR)
 	_refresh_object_highlights()
 	_refresh_vision_overlay()
@@ -3494,6 +3577,17 @@ func _update_cursor_highlights(center_cell: Vector3i) -> void:
 
 	if action_mode == ACTION_MODE_SKILL and is_instance_valid(selected_unit) and selected_unit.runtime_state != null and _active_skill_slot >= 0:
 		var skill_inst = selected_unit.runtime_state.get_skill(_active_skill_slot)
+		if skill_inst != null and skill_inst.definition != null and skill_inst.definition.skill_id == &"tactical_knockback":
+			var preview := preview_knockback(selected_unit, center_cell)
+			if preview.get(&"valid", false):
+				var landing := _get_or_create_cursor_mesh(0)
+				landing.material_override = _get_cached_highlight_material(Color(1,0.15,0.1,0.8) if preview[&"lethal"] else Color(0.2,0.8,1,0.7))
+				landing.global_position = grid.cell_to_world(preview[&"destination"]) + Vector3.UP * CURSOR_SURFACE_OFFSET
+				landing.visible = true
+				_update_hud("击退预览：坠落击杀（无视剩余生命）" if preview[&"lethal"] else "击退预览：推开 1 格")
+			else:
+				_update_hud("击退：选择相邻敌人，落点不能被墙体、单位或边界阻挡。")
+			return
 		if skill_inst != null and skill_inst.definition != null and skill_inst.definition.aoe_radius > 0:
 			var valid_cells: Array[Vector3i] = skill_inst.definition.get_valid_target_cells(selected_unit.grid_cell, grid)
 			if valid_cells.has(center_cell):

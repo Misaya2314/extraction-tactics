@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="TacticalCellTileDefinition" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/map/tactical_cell_tile_definition.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/core/map/tactical_cell_rules.gd" id="2"]
+
+[sub_resource type="Resource" id="Rules"]
+script = ExtResource("2")
+walkable = false
+terrain_tags = PackedStringArray("void")
+hazard_id = &"void"
+
+[resource]
+script = ExtResource("1")
+placeable_id = &"tile.floor.void"
+display_name = "虚空 / 坠落死亡"
+tile_id = &"void"
+category = &"特殊地格"
+description = "不可主动进入。被击退至此格的单位立即坠落死亡；不阻挡视线与弹道。"
+mesh_item_id = 4
+rule_contribution = SubResource("Rules")

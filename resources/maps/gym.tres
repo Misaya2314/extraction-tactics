@@ -1,24 +1,24 @@
 [gd_resource type="Resource" script_class="TacticalMapDefinition" format=3 uid="uid://gwr8vw8xcbe0"]
 
-[ext_resource type="Script" uid="uid://du4ihvqhh8sq6" path="res://scripts/core/map/map_cell_data.gd" id="1_0kyig"]
-[ext_resource type="Script" uid="uid://b82dvhr3cibce" path="res://scripts/core/map/map_edge_data.gd" id="2_5m2d4"]
+[ext_resource type="Script" path="res://scripts/core/map/map_cell_data.gd" id="1_0kyig"]
+[ext_resource type="Script" path="res://scripts/core/map/map_edge_data.gd" id="2_5m2d4"]
 [ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_full.tres" id="3_tbtth"]
 [ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_none.tres" id="4_jitfk"]
 [ext_resource type="Resource" path="res://resources/combat/cover_profiles/cover_half.tres" id="5_geo0k"]
-[ext_resource type="Resource" uid="uid://bpb2k0m4vo21o" path="res://resources/missions/gym_relay_raid.tres" id="6_08m7v"]
-[ext_resource type="Script" uid="uid://cm4n0v302oqpm" path="res://scripts/core/map/map_object_placement.gd" id="7_t132w"]
+[ext_resource type="Resource" path="res://resources/missions/gym_relay_raid.tres" id="6_08m7v"]
+[ext_resource type="Script" path="res://scripts/core/map/map_object_placement.gd" id="7_t132w"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_explosive_barrel.tscn" id="8_l3701"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_extraction_marker.tscn" id="9_2128q"]
 [ext_resource type="PackedScene" path="res://scenes/prototype/environment/prototype_objective_terminal.tscn" id="10_nay45"]
-[ext_resource type="Script" uid="uid://ddxaoq75ktqcj" path="res://scripts/core/map/map_patrol_route_data.gd" id="11_4ni0w"]
-[ext_resource type="Script" uid="uid://cwmifdbdr8yld" path="res://scripts/core/map/tactical_map_definition.gd" id="12_nlrna"]
-[ext_resource type="Script" uid="uid://dj166h1b4egv1" path="res://scripts/core/map/map_spawn_data.gd" id="13_27mvw"]
+[ext_resource type="Script" path="res://scripts/core/map/map_patrol_route_data.gd" id="11_4ni0w"]
+[ext_resource type="Script" path="res://scripts/core/map/tactical_map_definition.gd" id="12_nlrna"]
+[ext_resource type="Script" path="res://scripts/core/map/map_spawn_data.gd" id="13_27mvw"]
 [ext_resource type="Resource" path="res://resources/units/gym_sentry.tres" id="14_ju5u8"]
-[ext_resource type="Resource" uid="uid://dl4xbce24g1dm" path="res://resources/weapons/assault_rifle.tres" id="15_cc1rh"]
-[ext_resource type="Resource" uid="uid://c4s2swg26llnf" path="res://resources/units/player_alpha.tres" id="16_v1vf1"]
-[ext_resource type="Resource" uid="uid://b5vdjad2ohpb2" path="res://resources/units/assault.tres" id="17_m72bv"]
-[ext_resource type="Resource" uid="uid://mpdq1kfchbn5" path="res://resources/units/player_bravo.tres" id="18_nnd8o"]
-[ext_resource type="Script" uid="uid://bp0eam7ib73g8" path="res://scripts/core/map/map_transition_data.gd" id="19_l5b50"]
+[ext_resource type="Resource" path="res://resources/weapons/assault_rifle.tres" id="15_cc1rh"]
+[ext_resource type="Resource" path="res://resources/units/player_alpha.tres" id="16_v1vf1"]
+[ext_resource type="Resource" path="res://resources/units/assault.tres" id="17_m72bv"]
+[ext_resource type="Resource" path="res://resources/units/player_bravo.tres" id="18_nnd8o"]
+[ext_resource type="Script" path="res://scripts/core/map/map_transition_data.gd" id="19_l5b50"]
 
 [sub_resource type="Resource" id="Resource_uyqfx"]
 script = ExtResource("1_0kyig")
@@ -1087,12 +1087,18 @@ terrain_tags = PackedStringArray("floor")
 [sub_resource type="Resource" id="Resource_llhlb"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(7, 0, 10)
-terrain_tags = PackedStringArray("floor")
+walkable = false
+terrain_id = &"void"
+terrain_tags = PackedStringArray("void")
+hazard_id = &"void"
 
 [sub_resource type="Resource" id="Resource_eq7lw"]
 script = ExtResource("1_0kyig")
 coordinate = Vector3i(8, 0, 10)
-terrain_tags = PackedStringArray("floor")
+walkable = false
+terrain_id = &"void"
+terrain_tags = PackedStringArray("void")
+hazard_id = &"void"
 
 [sub_resource type="Resource" id="Resource_j2cup"]
 script = ExtResource("1_0kyig")
@@ -4883,7 +4889,7 @@ script = ExtResource("13_27mvw")
 spawn_id = &"gym_yard_a"
 unit_name = &"货场守卫"
 faction = &"enemy"
-cell = Vector3i(7, 0, 11)
+cell = Vector3i(8, 0, 11)
 visual_color = Color(0.84705883, 0.45882353, 0.32156864, 1)
 archetype = ExtResource("14_ju5u8")
 weapon = ExtResource("15_cc1rh")
