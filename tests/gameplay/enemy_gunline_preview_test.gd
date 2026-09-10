@@ -23,6 +23,9 @@ func _run() -> void:
 	if lines.size() == 1:
 		var expected_mid: Vector3 = (_controller.grid.cell_to_world(_enemy.grid_cell) + _controller.grid.cell_to_world(destination)) * 0.5 + Vector3.UP * _controller.ENEMY_GUNLINE_HEIGHT
 		_expect(lines[0].position.distance_to(expected_mid) < 0.01, "gun-line must connect enemy and landing cell")
+		var expected_delta: Vector3 = _controller.grid.cell_to_world(destination) - _controller.grid.cell_to_world(_enemy.grid_cell)
+		_expect(lines[0].transform.basis.z.distance_to(expected_delta) < 0.01, "gun-line must be oriented and scaled to span enemy to landing cell")
+		_expect(absf(lines[0].transform.basis.x.length() - _controller.ENEMY_GUNLINE_WIDTH) < 0.001, "gun-line width must stay thin")
 
 	_enemy.hide()
 	_expect(_controller.query_enemy_gunline_sources(destination).is_empty(), "hidden enemy must not leak")

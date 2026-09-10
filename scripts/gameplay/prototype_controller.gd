@@ -4067,8 +4067,16 @@ func _orient_gunline(mesh: MeshInstance3D, start: Vector3, end: Vector3) -> void
 	var right := reference.cross(forward)
 	if right.length_squared() < 0.0001:
 		right = Vector3.RIGHT
-	var basis := Basis(right.normalized(), forward.cross(right).normalized(), forward).scaled(
-		Vector3(ENEMY_GUNLINE_WIDTH, ENEMY_GUNLINE_WIDTH, length))
+	right = right.normalized()
+	var up := forward.cross(right).normalized()
+	# Scale the basis columns directly so the unit BoxMesh is stretched along
+	# the beam in its own local frame. `Basis.scaled()` mixes global axes and
+	# skews diagonal beams into large parallelograms.
+	var basis := Basis(
+		right * ENEMY_GUNLINE_WIDTH,
+		up * ENEMY_GUNLINE_WIDTH,
+		forward * length
+	)
 	var beam := Transform3D(basis, (start + end) * 0.5)
 	if mesh.is_inside_tree():
 		mesh.global_transform = beam
